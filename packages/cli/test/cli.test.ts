@@ -86,6 +86,26 @@ describe("CLI shell", () => {
     expect((await cli([])).code).toBe(2);
   });
 
+  it("accepts whole-token shorthands for global flags", async () => {
+    expect((await cli(["-h"])).stdout).toContain("Usage: cappy <command>");
+    expect((await cli(["-v"])).stdout.trim()).toBe("0.1.0");
+    await writeConfig();
+    await writeFile(path.join(project, "alt.json"), await readFile(path.join(project, "cappy.config.json"), "utf8"));
+    const long = json((await cli(["doctor", "--json", "--config", "alt.json"])).stdout);
+    const short = await cli(["doctor", "-j", "-c", "alt.json"]);
+    expect(short.code).toBe(0);
+    expect(json(short.stdout)["data"]).toEqual(long["data"]);
+  });
+
+  it("rejects an unknown shorthand with exit code 2 in human and JSON mode", async () => {
+    const human = await cli(["doctor", "-zz"]);
+    expect(human.code).toBe(2);
+    expect(human.stderr).toContain('unknown option "-zz"');
+    const machine = await cli(["doctor", "-zz", "-j"]);
+    expect(machine.code).toBe(2);
+    expect(json(machine.stdout)).toMatchObject({ ok: false, error: { code: "USAGE_INVALID" } });
+  });
+
   it("fails with a configuration exit code when config is missing or invalid", async () => {
     const missing = await cli(["doctor", "--json"]);
     expect(missing.code).toBe(3);

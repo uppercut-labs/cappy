@@ -15,6 +15,7 @@ import { type ReplayReport, replay } from "./commands/replay.js";
 import { type RunReport, run } from "./commands/run.js";
 import { type ScenariosReport, scenarios } from "./commands/scenarios.js";
 import { type CliIO, type CommandContext, noInterrupts } from "./context.js";
+import { parseOptions, translateShorthands } from "./flags.js";
 import { renderDoctor, renderError, renderRecord, renderReplay, renderRun, renderScenarios } from "./render.js";
 
 export const HELP = `Usage: cappy <command> [options]
@@ -27,19 +28,21 @@ Commands:
   replay <session-id>  Capture a stored session's replay (or --no-capture to only play it)
 
 Command options:
-  --param <key=value>  run: scenario parameter (repeatable)
-  --preset <name>      run, replay, record --capture: capture preset (default: defaultPreset)
-  --take <n>           run, replay: explicit take number; never overwrites an existing take
-  --capture            record: also record an OBS master
-  --duration <seconds> record: stop automatically after this many seconds
-  --no-capture         replay: verify playback without recording video
+  -pa, --param <key=value>   run: scenario parameter (repeatable)
+  -p,  --preset <name>       run, replay, record --capture: capture preset (default: defaultPreset)
+  -t,  --take <n>            run, replay: explicit take number; never overwrites an existing take
+  -ca, --capture             record: also record an OBS master
+  -d,  --duration <seconds>  record: stop automatically after this many seconds
+  -nc, --no-capture          replay: verify playback without recording video
 
 Options:
-  --json               Print exactly one structured JSON result on stdout
-  -C, --project <dir>  Project directory (default: current directory)
-  --config <path>      Configuration file, relative to the project (default: cappy.config.json)
-  -h, --help           Show this help
-  --version            Show the Cappy version
+  -j,  --json                Print exactly one structured JSON result on stdout
+  -C,  --project <dir>       Project directory (default: current directory)
+  -c,  --config <path>       Configuration file, relative to the project (default: cappy.config.json)
+  -h,  --help                Show this help
+  -v,  --version             Show the Cappy version
+
+Shorthands are whole tokens: -nc is --no-capture, never -n -c.
 
 Exit codes: 0 success, 1 operation failed, 2 invalid usage, 3 configuration,
 4 missing dependency, 70 internal error, 130 cancelled.
@@ -78,7 +81,7 @@ const TAKES_ARGUMENTS = new Set(["replay", "run"]);
 
 /** Run the CLI in-process and return the exit code. */
 export async function main(argv: readonly string[], io: CliIO): Promise<number> {
-  const json = argv.includes("--json");
+  const json = argv.includes("--json") || argv.includes("-j");
   const emit = (result: CommandResult<unknown>, human: string): number => {
     if (json) {
       io.write(`${serializeCommandResult(result)}\n`);
@@ -96,26 +99,14 @@ export async function main(argv: readonly string[], io: CliIO): Promise<number> 
     return exitCodeFor(result);
   };
 
+  const translated = translateShorthands(argv);
+  if (!translated.ok) {
+    const error = cappyError("USAGE_INVALID", `unknown option "${translated.token}"`, "cli", { details: { hint: "run cappy --help" } });
+    return emit(commandFailure("cli", error), "");
+  }
   let parsed;
   try {
-    parsed = parseArgs({
-      args: [...argv],
-      allowPositionals: true,
-      strict: true,
-      options: {
-        json: { type: "boolean" },
-        project: { type: "string", short: "C" },
-        config: { type: "string" },
-        help: { type: "boolean", short: "h" },
-        version: { type: "boolean" },
-        duration: { type: "string" },
-        "no-capture": { type: "boolean" },
-        capture: { type: "boolean" },
-        preset: { type: "string" },
-        param: { type: "string", multiple: true },
-        take: { type: "string" },
-      },
-    });
+    parsed = parseArgs({ args: translated.args, allowPositionals: true, strict: true, options: parseOptions() });
   } catch (cause) {
     const error = cappyError("USAGE_INVALID", (cause as Error).message, "cli", { details: { hint: "run cappy --help" } });
     return emit(commandFailure("cli", error), "");

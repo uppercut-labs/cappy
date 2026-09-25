@@ -10,11 +10,25 @@ Run from a project directory containing `cappy.config.json`, or pass `-C <dir>`.
 
 | Option | Meaning |
 | --- | --- |
-| `--json` | Print exactly one JSON document on stdout. Progress text is suppressed; nothing contains ANSI escapes. |
+| `-j, --json` | Print exactly one JSON document on stdout. Progress text is suppressed; nothing contains ANSI escapes. |
 | `-C, --project <dir>` | Project directory (default: the current directory). |
-| `--config <path>` | Configuration file, relative to the project (default: `cappy.config.json`). |
+| `-c, --config <path>` | Configuration file, relative to the project (default: `cappy.config.json`). |
 | `-h, --help` | Show help. |
-| `--version` | Show the Cappy version. |
+| `-v, --version` | Show the Cappy version. |
+
+### Shorthands
+
+Every flag has a shorthand, and each shorthand is one whole token:
+
+- A multi-word flag uses its initials, so `--no-capture` is `-nc`.
+- A one-word flag uses its first letter, or its first two letters when the first letter is taken. For example, `--preset` is `-p` and `--param` is `-pa`.
+- `-C` is kept for `--project`.
+
+Shorthands never group: `-nc` is not `-n -c`, and `-jh` is an error. A value follows as the next argument (`-pa difficulty=3`) and is never translated, even when it starts with `-`. An unknown shorthand fails with `USAGE_INVALID` (exit 2).
+
+```bash
+cappy run boss_intro -pa difficulty=3 -p trailer -t 4 -j
+```
 
 ## Result envelope
 
@@ -61,9 +75,9 @@ Captures an authored scenario.
 
 | Option | Meaning |
 | --- | --- |
-| `--param key=value` | Scenario parameter; repeatable. Parsed and validated against the adapter's schema; defaults are applied. |
-| `--preset <name>` | Capture preset (default: `defaultPreset`, or a master-only preset). |
-| `--take <n>` | Explicit take number. Fails with `TAKE_EXISTS` if that take already succeeded. |
+| `-pa, --param key=value` | Scenario parameter; repeatable. Parsed and validated against the adapter's schema; defaults are applied. |
+| `-p, --preset <name>` | Capture preset (default: `defaultPreset`, or a master-only preset). |
+| `-t, --take <n>` | Explicit take number. Fails with `TAKE_EXISTS` if that take already succeeded. |
 
 Pipeline: preflight (config, preset options, FFmpeg/ffprobe, workspace, OBS scene and idle state) before the game launches; scenario and parameter validation; take allocation; scenario session record; `ready`; confirmed OBS start; scenario start; events; completion; confirmed OBS stop; verified master moved into `captures/<capture-id>/`; ffprobe; derivatives; manifest. `data.state` is `succeeded` only when everything passed. Ctrl+C cancels (exit 130) and stops the recording Cappy started.
 
@@ -73,19 +87,19 @@ Records a freeform, replayable session while you play.
 
 | Option | Meaning |
 | --- | --- |
-| `--duration <seconds>` | Stop automatically. |
-| `--capture` | Also record an OBS master into the session. |
-| `--preset <name>` | Preset whose scene `--capture` uses. |
+| `-d, --duration <seconds>` | Stop automatically. |
+| `-ca, --capture` | Also record an OBS master into the session. |
+| `-p, --preset <name>` | Preset whose scene `--capture` uses. |
 
 Press Enter to stop and keep the session; Ctrl+C cancels it (status `cancelled`, exit 130). The adapter's replay payload is stored byte-for-byte in `sessions/<session-id>/replay.bin`.
 
 ## `cappy replay <session-id>`
 
-Captures a stored session's replay through the same pipeline as `run`, with a manifest whose source is the replayed session. Options: `--preset`, `--take`, and:
+Captures a stored session's replay through the same pipeline as `run`, with a manifest whose source is the replayed session. Options: `-p, --preset`, `-t, --take`, and:
 
 | Option | Meaning |
 | --- | --- |
-| `--no-capture` | Play the session back without OBS or FFmpeg, to verify it. |
+| `-nc, --no-capture` | Play the session back without OBS or FFmpeg, to verify it. |
 
 Before anything launches, the stored payload must still match its SHA-256 and the session must belong to this project. After the handshake, the adapter must match the recording adapter and advertise the capabilities the replay needs (`replay`, plus `deterministic_replay` when the recording had it). A different game build only warns.
 

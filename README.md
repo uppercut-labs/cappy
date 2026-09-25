@@ -46,7 +46,10 @@ npx cappy record --duration 30
 npx cappy replay <session-id>              # capture the replay: OBS master, derivatives, manifest
 npx cappy replay <session-id> --no-capture # only play it back
 npx cappy run boss_intro --take 3          # explicit take; never overwrites an existing one
+npx cappy run boss_intro -pa difficulty=3 -p trailer -j   # every flag has a whole-token shorthand
 ```
+
+Shorthands use initials for multi-word flags (`-nc` is `--no-capture`) and are never grouped; [docs/cli.md](docs/cli.md#shorthands) lists them all.
 
 Every `record`, `run`, and `replay` writes `logs/<correlation-id>.jsonl` in the managed workspace; the same correlation ID appears in the command's JSON result, sessions, manifest, and timeline events.
 

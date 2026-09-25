@@ -63,6 +63,13 @@ describe("cappy run", () => {
     expect(result["warnings"]).toEqual([]);
   });
 
+  it("accepts shorthands for scenario parameters, preset, and take", async () => {
+    await configure(harness);
+    const { code, result } = await runCli(harness, ["run", "boss_intro", "-pa", "difficulty=3", "-p", "trailer", "-t", "4"]);
+    expect(code).toBe(0);
+    expect(result["data"]).toMatchObject({ take: 4, preset: "trailer", scenario: { parameters: { difficulty: 3 } } });
+  });
+
   it("applies scenario parameter defaults", async () => {
     await configure(harness);
     const { result } = await runCli(harness, ["run", "boss_intro"]);
@@ -152,6 +159,13 @@ describe("cappy record --capture", () => {
     expect(master).toMatchObject({ role: "master", path: `sessions/${session.id}/master.mkv`, ownership: "managed", bytes: 2048 });
     expect(session.replay.path).toBe(`sessions/${session.id}/replay.bin`);
     expect((await hashFile(path.join(harness.project, ".cappy", master.path))).sha256).toBe(master.sha256);
+  });
+
+  it("accepts -ca and -d for --capture and --duration", async () => {
+    await configure(harness);
+    const { code, result } = await runCli(harness, ["record", "-ca", "-d", "0.3"]);
+    expect(code).toBe(0);
+    expect(result["data"]["master"]).toMatchObject({ role: "master", ownership: "managed" });
   });
 
   it("does not require OBS without --capture", async () => {

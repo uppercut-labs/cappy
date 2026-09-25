@@ -191,6 +191,13 @@ describe("opaque replay payloads", () => {
       ["COIN", 400],
     ]);
   });
+
+  it("accepts -nc for --no-capture", async () => {
+    const id = await recordSession();
+    const replayed = await cli(["replay", id, "-nc"]);
+    expect(replayed.code).toBe(0);
+    expect(replayed.result["data"]).toMatchObject({ sessionId: id, captured: false });
+  });
 });
 
 describe("replay compatibility", () => {
