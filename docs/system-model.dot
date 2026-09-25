@@ -3,35 +3,45 @@ digraph Cappy {
   node [shape=box, style="rounded", fontname="Arial"];
   edge [fontname="Arial"];
 
-  developer [label="Developer"];
-  cappy [label="Cappy Controller"];
-  adapter [label="Game Adapter"];
+  developer [label="Developer / Agent"];
+  cli [label="Cappy CLI\nHuman + JSON modes"];
+  core [label="Cappy Controller"];
+  config [label="Project Config\n(source-controlled)"];
+  workspace [label=".cappy/ Workspace\n(managed artifacts)"];
+  protocol [label="Versioned Local\nWebSocket Protocol"];
+  adapter [label="Game Adapter\n(capability owner)"];
   game [label="Instrumented Game"];
-  replay [label="Replay / Session Store"];
-  timeline [label="Timeline Events"];
-  obs [label="OBS\nRecording"];
-  ffmpeg [label="FFmpeg / ffprobe\nPost-processing"];
-  artifacts [label="Artifacts\nMaster + Derivatives + Manifest"];
+  replay [label="Opaque Replay Payload\n+ Session Metadata"];
+  timeline [label="Normalized Timeline"];
+  obs [label="OBS\nRecorder"];
+  ffmpeg [label="FFmpeg / ffprobe"];
+  artifacts [label="Master + Derivatives\n+ Manifest"];
 
-  developer -> cappy [label="run / record / replay"];
-  cappy -> adapter [label="protocol commands"];
-  adapter -> game [label="scenario + replay control"];
-  game -> adapter [label="state + semantic events"];
-  adapter -> cappy [label="capabilities + events"];
+  developer -> cli [label="run / record / replay"];
+  cli -> core [label="commands"];
+  config -> core [label="project + tool config"];
+  core -> workspace [label="managed state"];
 
-  cappy -> replay [label="store / load"];
-  replay -> adapter [label="replay input"];
+  core -> protocol [label="commands"];
+  protocol -> adapter [label="JSON messages"];
+  adapter -> game [label="scenario / replay"];
+  game -> adapter [label="state / events"];
+  adapter -> protocol [label="capabilities / events"];
+  protocol -> core [label="validated messages"];
 
-  cappy -> timeline [label="normalize"];
-  adapter -> timeline [label="game events"];
+  core -> replay [label="store / load envelope"];
+  replay -> adapter [label="opaque payload"];
+  core -> timeline [label="normalize lifecycle"];
+  adapter -> timeline [label="semantic events"];
 
-  cappy -> obs [label="start / stop / verify"];
+  core -> obs [label="start / stop / verify"];
   obs -> artifacts [label="master"];
 
-  cappy -> ffmpeg [label="derive / inspect"];
+  core -> ffmpeg [label="inspect / derive"];
   artifacts -> ffmpeg [label="master input"];
-  ffmpeg -> artifacts [label="clips / MP4 / stills"];
+  ffmpeg -> artifacts [label="MP4 / clips / stills"];
 
-  timeline -> artifacts [label="manifest metadata"];
   replay -> artifacts [label="source identity"];
+  timeline -> artifacts [label="timing + events"];
+  workspace -> artifacts [label="managed ownership"];
 }
