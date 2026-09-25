@@ -1,0 +1,37 @@
+digraph Cappy {
+  graph [rankdir=LR, splines=ortho, nodesep=0.55, ranksep=0.8];
+  node [shape=box, style="rounded", fontname="Arial"];
+  edge [fontname="Arial"];
+
+  developer [label="Developer"];
+  cappy [label="Cappy Controller"];
+  adapter [label="Game Adapter"];
+  game [label="Instrumented Game"];
+  replay [label="Replay / Session Store"];
+  timeline [label="Timeline Events"];
+  obs [label="OBS\nRecording"];
+  ffmpeg [label="FFmpeg / ffprobe\nPost-processing"];
+  artifacts [label="Artifacts\nMaster + Derivatives + Manifest"];
+
+  developer -> cappy [label="run / record / replay"];
+  cappy -> adapter [label="protocol commands"];
+  adapter -> game [label="scenario + replay control"];
+  game -> adapter [label="state + semantic events"];
+  adapter -> cappy [label="capabilities + events"];
+
+  cappy -> replay [label="store / load"];
+  replay -> adapter [label="replay input"];
+
+  cappy -> timeline [label="normalize"];
+  adapter -> timeline [label="game events"];
+
+  cappy -> obs [label="start / stop / verify"];
+  obs -> artifacts [label="master"];
+
+  cappy -> ffmpeg [label="derive / inspect"];
+  artifacts -> ffmpeg [label="master input"];
+  ffmpeg -> artifacts [label="clips / MP4 / stills"];
+
+  timeline -> artifacts [label="manifest metadata"];
+  replay -> artifacts [label="source identity"];
+}
