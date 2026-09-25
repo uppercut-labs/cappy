@@ -42,9 +42,10 @@ describe("flag shorthands", () => {
   });
 
   it("never translates an option's value, even when it starts with a dash", () => {
-    expect(translateShorthands(["run", "s", "-pa", "-d", "--param", "-nc", "--config", "-c"])).toEqual({
+    // A dash-leading value is joined to its flag so strict parsing takes it as the value.
+    expect(translateShorthands(["run", "s", "-pa", "-d", "--param", "-nc", "--config", "-c", "-p", "x"])).toEqual({
       ok: true,
-      args: ["run", "s", "--param", "-d", "--param", "-nc", "--config", "-c"],
+      args: ["run", "s", "--param=-d", "--param=-nc", "--config=-c", "--preset", "x"],
     });
     expect(translateShorthands(["run", "s", "--preset=-p", "-j"])).toEqual({ ok: true, args: ["run", "s", "--preset=-p", "--json"] });
     expect(translateShorthands(["run", "--", "-j"])).toEqual({ ok: true, args: ["run", "--", "-j"] });

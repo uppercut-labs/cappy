@@ -68,7 +68,9 @@ describe("comparison statistics", () => {
     expect(args.at(-1)).toBe(".t.mp4");
 
     const still = worstFrameArguments(a, b, 1000, normalization, { a: "a.png", b: "b.png", diff: "d.png" });
-    expect(still.filter((arg, index) => still[index - 1] === "-ss")).toEqual(["1.1205", "1.08"]);
-    expect(still.filter((arg, index) => still[index - 2] === "-frames:v")).toEqual(["a.png", "b.png", "d.png"]);
+    // Each input is read up to the moment (A at 1120.5 ms, B at 1080 ms) and its last frame kept.
+    expect(still.filter((arg, index) => still[index - 1] === "-ss")).toEqual(["0.1205", "0.08"]);
+    expect(still.filter((arg, index) => still[index - 1] === "-t")).toEqual(["1.001", "1.001"]);
+    expect(still.filter((arg, index) => still[index - 2] === "-update")).toEqual(["a.png", "b.png", "d.png"]);
   });
 });

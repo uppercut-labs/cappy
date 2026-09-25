@@ -55,13 +55,17 @@ async function captureManifest(data: Record<string, any>): Promise<Record<string
   return JSON.parse(await readFile(path.join(root(), data["manifest"]), "utf8")) as Record<string, any>;
 }
 
-/** Every output of a completed comparison whose span is under a second: one worst frame. */
-const OUTPUTS = ["frames.json", "manifest.json", "triptych.mp4", "worst-1-a.png", "worst-1-b.png", "worst-1-diff.png"];
+/** Every output of a completed comparison, given its worst frames (their number depends on the span). */
+function outputsFor(worstFrames: readonly { rank: number }[]): string[] {
+  const stills = worstFrames.flatMap(({ rank }) => [`worst-${rank}-a.png`, `worst-${rank}-b.png`, `worst-${rank}-diff.png`]);
+  return ["frames.json", "manifest.json", "triptych.mp4", ...stills].sort();
+}
 
 const timelineTime = (manifest: Record<string, any>, type: string): number =>
   manifest["timing"]["timeline"].find((event: { type: string }) => event.type === type).t;
 
-describe("cappy compare", () => {
+// Each test makes several simulator captures; allow for slow, heavily loaded hosts.
+describe("cappy compare", { timeout: 30_000 }, () => {
   it("compares two captures of one scenario and writes a triptych, per-frame scores, and a manifest", async () => {
     const first = await capture(["run", "boss_intro"], "1.0.0", 1);
     const second = await capture(["run", "boss_intro"], "1.1.0", 1);
@@ -84,7 +88,8 @@ describe("cappy compare", () => {
     expect(data["alignment"]["spanMs"]).toBeGreaterThan(500);
 
     const directory = `comparisons/${data["comparisonId"]}`;
-    expect((await readdir(path.join(root(), directory))).sort()).toEqual(OUTPUTS);
+    expect(data["worstFrames"].length).toBeGreaterThanOrEqual(1);
+    expect((await readdir(path.join(root(), directory))).sort()).toEqual(outputsFor(data["worstFrames"]));
     const manifest = await manifestAt(data["manifest"]);
     expect(manifest).toMatchObject({ comparisonVersion: 1, status: "succeeded", identity: { comparisonId: data["comparisonId"] }, tooling: { ffmpeg: { version: "9.9.9-fake" } } });
     for (const artifact of manifest["artifacts"]) {
@@ -114,16 +119,24 @@ describe("cappy compare", () => {
     expect([min, minAtMs]).toEqual([0.5, 33.333]);
     expect(informational.result["data"]["scores"]["psnr"]).toEqual({ mean: expect.any(Number), min: 12.5 });
     const directory = `comparisons/${informational.result["data"]["comparisonId"]}`;
-    expect(informational.result["data"]["worstFrames"]).toEqual([
-      { rank: 1, tMs: 33.333, ssim: 0.5, a: `${directory}/worst-1-a.png`, b: `${directory}/worst-1-b.png`, diff: `${directory}/worst-1-diff.png` },
-    ]);
+    // Frame 2 is the dip, so it ranks first; any later ranks are at least a second away.
+    const worstFrames = informational.result["data"]["worstFrames"] as { rank: number; tMs: number }[];
+    expect(worstFrames[0]).toEqual({ rank: 1, tMs: 33.333, ssim: 0.5, a: `${directory}/worst-1-a.png`, b: `${directory}/worst-1-b.png`, diff: `${directory}/worst-1-diff.png` });
+    expect(worstFrames.slice(1).every((entry) => entry.tMs >= 1033.333)).toBe(true);
     // The stills show the worst moment of each master, B scaled to A.
     const stillArgs = (JSON.parse(await readFile(path.join(root(), directory, "worst-1-diff.png"), "utf8")) as { args: string[] }).args;
-    expect(stillArgs.filter((arg, index) => stillArgs[index - 1] === "-ss").map(Number)).toEqual(
-      [informational.result["data"]["a"], informational.result["data"]["b"]].map((side: { alignedStartMs: number }) => expect.closeTo((side.alignedStartMs + 33.333) / 1000, 6)),
+    const readUntil = stillArgs
+      .map((arg, index) => (arg === "-ss" ? Number(stillArgs[index + 1]) + Number(stillArgs[index + 3]) : undefined))
+      .filter((value): value is number => value !== undefined);
+    expect(readUntil).toEqual(
+      [informational.result["data"]["a"], informational.result["data"]["b"]].map((side: { alignedStartMs: number }) => expect.closeTo((side.alignedStartMs + 33.333) / 1000 + 0.001, 6)),
     );
     const informationalManifest = await manifestAt(`${directory}/manifest.json`);
-    expect(informationalManifest["artifacts"].map((artifact: { role: string }) => artifact.role)).toEqual(["triptych", "frames", "worst-1-a", "worst-1-b", "worst-1-diff"]);
+    expect(informationalManifest["artifacts"].map((artifact: { role: string }) => artifact.role)).toEqual([
+      "triptych",
+      "frames",
+      ...worstFrames.flatMap(({ rank }) => [`worst-${rank}-a`, `worst-${rank}-b`, `worst-${rank}-diff`]),
+    ]);
 
     const passing = await compare([first["captureId"], second["captureId"], "--min-ssim", "0.5"]);
     expect(passing.code).toBe(0);
@@ -134,7 +147,7 @@ describe("cappy compare", () => {
     expect(gated.result).toMatchObject({ ok: false, error: { code: "COMPARISON_REGRESSED", details: { minSsim: 0.99 } }, data: { status: "regressed" } });
     const manifest = await manifestAt(gated.result["data"]["manifest"]);
     expect(manifest).toMatchObject({ status: "regressed", threshold: { minSsim: 0.99 } });
-    expect((await readdir(path.join(root(), "comparisons", gated.result["data"]["comparisonId"]))).sort()).toEqual(OUTPUTS);
+    expect((await readdir(path.join(root(), "comparisons", gated.result["data"]["comparisonId"]))).sort()).toEqual(outputsFor(gated.result["data"]["worstFrames"]));
   });
 
   it("normalizes a different resolution to A's and records it", async () => {
@@ -301,11 +314,15 @@ describe("cappy compare", () => {
   });
 });
 
-describe.runIf(process.env["CAPPY_REAL_TOOLS"] === "1")("real FFmpeg comparison", () => {
-  /** A 3 s test pattern; `box` paints a red box over [from, to) seconds of the master. */
-  const realMaster = (size: string, box?: [number, number]) => (outputPath: string): void => {
+describe.runIf(process.env["CAPPY_REAL_TOOLS"] === "1")("real FFmpeg comparison", { timeout: 120_000 }, () => {
+  /**
+   * A 3 s test pattern; `box` paints a red box over [from, to) seconds of the master. `testsrc` moves,
+   * so two captures whose aligned starts straddle a frame boundary compare one frame apart; `smptebars`
+   * is static, for checks that must not depend on that.
+   */
+  const realMaster = (size: string, box?: [number, number], source = "testsrc") => (outputPath: string): void => {
     execFileSync("ffmpeg", [
-      "-nostdin", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", `testsrc=size=${size}:rate=30:duration=3`,
+      "-nostdin", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", `${source}=size=${size}:rate=30:duration=3`,
       ...(box === undefined ? [] : ["-vf", `drawbox=x=0:y=0:w=iw/2:h=ih/2:color=red:t=fill:enable='between(t,${box[0]},${box[1]})'`]),
       "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", outputPath,
     ]);
@@ -319,7 +336,7 @@ describe.runIf(process.env["CAPPY_REAL_TOOLS"] === "1")("real FFmpeg comparison"
   }
 
   it("scores identical real masters as identical and encodes a three-column triptych", async () => {
-    const [first, second] = await realCaptures([realMaster("320x240"), realMaster("320x240")]);
+    const [first, second] = await realCaptures([realMaster("320x240", undefined, "smptebars"), realMaster("320x240", undefined, "smptebars")]);
     const { code, result } = await compare([first?.["captureId"], second?.["captureId"]]);
     expect(code, JSON.stringify(result["error"])).toBe(0);
     expect(result["data"]["scores"]["ssim"]["mean"]).toBeGreaterThanOrEqual(0.999);

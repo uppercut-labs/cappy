@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { constants } from "node:fs";
 import { copyFile, link, lstat, mkdir, realpath, rename, stat, unlink, writeFile } from "node:fs/promises";
+import { hostname } from "node:os";
+import { setTimeout as delay } from "node:timers/promises";
 import path from "node:path";
 import {
   type CappyConfig,
@@ -24,7 +26,7 @@ import {
   toHostPath,
   unsafeRootReason,
 } from "./paths.js";
-import { type ManagedEntry, type ReferenceEntry, type Registry, emptyRegistry, readRegistry, writeRegistry } from "./registry.js";
+import { type ManagedEntry, type ReferenceEntry, type Registry, emptyRegistry, readRegistry, retryTransient, writeRegistry } from "./registry.js";
 
 export interface ManagedFile {
   /** Normalized path relative to the managed root. */
@@ -57,6 +59,12 @@ export interface WriteOptions {
 
 const OPERATION = "workspace";
 
+/** Exclusive lock around every registry read-modify-write, shared by all Cappy processes. */
+const REGISTRY_LOCK = `${REGISTRY_FILENAME}.lock`;
+/** A registry update takes milliseconds; a lock this old was left by a crashed command. */
+const STALE_LOCK_MS = 10_000;
+const LOCK_WAIT_MS = 15_000;
+
 function now(): string {
   return new Date().toISOString();
 }
@@ -82,6 +90,41 @@ function failure(cause: unknown, target: string): CappyError {
   return cappyError("WORKSPACE_WRITE_FAILED", `could not write managed file "${target}"`, OPERATION, {
     details: { target, cause: code ?? String(cause) },
   });
+}
+
+/**
+ * Hold `cappy-workspace.json.lock` in a managed root while running an
+ * operation. The lock is created exclusively; a lock older than a crashed
+ * update is broken, and Windows' transient sharing errors count as "busy".
+ */
+async function withRegistryLock<T>(root: string, operation: () => Promise<T>): Promise<T> {
+  const lock = path.join(root, REGISTRY_LOCK);
+  const deadline = Date.now() + LOCK_WAIT_MS;
+  for (;;) {
+    try {
+      await writeFile(lock, JSON.stringify({ pid: process.pid, host: hostname(), at: now() }), { flag: "wx" });
+      break;
+    } catch (cause) {
+      const code = (cause as NodeJS.ErrnoException).code ?? "";
+      if (!["EEXIST", "EPERM", "EACCES", "EBUSY"].includes(code)) {
+        throw cause;
+      }
+      const held = await stat(lock).catch(() => undefined);
+      if (held !== undefined && Date.now() - held.mtimeMs > STALE_LOCK_MS) {
+        await unlink(lock).catch(() => undefined);
+        continue;
+      }
+      if (Date.now() > deadline) {
+        throw Object.assign(new Error("the workspace registry is locked by another command"), { code: "EBUSY" });
+      }
+      await delay(5 + Math.random() * 20);
+    }
+  }
+  try {
+    return await operation();
+  } finally {
+    await retryTransient(() => unlink(lock)).catch(() => undefined);
+  }
 }
 
 /** Resolve where the managed root lives for a project, without touching disk. */
@@ -114,10 +157,15 @@ export class ManagedWorkspace {
     return this.registry.workspaceId;
   }
 
-  /** Open (creating if needed) the managed workspace for a project. */
+  /**
+   * Open (creating if needed) the managed workspace for a project. With
+   * `readOnly`, nothing is created: the root must already exist, missing
+   * storage areas stay missing, and a missing registry reads as empty.
+   */
   static async open(options: {
     projectDir: string;
     config?: Pick<CappyConfig, "workspace">;
+    readOnly?: boolean;
   }): Promise<Result<ManagedWorkspace>> {
     const { root, isDefault } = resolveWorkspaceRoot(options.projectDir, options.config);
     const unsafe = unsafeRootReason(options.projectDir, root);
@@ -128,13 +176,17 @@ export class ManagedWorkspace {
     }
     let realRoot: string;
     try {
-      await mkdir(root, { recursive: true });
+      if (options.readOnly !== true) {
+        await mkdir(root, { recursive: true });
+      }
       realRoot = await realpath(root);
       if (!(await stat(realRoot)).isDirectory()) {
         throw Object.assign(new Error("not a directory"), { code: "ENOTDIR" });
       }
-      for (const area of STORAGE_AREAS) {
-        await mkdir(path.join(realRoot, area), { recursive: true });
+      if (options.readOnly !== true) {
+        for (const area of STORAGE_AREAS) {
+          await mkdir(path.join(realRoot, area), { recursive: true });
+        }
       }
     } catch (cause) {
       return err(
@@ -144,7 +196,27 @@ export class ManagedWorkspace {
       );
     }
 
-    const read = await readRegistry(realRoot);
+    let read = await readRegistry(realRoot);
+    if (read.kind === "missing" && options.readOnly !== true) {
+      // Commands opening a new workspace at the same time must agree on one registry.
+      try {
+        read = await withRegistryLock(realRoot, async () => {
+          const current = await readRegistry(realRoot);
+          if (current.kind === "missing") {
+            const created = emptyRegistry(now());
+            await writeRegistry(realRoot, created);
+            return { kind: "ok", registry: created } as const;
+          }
+          return current;
+        });
+      } catch (cause) {
+        return err(
+          cappyError("WORKSPACE_UNAVAILABLE", `managed workspace ${realRoot} is not writable`, OPERATION, {
+            details: { root: realRoot, cause: (cause as NodeJS.ErrnoException).code ?? String(cause) },
+          }),
+        );
+      }
+    }
     if (read.kind === "invalid") {
       return err(
         cappyError("WORKSPACE_REGISTRY_INVALID", `workspace registry in ${realRoot} is unreadable; refusing to guess ownership`, OPERATION, {
@@ -153,21 +225,8 @@ export class ManagedWorkspace {
         }),
       );
     }
-    let registry: Registry;
-    if (read.kind === "missing") {
-      registry = emptyRegistry(now());
-      try {
-        await writeRegistry(realRoot, registry);
-      } catch (cause) {
-        return err(
-          cappyError("WORKSPACE_UNAVAILABLE", `managed workspace ${realRoot} is not writable`, OPERATION, {
-            details: { root: realRoot, cause: (cause as NodeJS.ErrnoException).code ?? String(cause) },
-          }),
-        );
-      }
-    } else {
-      registry = read.registry;
-    }
+    // Only a read-only open can still see no registry; it reads as empty.
+    const registry: Registry = read.kind === "ok" ? read.registry : emptyRegistry(now());
     return ok(new ManagedWorkspace(realRoot, isDefault, registry));
   }
 
@@ -221,6 +280,28 @@ export class ManagedWorkspace {
       return ok(hostPath);
     } catch (cause) {
       return err(failure(cause, relativePath));
+    }
+  }
+
+  /**
+   * Why an existing directory in the managed root must not be walked or
+   * emptied: a link or junction on its path, or a real location outside the
+   * root. Undefined when it is safe or absent.
+   */
+  async linkedDirectoryReason(relativePath: string): Promise<string | undefined> {
+    try {
+      const normalized = normalizeManagedPath(relativePath);
+      await assertNoLinkedComponents(this.root, normalized);
+      const hostPath = toHostPath(this.root, normalized);
+      if (await lstat(hostPath).then(() => true, () => false)) {
+        await assertRealPathWithin(this.root, hostPath, normalized);
+      }
+      return undefined;
+    } catch (cause) {
+      if (cause instanceof PathRejectedError) {
+        return cause.reason;
+      }
+      throw cause;
     }
   }
 
@@ -497,17 +578,19 @@ export class ManagedWorkspace {
 
   /**
    * Apply a change to the registry as it is on disk now, not to this
-   * instance's copy, so concurrent commands do not drop each other's entries
-   * or retired takes.
+   * instance's copy, while holding the registry lock, so concurrent commands
+   * never drop each other's entries or retired takes.
    */
   private async update(change: (registry: Registry) => Registry): Promise<void> {
-    const current = await readRegistry(this.root);
-    if (current.kind === "invalid") {
-      throw new Error(`workspace registry became unreadable: ${current.reason}`);
-    }
-    const next = change(current.kind === "ok" ? current.registry : this.registry);
-    await writeRegistry(this.root, next);
-    this.registry = next;
+    await withRegistryLock(this.root, async () => {
+      const current = await readRegistry(this.root);
+      if (current.kind === "invalid") {
+        throw new Error(`workspace registry became unreadable: ${current.reason}`);
+      }
+      const next = change(current.kind === "ok" ? current.registry : this.registry);
+      await writeRegistry(this.root, next);
+      this.registry = next;
+    });
   }
 
   private serialize<T>(operation: () => Promise<T>): Promise<T> {

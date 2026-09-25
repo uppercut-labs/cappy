@@ -125,10 +125,11 @@ What `compare` does:
 - Results go under `comparisons/<cmp-id>/`:
   - `triptych.mp4`: A, B, and their difference amplified four times, side by side;
   - `frames.json`: per-frame SSIM and PSNR;
-  - `worst-<n>-a.png`, `worst-<n>-b.png`, and `worst-<n>-diff.png`: A, B, and the difference at up to three lowest-SSIM moments, at least a second apart (`n` = 1 is the worst);
+  - `worst-<n>-a.png`, `worst-<n>-b.png`, and `worst-<n>-diff.png`: A, B, and the difference at up to three lowest-SSIM moments, at least a second apart (`n` = 1 is the worst). Each shows the frame at or before the moment;
   - `manifest.json`.
 - A timeline diff compares the adapter events of the two captures, by type and in order of occurrence, with times measured from each aligned start. For each type it reports the counts in A and B, the occurrences missing from B or extra in B, and the mean and largest drift (B's time minus A's). A count difference adds a warning. The timeline diff never changes the status or exit code; only `--min-ssim` does.
 - It needs FFmpeg and ffprobe, and exits 4 without them. It never launches the game or touches OBS.
+- FFmpeg runs inside the comparison directory. On Windows, an FFmpeg wrapper script (`.cmd`) cannot run in a network-share (UNC) directory, so use `ffmpeg.exe` itself when the managed root is on a share.
 - A warning notes when both captures report the same game build, or neither reports one.
 
 `data` carries:

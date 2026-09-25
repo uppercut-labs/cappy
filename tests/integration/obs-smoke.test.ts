@@ -46,6 +46,8 @@ describe.runIf(enabled)("real OBS smoke capture", { timeout: 120_000 }, () => {
           },
         },
         defaultPreset: "smoke",
+        // A real OBS on a busy host (for example during the full parallel suite) can take a while to identify.
+        timeouts: { obsMs: 30_000 },
       }),
     );
   });
@@ -70,7 +72,8 @@ describe.runIf(enabled)("real OBS smoke capture", { timeout: 120_000 }, () => {
   it("passes doctor against the real OBS", async () => {
     const { result } = await cli(["doctor"]);
     const checks = Object.fromEntries(result["data"]["checks"].map((entry: { id: string; status: string }) => [entry.id, entry.status]));
-    expect(checks).toMatchObject({ obs: "pass", "obs.scenes": "pass", ffmpeg: "pass", ffprobe: "pass" });
+    const failing = result["data"]["checks"].filter((entry: { status: string }) => entry.status !== "pass" && entry.status !== "warn");
+    expect(checks, JSON.stringify(failing)).toMatchObject({ obs: "pass", "obs.scenes": "pass", ffmpeg: "pass", ffprobe: "pass" });
   });
 
   it("records, verifies, and processes a real master", async () => {

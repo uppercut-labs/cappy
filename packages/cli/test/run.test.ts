@@ -127,8 +127,15 @@ describe("cappy run", () => {
 
   it("fails when OBS disconnects during the scenario", async () => {
     await configure(harness);
-    setTimeout(() => harness.obs.disconnectAll(), 400);
+    // Disconnect once recording has started, however long the game took to launch.
+    const disconnect = setInterval(() => {
+      if (requestTypes().includes("StartRecord")) {
+        clearInterval(disconnect);
+        setTimeout(() => harness.obs.disconnectAll(), 150);
+      }
+    }, 10);
     const { result } = await runCli(harness, ["run", "boss_intro"], { sim: { timeScale: 3 } });
+    clearInterval(disconnect);
     expect(result).toMatchObject({ ok: false, error: { code: "OBS_UNREACHABLE" }, data: { state: "failed" } });
   });
 

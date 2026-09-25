@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, realpath, rm, symlink, unlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, realpath, rm, symlink, unlink, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -312,6 +312,42 @@ describe("dry-run cleanup and retired takes", () => {
     expect(await reopened.retiredTakes("replay:ses_1")).toEqual([4]);
     // A stale instance still sees takes retired by another one.
     expect(await first.retiredTakes("replay:ses_1")).toEqual([4]);
+  });
+
+  it("keeps every change when many workspace instances write at once", async () => {
+    const instances = await Promise.all([open(), open(), open(), open()]);
+    await Promise.all(
+      instances.flatMap((workspace, index) => [
+        ...Array.from({ length: 10 }, (_, file) => workspace.writeManaged(`captures/c${index}/f${file}.txt`, `${index}-${file}`)),
+        workspace.retireTakes(`group:${index}`, [index + 1]),
+      ]),
+    );
+    const reopened = await open();
+    expect(reopened.listManaged("captures/")).toHaveLength(40);
+    for (const index of [0, 1, 2, 3]) {
+      expect(await reopened.retiredTakes(`group:${index}`)).toEqual([index + 1]);
+    }
+    expect(existsSync(path.join(reopened.root, `${REGISTRY_FILENAME}.lock`))).toBe(false);
+  });
+
+  it("breaks a registry lock left behind by a crashed command", async () => {
+    const workspace = await open();
+    const lock = path.join(workspace.root, `${REGISTRY_FILENAME}.lock`);
+    await writeFile(lock, "{}");
+    const stale = new Date(Date.now() - 60_000);
+    await utimes(lock, stale, stale);
+    expect((await workspace.writeManaged("cache/a.txt", "a")).ok).toBe(true);
+    expect(existsSync(lock)).toBe(false);
+  });
+
+  it("opens read-only without creating anything", async () => {
+    const missing = await ManagedWorkspace.open({ projectDir: project, readOnly: true });
+    expect(missing.ok).toBe(false);
+    expect(existsSync(path.join(project, ".cappy"))).toBe(false);
+    await mkdir(path.join(project, ".cappy"));
+    const opened = await ManagedWorkspace.open({ projectDir: project, readOnly: true });
+    expect(opened.ok).toBe(true);
+    expect(await readdir(path.join(project, ".cappy"))).toEqual([]);
   });
 
   it("reads a version 1 registry and writes it as version 2 only on its next change", async () => {

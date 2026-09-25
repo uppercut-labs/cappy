@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { z } from "zod";
 import { REGISTRY_FILENAME } from "./paths.js";
 
@@ -65,10 +66,30 @@ export function registryPath(root: string): string {
 
 export type RegistryRead = { kind: "missing" } | { kind: "invalid"; reason: string } | { kind: "ok"; registry: Registry };
 
+/**
+ * Windows reports a file that another process is replacing or reading as
+ * EPERM, EACCES, or EBUSY for a moment; those are retried briefly before
+ * being treated as real failures.
+ */
+const TRANSIENT = new Set(["EPERM", "EACCES", "EBUSY"]);
+
+export async function retryTransient<T>(operation: () => Promise<T>, attempts = 40): Promise<T> {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await operation();
+    } catch (cause) {
+      if (attempt >= attempts || !TRANSIENT.has((cause as NodeJS.ErrnoException).code ?? "")) {
+        throw cause;
+      }
+      await delay(10 + Math.random() * 15);
+    }
+  }
+}
+
 export async function readRegistry(root: string): Promise<RegistryRead> {
   let text: string;
   try {
-    text = await readFile(registryPath(root), "utf8");
+    text = await retryTransient(() => readFile(registryPath(root), "utf8"));
   } catch (cause) {
     if ((cause as NodeJS.ErrnoException).code === "ENOENT") {
       return { kind: "missing" };
@@ -90,5 +111,5 @@ export async function writeRegistry(root: string, registry: Registry): Promise<v
   const target = registryPath(root);
   const temp = `${target}.${randomUUID()}.tmp`;
   await writeFile(temp, `${JSON.stringify(registry, null, 2)}\n`, { encoding: "utf8", flag: "wx" });
-  await rename(temp, target);
+  await retryTransient(() => rename(temp, target));
 }

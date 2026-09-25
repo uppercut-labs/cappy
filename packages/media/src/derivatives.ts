@@ -89,8 +89,6 @@ export interface TimingContext {
   /** The capture's timeline on the master clock. */
   readonly timeline: readonly TimelineEvent[];
   readonly masterDurationMs?: number;
-  /** Frame rate of the master, used to find its last frame. */
-  readonly frameRate?: number;
 }
 
 const round = (ms: number): number => Math.round(ms * 1000) / 1000;
@@ -98,6 +96,21 @@ const round = (ms: number): number => Math.round(ms * 1000) / 1000;
 /** FFmpeg's seconds for a millisecond time, to the microsecond and without float noise. */
 function seconds(ms: number): string {
   return String(Math.round(ms * 1000) / 1_000_000);
+}
+
+/** How far before a frame time FFmpeg starts reading, to find the frame at or before it. */
+export const FRAME_LOOKBEHIND_MS = 1000;
+
+/**
+ * Input options that read the stretch of video ending at `ms`. With the
+ * image muxer's `-update 1`, the output keeps the last frame read: the frame
+ * at or before `ms`. Unlike seeking to `ms` itself, this still finds a frame
+ * when `ms` falls after a master's last decodable frame but within its
+ * reported duration, which recorders commonly leave a frame or two apart.
+ */
+export function frameAtOrBefore(ms: number): string[] {
+  const start = Math.max(0, ms - FRAME_LOOKBEHIND_MS);
+  return ["-ss", seconds(start), "-t", seconds(ms - start + 1)];
 }
 
 function anchorError(derivative: DerivativeSpec, which: string, anchor: EventAnchor): CappyError {
@@ -180,9 +193,8 @@ export function resolveTiming(derivative: DerivativeSpec, context: TimingContext
       let ms = round(frame.value.ms);
       const warnings: string[] = [];
       if (typeof options.at !== "number") {
-        const frameMs = context.frameRate === undefined || context.frameRate <= 0 ? 100 : 1000 / context.frameRate;
-        const last = context.masterDurationMs === undefined ? Number.POSITIVE_INFINITY : Math.max(0, round(context.masterDurationMs - frameMs));
-        const clamped = Math.min(Math.max(0, ms), last);
+        // The frame at or before the master's end is its last frame.
+        const clamped = Math.min(Math.max(0, ms), context.masterDurationMs ?? Number.POSITIVE_INFINITY);
         if (clamped !== ms) {
           warnings.push(`${derivative.kind} "${derivative.role}" time ${ms} ms was clamped to the master (${clamped} ms)`);
           ms = clamped;
@@ -226,10 +238,10 @@ export function ffmpegArguments(
     }
     case "thumbnail": {
       const options = OPTION_SCHEMAS.thumbnail.parse(derivative.options);
-      return [...base, "-ss", seconds(timing.at?.ms ?? 0), "-i", input, "-frames:v", "1", "-vf", `scale=${options.width}:-2`, "-q:v", "3", output];
+      return [...base, ...frameAtOrBefore(timing.at?.ms ?? 0), "-i", input, "-vf", `scale=${options.width}:-2`, "-q:v", "3", "-update", "1", output];
     }
     case "still": {
-      return [...base, "-ss", seconds(timing.at?.ms ?? 0), "-i", input, "-frames:v", "1", output];
+      return [...base, ...frameAtOrBefore(timing.at?.ms ?? 0), "-i", input, "-update", "1", output];
     }
   }
 }
@@ -282,20 +294,26 @@ export async function produceDerivative(
   const temp = path.join(path.dirname(target.value.hostPath), `.${derivative.role}.${randomUUID()}.partial${extension}`);
   const discard = (): Promise<void> => unlink(temp).catch(() => undefined);
 
+  // The resolved times (and any clamping) explain most failures, so every failure carries them.
+  const resolved = {
+    ...(timing.value.window === undefined ? {} : { window: timing.value.window }),
+    ...(timing.value.at === undefined ? {} : { at: timing.value.at }),
+    ...(timing.value.warnings.length === 0 ? {} : { timingWarnings: timing.value.warnings }),
+  };
   const run = await runProcess(options.ffmpeg.path, ffmpegArguments(derivative, master.hostPath, temp, timing.value), { timeoutMs: options.timeoutMs });
   if (run.exitCode !== 0) {
     await discard();
-    return err(derivativeError(derivative, run.timedOut ? "FFmpeg timed out" : `FFmpeg exited with ${String(run.exitCode)}`, { stderr: run.stderr.slice(-800) }));
+    return err(derivativeError(derivative, run.timedOut ? "FFmpeg timed out" : `FFmpeg exited with ${String(run.exitCode)}`, { stderr: run.stderr.slice(-800), ...resolved }));
   }
   const produced = await stat(temp).catch(() => undefined);
   if (produced === undefined || produced.size === 0) {
     await discard();
-    return err(derivativeError(derivative, produced === undefined ? "FFmpeg produced no output" : "FFmpeg produced an empty file"));
+    return err(derivativeError(derivative, produced === undefined ? "FFmpeg produced no output" : "FFmpeg produced an empty file", resolved));
   }
   const media = await probeMedia(options.ffprobe, temp, { timeoutMs: options.timeoutMs });
   if (!media.ok) {
     await discard();
-    return err(derivativeError(derivative, "the output is not valid media", { probe: media.error.message }));
+    return err(derivativeError(derivative, "the output is not valid media", { probe: media.error.message, ...resolved }));
   }
   const published = await workspace.publishFile(temp, target.value.path, { move: true, role: derivative.role });
   if (!published.ok) {

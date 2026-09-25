@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { mkdir, readFile, readdir, symlink, unlink, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rename, rm, symlink, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type Session, newId } from "@cappy/core";
@@ -93,7 +93,8 @@ async function clean(args: string[]): Promise<{ code: number; result: Record<str
   return runCli(harness, ["clean", ...args]);
 }
 
-describe("cappy clean", () => {
+// Several tests make multiple simulator captures; allow for slow, heavily loaded hosts.
+describe("cappy clean", { timeout: 30_000 }, () => {
   it("removes a scenario capture with the scenario session it created and retires its take", async () => {
     const first = await capture();
     const kept = await capture();
@@ -266,11 +267,62 @@ describe("cappy clean", () => {
     expect(existsSync(path.join(root(), "captures", leftover["captureId"], "manifest.json"))).toBe(false);
   });
 
+  it("never walks or empties an item reached through a link or junction", async () => {
+    const run = (await capture())["data"];
+    const outside = path.join(harness.project, "elsewhere");
+    await mkdir(outside);
+    // The capture directory was moved to another disk and linked back.
+    const moved = path.join(outside, "moved-capture");
+    await rename(path.join(root(), "captures", run["captureId"]), moved);
+    await mkdir(path.join(moved, "empty"));
+    await symlink(moved, path.join(root(), "captures", run["captureId"]), "junction");
+
+    const named = await clean([run["captureId"]]);
+    expect(named.code).toBe(1);
+    expect(named.result["data"]["refused"]).toEqual([{ target: run["captureId"], reason: "symlink" }]);
+    expect((await readdir(moved)).sort()).toEqual(["empty", "manifest.json", "master.mkv"]);
+
+    // A whole storage area linked elsewhere: nothing in it is touched, and only Cappy-shaped names are items.
+    const area = path.join(outside, "comparisons");
+    const shaped = `cmp_${"2".repeat(8)}-0000-0000-0000-000000000000`;
+    await mkdir(path.join(area, shaped, "empty"), { recursive: true });
+    await mkdir(path.join(area, "my-folder", "empty"), { recursive: true });
+    await rm(path.join(root(), "comparisons"), { recursive: true });
+    await symlink(area, path.join(root(), "comparisons"), "junction");
+    await mkdir(path.join(root(), "captures", "notes", "empty"), { recursive: true });
+
+    const bulk = await clean(["--failed"]);
+    expect(bulk.result["data"]["refused"]).toEqual(expect.arrayContaining([{ target: shaped, reason: "symlink" }]));
+    expect(bulk.result["data"]["items"].map((item: { id: string }) => item.id)).not.toContain("my-folder");
+    expect(bulk.result["data"]["items"].map((item: { id: string }) => item.id)).not.toContain("notes");
+    expect(await readdir(path.join(area, shaped))).toEqual(["empty"]);
+    expect(await readdir(path.join(area, "my-folder"))).toEqual(["empty"]);
+    expect(await readdir(path.join(root(), "captures", "notes"))).toEqual(["empty"]);
+  });
+
+  it("creates nothing on a dry run, even without a workspace", async () => {
+    const fresh = path.join(harness.project, "fresh");
+    await mkdir(fresh);
+    await writeFile(path.join(fresh, "cappy.config.json"), await readFile(path.join(harness.project, "cappy.config.json"), "utf8"));
+    const none = await runCli({ ...harness, project: fresh }, ["clean", "--all", "--dry-run"]);
+    expect(none.code).toBe(0);
+    expect(none.result["data"]["items"]).toEqual([]);
+    expect(await readdir(fresh)).toEqual(["cappy.config.json"]);
+
+    await capture();
+    await rm(path.join(root(), "comparisons"), { recursive: true });
+    const before = await snapshot();
+    expect((await clean(["--all", "-dr"])).code).toBe(0);
+    expect(await snapshot()).toEqual(before);
+  });
+
   it("protects items a running command may still be writing", async () => {
     const ws = await workspace();
     const release = await acquireRunLock(ws, "op_live");
     try {
       const active = await writeSession("active", "op_live");
+      // Any live command may be reconciling other active sessions, so they wait too.
+      const otherActive = await writeSession("active", "op_other");
       const unfinished = `cap_${"1".repeat(8)}-0000-0000-0000-000000000000`;
       await mkdir(path.join(root(), "captures", unfinished));
       await ws.writeManaged("logs/op_live.jsonl", "{}\n", { role: "log" });
@@ -281,8 +333,8 @@ describe("cappy clean", () => {
 
       const bulk = await clean(["--all"]);
       expect(bulk.code).toBe(0);
-      expect(bulk.result["data"]["skipped"].map((entry: { id: string }) => entry.id).sort()).toEqual([active, unfinished, "op_live"].sort());
-      expect(bulk.result["warnings"]).toEqual(expect.arrayContaining([expect.stringContaining("skipped 3 item(s)")]));
+      expect(bulk.result["data"]["skipped"].map((entry: { id: string }) => entry.id).sort()).toEqual([active, otherActive, unfinished, "op_live"].sort());
+      expect(bulk.result["warnings"]).toEqual(expect.arrayContaining([expect.stringContaining("skipped 4 item(s)")]));
       expect(existsSync(path.join(root(), "sessions", active, "session.json"))).toBe(true);
       expect(existsSync(path.join(root(), "captures", unfinished))).toBe(true);
       expect(existsSync(path.join(root(), "logs/op_live.jsonl"))).toBe(true);

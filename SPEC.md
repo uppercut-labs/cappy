@@ -170,7 +170,7 @@ Ownership is recorded in a registry file, `cappy-workspace.json`, at the managed
 
 Registry schema version 2 adds `retiredTakes`: take numbers retired by cleanup, keyed by take source (section 16). A version 1 registry is read as having no retired takes and is written as version 2 on its next change.
 
-Every registry change is applied to the registry as it is on disk at that moment, not to a command's in-memory copy. Concurrent commands therefore do not drop each other's entries or retired takes. Take allocation reads retired takes from disk.
+Every registry change runs under an exclusive lock file, `cappy-workspace.json.lock`, created with no-clobber semantics. It is applied to the registry as it is on disk at that moment, not to a command's in-memory copy, so concurrent commands do not drop each other's entries or retired takes. A lock older than 10 seconds was left by a crashed command and is broken. Take allocation reads retired takes from disk.
 
 Managed files are published atomically: written to a sibling temp file, then linked into place without overwriting. Replacing an existing managed file requires an explicit replace request; files Cappy did not create are never replaced.
 
@@ -504,7 +504,7 @@ A captured replay runs through the same pipeline as `cappy run`: preflight (incl
 cappy clean [<id>...] [--failed] [--older-than <age>] [--logs] [--all] [--dry-run]
 ```
 
-Deletes selected managed items immediately and reports exactly what happened. `--dry-run` resolves the same selection, performs the same ownership and hash checks, reports the predicted outcome, and changes nothing: no file, no registry entry, no retired take. Cleanup never runs as a side effect of another command.
+Deletes selected managed items immediately and reports exactly what happened. `--dry-run` resolves the same selection, performs the same ownership and hash checks, reports the predicted outcome, and changes nothing: no file, no directory, no registry entry, no retired take. `clean` never creates a missing workspace; with none, nothing is selected. Cleanup never runs as a side effect of another command.
 
 Selection:
 
@@ -516,6 +516,7 @@ Selection:
 - IDs and bulk selectors combine as a union. A command with no selector fails with `USAGE_INVALID`.
 - Item age comes from a capture's manifest `timing.startedAt`, a session's `startedAt`, and a comparison manifest's `createdAt`. Items without these (a manifest-less directory or a log) use the earliest registry `createdAt` among their files.
 - The registry, `cache/` (run locks), and anything outside `sessions/`, `captures/`, `comparisons/`, and `logs/` are never selected.
+- Only directories named like Cappy's own IDs (`cap_<uuid>`, `ses_<uuid>`, `cmp_<uuid>`) are items. Anything else someone puts in those areas is never selected.
 
 What an item includes:
 
@@ -524,7 +525,9 @@ What an item includes:
 - A comparison: every managed file under `comparisons/<id>/`. The compared captures are kept.
 - A log: `logs/<correlation-id>.jsonl`.
 
-In-progress protection. An item is in progress when any run lock is live on this host, or any lock from another host exists, and the item is one of these: an `active` session, a capture or comparison directory without a manifest, or the log of a command that holds a lock. An explicitly named item that is in progress is refused with reason `in_progress`. Bulk selectors skip in-progress items with a warning.
+In-progress protection. An item is in progress when any run lock is live on this host, or any lock from another host exists, and the item is one of these: an `active` session (any live command may be writing or reconciling it), a capture or comparison directory without a manifest, or the log of a command that holds a lock.
+
+Link protection. An item whose directory is reached through a symbolic link or junction, or whose real location is outside the managed root, is refused with reason `symlink` or `escapes_root`. That applies whether it was named or bulk-selected, and whether the link is on the item itself or on its storage area. Such an item is never walked, emptied, or deleted, and never retires a take. Within an item, links are listed as kept files and never followed. An explicitly named item that is in progress is refused with reason `in_progress`. Bulk selectors skip in-progress items with a warning.
 
 Deletion follows the workspace cleanup rules in sections 7.1 and 17. Each managed file is removed, reported missing, or refused with a reason. Once an item's managed files are gone, Cappy removes any of its directories that are left empty. Unregistered files in an item's directory, such as the `.partial` output of an interrupted job, are kept and reported with reason `not_managed`, and their directory stays.
 
@@ -669,7 +672,7 @@ Resolution rules:
 - An anchor with no matching event fails the derivative with `DERIVATIVE_ANCHOR_UNRESOLVED`.
 - A clip window that extends past either end of the master is clamped to it, with a warning.
 - A clamped window that is not positive fails with `DERIVATIVE_WINDOW_EMPTY`.
-- A still or thumbnail time past the master is clamped to its last frame, with a warning.
+- A still or thumbnail shows the last frame at or before its time. FFmpeg reads the second of video that ends at that time and keeps the last frame it decodes. Recorders often end their video a frame or two before the duration they report, so seeking to the time itself can find nothing near the end. An anchored time past the master is clamped to the master's duration, with a warning, which yields the last frame.
 - Clamping applies only to times that involve an anchor. Times given only in seconds are used exactly as written, as in V1, so a numeric still past the end of the master still fails.
 - These failures follow the required/optional rule above: they fail the job for a required derivative and become a warning for an optional one.
 - Each preset derivative produces at most one output. A later option may produce one clip per match; it is not part of this set.

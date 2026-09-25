@@ -1,7 +1,7 @@
-import { readdir, rmdir } from "node:fs/promises";
+import { lstat, readdir, rmdir } from "node:fs/promises";
 import path from "node:path";
 import { type CaptureSource, type CommandResult, cappyError, commandFailure, commandSuccess, loadConfig } from "@cappy/core";
-import { ManagedWorkspace } from "@cappy/workspace";
+import { ManagedWorkspace, resolveWorkspaceRoot } from "@cappy/workspace";
 import type { CommandContext } from "../context.js";
 import { type ItemKind, type WorkspaceItem, filesOnDisk, readInventory } from "../inventory.js";
 import { liveCorrelationIds } from "../log.js";
@@ -70,7 +70,19 @@ export async function clean(context: CommandContext): Promise<CommandResult<Clea
   if (!loaded.ok) {
     return commandFailure(COMMAND, loaded.error, { correlationId: context.correlationId });
   }
-  const opened = await ManagedWorkspace.open({ projectDir: loaded.value.projectDir, config: loaded.value.config });
+  // Cleaning never creates a workspace, and a dry run never creates anything in one.
+  const { root } = resolveWorkspaceRoot(loaded.value.projectDir, loaded.value.config);
+  if (!(await lstat(root).then(() => true, () => false))) {
+    const refused = ids.map((id) => ({ target: id, reason: "not_found" }));
+    const report: CleanReport = { dryRun, items: [], removed: [], missing: [], refused, kept: [], skipped: [], retiredTakes: [], bytesFreed: 0 };
+    return refused.length === 0
+      ? commandSuccess(COMMAND, report, { correlationId: context.correlationId })
+      : commandFailure(COMMAND, cappyError("CLEAN_INCOMPLETE", `${refused.length} target(s) were refused and left in place`, COMMAND, { details: { refused, removed: 0, dryRun }, retryable: false }), {
+          correlationId: context.correlationId,
+          data: report,
+        });
+  }
+  const opened = await ManagedWorkspace.open({ projectDir: loaded.value.projectDir, config: loaded.value.config, readOnly: dryRun });
   if (!opened.ok) {
     return commandFailure(COMMAND, opened.error, { correlationId: context.correlationId });
   }
@@ -83,7 +95,8 @@ export async function clean(context: CommandContext): Promise<CommandResult<Clea
   const inProgress = (item: WorkspaceItem): boolean => {
     switch (item.kind) {
       case "session":
-        return item.record.state === "ok" && item.record.status === "active" && live.has(item.record.correlationId);
+        // Any live command may be writing or reconciling an active session.
+        return item.record.state === "ok" && item.record.status === "active" && live.size > 0;
       case "capture":
       case "comparison":
         return item.record.state === "none" && live.size > 0;
@@ -151,6 +164,15 @@ export async function clean(context: CommandContext): Promise<CommandResult<Clea
       skipped.push({ id: session.id, reason: "in_progress" });
     } else {
       selected.set(session.id, session);
+    }
+  }
+
+  // An item reached through a link or junction is never walked, emptied, or deleted.
+  for (const item of [...selected.values()]) {
+    const reason = item.directory === undefined ? undefined : await workspace.linkedDirectoryReason(item.directory);
+    if (reason !== undefined) {
+      selected.delete(item.id);
+      refused.push({ target: item.id, reason });
     }
   }
 

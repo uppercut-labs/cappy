@@ -55,17 +55,13 @@ export type Translation = { ok: true; args: string[] } | { ok: false; token: str
 /**
  * Replace each shorthand token with its long flag. A shorthand is always one
  * whole token (`-nc` is never `-n -c`), and an option's value is passed
- * through untouched even when it starts with `-`.
+ * through untouched even when it starts with `-`: such a value is joined to
+ * its flag (`--preset=-x`) so strict parsing reads it as the value.
  */
 export function translateShorthands(argv: readonly string[]): Translation {
   const args: string[] = [];
-  let awaitingValue = false;
-  for (const [index, token] of argv.entries()) {
-    if (awaitingValue) {
-      args.push(token);
-      awaitingValue = false;
-      continue;
-    }
+  for (let index = 0; index < argv.length; index += 1) {
+    const token = argv[index] ?? "";
     if (token === "--") {
       args.push(...argv.slice(index));
       break;
@@ -76,14 +72,19 @@ export function translateShorthands(argv: readonly string[]): Translation {
       if (long === undefined) {
         return { ok: false, token };
       }
-      args.push(`--${long}`);
+    } else if (token.startsWith("--") && !token.includes("=")) {
+      long = token.slice(2);
     } else {
       args.push(token);
-      if (token.startsWith("--") && !token.includes("=")) {
-        long = token.slice(2);
-      }
+      continue;
     }
-    awaitingValue = long !== undefined && (FLAGS as Record<string, FlagSpec>)[long]?.type === "string";
+    const value = argv[index + 1];
+    if ((FLAGS as Record<string, FlagSpec>)[long]?.type === "string" && value !== undefined) {
+      args.push(value.startsWith("-") ? `--${long}=${value}` : `--${long}`, ...(value.startsWith("-") ? [] : [value]));
+      index += 1;
+    } else {
+      args.push(`--${long}`);
+    }
   }
   return { ok: true, args };
 }

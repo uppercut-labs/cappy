@@ -85,8 +85,16 @@ async function readJson<T>(file: ManagedFile | undefined, schema: z.ZodType<T>):
   }
 }
 
-/** Item directories under an area: those on disk plus those the registry still lists. */
-async function itemIds(workspace: ManagedWorkspace, area: "captures" | "sessions" | "comparisons"): Promise<string[]> {
+const ITEM_PREFIX = { captures: "cap", sessions: "ses", comparisons: "cmp" } as const;
+const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
+
+/**
+ * Item directories under an area: those on disk plus those the registry
+ * still lists. Only names Cappy itself generates (`cap_<uuid>` and so on)
+ * are items, so a folder someone else put there is never selected.
+ */
+async function itemIds(workspace: ManagedWorkspace, area: keyof typeof ITEM_PREFIX): Promise<string[]> {
+  const shaped = new RegExp(`^${ITEM_PREFIX[area]}_${UUID}$`);
   const ids = new Set<string>();
   const entries = await readdir(workspace.area(area), { withFileTypes: true }).catch(() => [] as Dirent[]);
   for (const entry of entries) {
@@ -100,7 +108,7 @@ async function itemIds(workspace: ManagedWorkspace, area: "captures" | "sessions
       ids.add(id);
     }
   }
-  return [...ids].sort();
+  return [...ids].filter((id) => shaped.test(id)).sort();
 }
 
 /** Earliest registry creation time among the files, else the directory's modification time. */
@@ -155,7 +163,11 @@ export async function readInventory(workspace: ManagedWorkspace): Promise<Worksp
   return items;
 }
 
-/** Files on disk under a directory, without following links; links are listed but not entered. */
+/**
+ * Files on disk under a directory, without following links; links are listed
+ * but not entered. Callers first confirm the directory itself is not reached
+ * through a link (`ManagedWorkspace.linkedDirectoryReason`).
+ */
 export async function filesOnDisk(root: string, directory: string): Promise<string[]> {
   const found: string[] = [];
   const walk = async (relative: string): Promise<void> => {

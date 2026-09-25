@@ -99,7 +99,9 @@ const TAKES_ARGUMENTS = new Set(["replay", "run", "clean", "compare"]);
 
 /** Run the CLI in-process and return the exit code. */
 export async function main(argv: readonly string[], io: CliIO): Promise<number> {
-  const json = argv.includes("--json") || argv.includes("-j");
+  const translated = translateShorthands(argv);
+  // Judged after translation, so a value such as `--config -j` is not mistaken for the flag.
+  const json = translated.ok ? translated.args.includes("--json") : argv.includes("--json") || argv.includes("-j");
   const emit = (result: CommandResult<unknown>, human: string): number => {
     if (json) {
       io.write(`${serializeCommandResult(result)}\n`);
@@ -117,7 +119,6 @@ export async function main(argv: readonly string[], io: CliIO): Promise<number> 
     return exitCodeFor(result);
   };
 
-  const translated = translateShorthands(argv);
   if (!translated.ok) {
     const error = cappyError("USAGE_INVALID", `unknown option "${translated.token}"`, "cli", { details: { hint: "run cappy --help" } });
     return emit(commandFailure("cli", error), "");

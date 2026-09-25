@@ -63,11 +63,21 @@ export class AdapterServer {
   private outcome: Result<AdapterConnection> | undefined;
   private readonly waiters: ((result: Result<AdapterConnection>) => void)[] = [];
 
+  /**
+   * WebSocket URL the adapter connects to. Fixed while the server listens, so
+   * it stays readable after `close()` (a late connect timeout still reports it).
+   */
+  readonly endpoint: string;
+  readonly port: number;
+
   private constructor(
     private readonly server: WebSocketServer,
     readonly token: string,
     private readonly options: AdapterServerOptions,
   ) {
+    const { address, family, port } = server.address() as AddressInfo;
+    this.port = port;
+    this.endpoint = family === "IPv6" ? `ws://[${address}]:${port}` : `ws://${address}:${port}`;
     server.on("connection", (socket) => {
       this.handshake(socket);
     });
@@ -104,19 +114,6 @@ export class AdapterServer {
     return ok(new AdapterServer(server, options.token ?? newSessionToken(), { ...options, host }));
   }
 
-  get address(): AddressInfo {
-    return this.server.address() as AddressInfo;
-  }
-
-  get port(): number {
-    return this.address.port;
-  }
-
-  /** WebSocket URL the adapter connects to. */
-  get endpoint(): string {
-    const { address, family } = this.address;
-    return family === "IPv6" ? `ws://[${address}]:${this.port}` : `ws://${address}:${this.port}`;
-  }
 
   /** Environment to pass to a launched game process. */
   launchEnvironment(): Record<string, string> {

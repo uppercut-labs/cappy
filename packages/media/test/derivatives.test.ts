@@ -29,8 +29,11 @@ describe("derivative options", () => {
 
   it("builds shell-free FFmpeg arguments that never overwrite", () => {
     const args = ffmpegArguments({ kind: "thumbnail", role: "thumb", required: true, options: { at: 2, width: 320 } }, "/in/master file.mkv", "/out/.thumb.partial.jpg");
-    expect(args).toEqual(expect.arrayContaining(["-n", "-ss", "2", "-i", "/in/master file.mkv", "-frames:v", "1", "-vf", "scale=320:-2"]));
+    // The stretch of video ending at 2 s is read and its last frame kept: the frame at or before 2 s.
+    expect(args).toEqual(expect.arrayContaining(["-n", "-ss", "1", "-t", "1.001", "-i", "/in/master file.mkv", "-vf", "scale=320:-2", "-update", "1"]));
     expect(args.at(-1)).toBe("/out/.thumb.partial.jpg");
+    const first = ffmpegArguments({ kind: "still", role: "poster", required: true, options: { at: 0.25 } }, "/in.mkv", "/out.png");
+    expect(first.slice(first.indexOf("-ss"), first.indexOf("-i"))).toEqual(["-ss", "0", "-t", "0.251"]);
   });
 });
 
@@ -105,8 +108,8 @@ describe("event anchors", () => {
     const empty = resolveTiming(spec("clip", { start: { event: "IMPACT", occurrence: "last", offset: 1 }, duration: 2 }), { timeline, masterDurationMs: 3500 });
     expect(empty).toMatchObject({ ok: false, error: { code: "DERIVATIVE_WINDOW_EMPTY" } });
 
-    const still = resolveTiming(spec("still", { at: { event: "IMPACT", occurrence: "last", offset: 5 } }), { timeline, masterDurationMs: 4000, frameRate: 25 });
-    expect(still).toEqual({ ok: true, value: { at: { ms: 3960, eventId: "evt_5" }, warnings: [expect.stringContaining("clamped")] } });
+    const still = resolveTiming(spec("still", { at: { event: "IMPACT", occurrence: "last", offset: 5 } }), { timeline, masterDurationMs: 4000 });
+    expect(still).toEqual({ ok: true, value: { at: { ms: 4000, eventId: "evt_5" }, warnings: [expect.stringContaining("clamped")] } });
     const thumb = resolveTiming(spec("thumbnail", { at: { event: "SCENARIO_STARTED", offset: -1 } }), { timeline, masterDurationMs: 4000 });
     expect(thumb.ok && thumb.value.at).toEqual({ ms: 0, eventId: "evt_0" });
   });

@@ -31,7 +31,7 @@ Add `.cappy/` to `.gitignore`. `cappy doctor` warns when it is not ignored; Capp
 
 ## Ownership
 
-`cappy-workspace.json` records every managed file by root-relative path with its SHA-256 and size, plus imported and external files by absolute path. Since registry version 2, it also records retired take numbers (see below). A version 1 registry is upgraded the next time Cappy changes it, and older Cappy builds refuse a version 2 registry rather than reissue takes. Each change is applied to the registry as it is on disk at that moment, so commands running at the same time never drop each other's entries.
+`cappy-workspace.json` records every managed file by root-relative path with its SHA-256 and size, plus imported and external files by absolute path. Since registry version 2, it also records retired take numbers (see below). A version 1 registry is upgraded the next time Cappy changes it, and older Cappy builds refuse a version 2 registry rather than reissue takes. Each change is applied under a short-lived lock file (`cappy-workspace.json.lock`) to the registry as it is on disk at that moment, so commands running at the same time never drop each other's entries.
 
 - **Managed**: created by Cappy (sessions, masters, derivatives, manifests, logs). Only these can be deleted.
 - **Imported/external**: referenced by Cappy but owned by you or another system. Never deleted.
@@ -61,7 +61,7 @@ cappy clean --logs --older-than 7d       # old command logs only
 cappy clean --all                        # every capture, session, comparison, and log
 ```
 
-`clean` deletes as soon as it runs. `--dry-run` (`-dr`) runs the same selection and checks and changes nothing.
+`clean` deletes as soon as it runs. `--dry-run` (`-dr`) runs the same selection and checks and changes nothing, not even creating a missing folder.
 
 What each item covers:
 
@@ -86,6 +86,8 @@ What is protected:
 - Anything a running command may still be writing is left alone: its `active` session, capture and comparison directories without a manifest while any command runs, and its log. Naming one refuses it; bulk selectors skip it with a warning.
 - Files Cappy did not create in an item's directory, such as an interrupted `.partial` output, are kept and reported as `not_managed`, and that directory stays.
 - A managed file that was edited or replaced by a link is refused.
+- An item whose directory, or storage area, is a link or junction (for example a capture folder moved to another disk and linked back) is refused as `symlink` and never walked or emptied. Links inside an item are reported, never followed.
+- Only folders named like Cappy's own IDs (`cap_…`, `ses_…`, `cmp_…`) are items; anything else in those folders is left alone.
 - Any refusal makes the command exit 1 with `CLEAN_INCOMPLETE`. Everything else selected is still removed, and the full report is in the result.
 
 Take numbers are never reissued. Cleaning a successful capture retires its take in the registry before any file is deleted. The next capture of that scenario (with the same parameters) or replayed session continues past it, and `--take <retired>` fails with `TAKE_EXISTS`.

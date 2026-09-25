@@ -55,7 +55,7 @@ How anchors resolve:
 - The manifest records what was used. Each clip has `window: { startMs, endMs, startEventId, endEventId }`, and each still or thumbnail has `at: { ms, eventId }`. Times given in seconds are recorded the same way, without event IDs.
 - If no event matches, the derivative fails with `DERIVATIVE_ANCHOR_UNRESOLVED`. This fails the capture for a required derivative, and is a warning for an optional one.
 - An anchored window that runs past either end of the master is clamped to the master, with a warning. If nothing is left, it fails with `DERIVATIVE_WINDOW_EMPTY`.
-- An anchored still or thumbnail time past the end is moved to the last frame, with a warning.
+- A still or thumbnail shows the frame at or before its time. An anchored time past the end is moved to the end, with a warning, and so shows the master's last frame. That frame can be a frame or two earlier than the reported duration, as OBS masters often are.
 - Times given only in seconds are used exactly as written, as before anchors existed.
 - Each derivative produces one output. To cut clips around several matches, add one derivative per `occurrence`.
 

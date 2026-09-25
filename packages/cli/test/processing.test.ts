@@ -163,8 +163,9 @@ describe("derivatives and manifests", () => {
     const highlight = await args("highlight", "mp4");
     expect(Number(highlight[highlight.indexOf("-ss") + 1])).toBeCloseTo((spell.t - 200) / 1000, 6);
     expect(Number(highlight[highlight.indexOf("-t") + 1])).toBeCloseTo((impact.t + 300 - (spell.t - 200)) / 1000, 6);
+    // The still reads video up to the IMPACT and keeps its last frame.
     const still = await args("impact", "png");
-    expect(Number(still[still.indexOf("-ss") + 1])).toBeCloseTo(impact.t / 1000, 6);
+    expect(Number(still[still.indexOf("-ss") + 1]) + Number(still[still.indexOf("-t") + 1])).toBeCloseTo(impact.t / 1000 + 0.001, 6);
   });
 
   it("fails a required derivative whose anchor never happened, and keeps the master", async () => {
@@ -190,12 +191,12 @@ describe("derivatives and manifests", () => {
     expect(code).toBe(0);
     expect(result["warnings"]).toEqual([
       expect.stringContaining('optional derivative "finale" was skipped: derivative "finale": no IMPACT #2 event'),
-      expect.stringMatching(/still "impact" time .* was clamped to the master \(1900 ms\)/),
+      expect.stringMatching(/still "impact" time .* was clamped to the master \(2000 ms\)/),
     ]);
     const manifest = await manifestOf(result);
     expect(manifest["artifacts"].map((artifact: { role: string }) => artifact.role)).toEqual(["master", "impact"]);
-    // Clamped to the fake master's last frame (2 s long, frame rate unknown).
-    expect(manifest["artifacts"][1]["at"]["ms"]).toBe(1900);
+    // Clamped to the end of the fake master (2 s), where FFmpeg takes its last frame.
+    expect(manifest["artifacts"][1]["at"]["ms"]).toBe(2000);
   });
 
   it("rejects invalid anchors before launching the game", async () => {
@@ -287,6 +288,24 @@ describe.runIf(process.env["CAPPY_REAL_TOOLS"] === "1")("real FFmpeg media", () 
     const { startMs, endMs } = byRole["highlight"]["window"];
     expect(Math.abs(byRole["highlight"]["durationMs"] - (endMs - startMs))).toBeLessThanOrEqual(100);
     expect(byRole["impact"]).toMatchObject({ mediaType: "image/png", width: 320, height: 240, at: { ms: impact.t, eventId: impact.id } });
+  });
+
+  it("takes an anchored still at a master's end even when its video stops before its reported duration", async () => {
+    // Like OBS masters, the audio outlasts the video, so the reported duration runs past the last frame.
+    const unevenMaster = (outputPath: string): void => {
+      execFileSync("ffmpeg", [
+        "-nostdin", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "testsrc=size=320x240:rate=30:duration=2",
+        "-f", "lavfi", "-i", "sine=frequency=440:duration=2.4", "-c:v", "libx264", "-preset", "ultrafast", "-c:a", "aac", outputPath,
+      ]);
+    };
+    await configure(harness, { writeMaster: unevenMaster }, { tools: {}, ...presetWith([{ kind: "still", role: "last", options: { at: { event: "IMPACT", offset: 30 } } }]) });
+    const { code, result } = await runCli(harness, ["run", "boss_intro"]);
+    expect(code, JSON.stringify(result["error"])).toBe(0);
+    const manifest = await manifestOf(result);
+    const master = manifest["artifacts"][0];
+    expect(master["durationMs"]).toBeGreaterThan(2300);
+    expect(manifest["artifacts"][1]).toMatchObject({ role: "last", mediaType: "image/png", width: 320, height: 240, at: { ms: master["durationMs"] } });
+    expect(result["warnings"]).toEqual([expect.stringContaining('still "last" time')]);
   });
 
   it("fails a real required derivative that yields no frames, keeping the master", async () => {

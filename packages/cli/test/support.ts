@@ -61,10 +61,10 @@ if (graph.includes("ssim=stats_file=")) {
   process.exit(0);
 }
 if (graph.includes("blend=all_mode=difference")) {
-  // Worst-frame stills: every "-frames:v 1 <file>" output.
+  // Worst-frame stills: every "-update 1 <file>" output.
   const inputs = args.flatMap((arg, i) => (arg === "-i" ? [fs.readFileSync(args[i + 1], "utf8")] : []));
   if (inputs[1].includes("FAILSTILL")) { console.error("Still extraction failed!"); process.exit(1); }
-  args.forEach((arg, i) => { if (args[i - 2] === "-frames:v") fs.writeFileSync(arg, JSON.stringify({ derivedFrom: "still", args }) + "\\n"); });
+  args.forEach((arg, i) => { if (args[i - 2] === "-update") fs.writeFileSync(arg, JSON.stringify({ derivedFrom: "still", args }) + "\\n"); });
   process.exit(0);
 }
 if (name.startsWith(".fail-")) { console.error("Conversion failed!"); process.exit(1); }

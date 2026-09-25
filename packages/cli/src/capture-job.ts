@@ -446,7 +446,6 @@ export async function executeCapture(
         timing: {
           timeline,
           ...(probe.value.durationMs === undefined ? {} : { masterDurationMs: probe.value.durationMs }),
-          ...(probe.value.frameRate === undefined ? {} : { frameRate: probe.value.frameRate }),
         },
       });
       if (!produced.ok) {

@@ -97,6 +97,18 @@ describe("CLI shell", () => {
     expect(json(short.stdout)["data"]).toEqual(long["data"]);
   });
 
+  it("passes option values that start with a dash through as values", async () => {
+    // The config file "-c" does not exist: a configuration error (3), not a usage error (2).
+    const missing = await cli(["doctor", "-j", "-c", "-c"]);
+    expect(missing.code).toBe(3);
+    expect(json(missing.stdout)).toMatchObject({ error: { code: "CONFIG_NOT_FOUND", details: { configPath: path.join(project, "-c") } } });
+    expect((await cli(["doctor", "-j", "--config", "-dr"])).code).toBe(3);
+    // A value that looks like -j does not switch to JSON output.
+    const human = await cli(["doctor", "--config", "-j"]);
+    expect(human.code).toBe(3);
+    expect(human.stderr).toContain("error [CONFIG_NOT_FOUND]");
+  });
+
   it("rejects an unknown shorthand with exit code 2 in human and JSON mode", async () => {
     const human = await cli(["doctor", "-zz"]);
     expect(human.code).toBe(2);

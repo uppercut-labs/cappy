@@ -3,6 +3,7 @@ import { readFile, stat, unlink } from "node:fs/promises";
 import path from "node:path";
 import { type Artifact, type CappyError, type Result, cappyError, err, ok, runProcess } from "@cappy/core";
 import type { ManagedWorkspace } from "@cappy/workspace";
+import { frameAtOrBefore } from "./derivatives.js";
 import { type MediaInfo, probeMedia } from "./probe.js";
 
 /** Frame rate used when ffprobe reports none for the reference master. */
@@ -133,7 +134,8 @@ export function selectWorstFrames(frames: readonly FrameScore[], count = 3, spac
 
 /**
  * One frame of A, the same moment of B scaled to A's size, and their
- * amplified grayscale difference, as three PNGs.
+ * amplified grayscale difference, as three PNGs. Each is the frame at or
+ * before the moment, so a moment at the very end of a master still resolves.
  */
 export function worstFrameArguments(
   a: ComparisonInput,
@@ -153,12 +155,12 @@ export function worstFrameArguments(
   ].join(";");
   return [
     "-nostdin", "-hide_banner", "-loglevel", "error", "-n",
-    "-ss", seconds(a.startMs + tMs), "-i", a.path,
-    "-ss", seconds(b.startMs + tMs), "-i", b.path,
+    ...frameAtOrBefore(a.startMs + tMs), "-i", a.path,
+    ...frameAtOrBefore(b.startMs + tMs), "-i", b.path,
     "-filter_complex", graph,
-    "-map", "[a0]", "-frames:v", "1", files.a,
-    "-map", "[b0]", "-frames:v", "1", files.b,
-    "-map", "[d]", "-frames:v", "1", files.diff,
+    "-map", "[a0]", "-update", "1", files.a,
+    "-map", "[b0]", "-update", "1", files.b,
+    "-map", "[d]", "-update", "1", files.diff,
   ];
 }
 

@@ -56,8 +56,11 @@ const timing = { correlationId: "op_test", readyTimeoutMs: 1_000 };
 describe("listener", () => {
   it("binds to loopback by default and publishes the launch environment", async () => {
     const server = await listen();
-    expect(server.address.address).toBe("127.0.0.1");
     expect(server.endpoint).toBe(`ws://127.0.0.1:${server.port}`);
+    // A connect timeout that fires after close still reports the endpoint instead of throwing.
+    const late = server.accept(20);
+    await server.close();
+    expect(await late).toMatchObject({ ok: false, error: { code: "ADAPTER_CONNECT_TIMEOUT", details: { endpoint: server.endpoint } } });
     expect(server.token.length).toBeGreaterThanOrEqual(32);
     expect(server.launchEnvironment()).toEqual({ [ENDPOINT_ENV]: server.endpoint, [TOKEN_ENV]: server.token });
   });

@@ -156,7 +156,7 @@ export function renderClean(result: CommandResult<CleanReport>): string {
   const verb = report.dryRun ? "Would remove" : "Removed";
   const lines = [`${verb} ${report.removed.length} file(s) from ${report.items.length} item(s), ${formatBytes(report.bytesFreed)}${report.dryRun ? " (dry run; nothing was changed)" : ""}`];
   for (const item of report.items) {
-    lines.push(`  ${item.kind.padEnd(7)}  ${item.id}  ${item.files.length} file(s), ${formatBytes(item.bytes)}`);
+    lines.push(`  ${item.kind.padEnd(10)}  ${item.id}  ${item.files.length} file(s), ${formatBytes(item.bytes)}`);
   }
   for (const { source, take } of report.retiredTakes) {
     const subject = source.kind === "scenario" ? `scenario ${source.scenarioId}` : `replay of ${source.sessionId}`;
