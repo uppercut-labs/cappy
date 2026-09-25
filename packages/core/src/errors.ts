@@ -47,6 +47,14 @@ export const ERROR_CODES = {
   REPLAY_PAYLOAD_MISSING: "operation",
   REPLAY_PAYLOAD_INVALID: "operation",
   REPLAY_INCOMPATIBLE: "operation",
+  OBS_NOT_CONFIGURED: "configuration",
+  OBS_ALREADY_RECORDING: "operation",
+  OBS_START_FAILED: "operation",
+  OBS_STOP_FAILED: "operation",
+  MASTER_MISSING: "operation",
+  MASTER_INVALID: "operation",
+  PRESET_NOT_FOUND: "usage",
+  PARAMETER_INVALID: "usage",
   INTERNAL_ERROR: "internal",
 } as const satisfies Record<string, ErrorCategory>;
 

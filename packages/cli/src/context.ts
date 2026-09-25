@@ -16,7 +16,7 @@ export interface CommandContext {
   readonly correlationId: string;
   /** Command arguments after the command name. */
   readonly positionals: readonly string[];
-  readonly flags: Readonly<Record<string, string | boolean | undefined>>;
+  readonly flags: Readonly<Record<string, string | boolean | readonly string[] | undefined>>;
   /** Human progress messages; silent in JSON mode. */
   progress(text: string): void;
   /** Start listening for stop/cancel requests. */

@@ -1,4 +1,5 @@
 import {
+  type Artifact,
   type CappyError,
   type CommandResult,
   type Result,
@@ -9,8 +10,10 @@ import {
   loadConfig,
   missingCapabilities,
 } from "@cappy/core";
+import type { ObsRecorder, RecordingStarted } from "@cappy/obs";
 import type { AdapterOperation, OperationOutcome } from "@cappy/protocol";
 import { ManagedWorkspace } from "@cappy/workspace";
+import { collectMaster, prepareRecorder, selectPreset } from "../capture.js";
 import type { CommandContext } from "../context.js";
 import { launchGame } from "../game.js";
 import { SessionStore, newSessionId, replayRequirements } from "../sessions.js";
@@ -19,9 +22,11 @@ export interface RecordReport {
   readonly session: Session;
   readonly replayable: boolean;
   readonly events: number;
+  /** The verified OBS master when recorded with --capture. */
+  readonly master?: Artifact;
 }
 
-function parseDuration(value: string | boolean | undefined): Result<number | undefined> {
+function parseDuration(value: string | boolean | readonly string[] | undefined): Result<number | undefined> {
   if (value === undefined) {
     return { ok: true, value: undefined };
   }
@@ -56,8 +61,23 @@ export async function record(context: CommandContext): Promise<CommandResult<Rec
   }
   const store = new SessionStore(workspace.value);
 
+  // Optional OBS master capture, preflighted before the game launches.
+  let recorder: ObsRecorder | undefined;
+  if (context.flags["capture"] === true) {
+    const selected = selectPreset(config, typeof context.flags["preset"] === "string" ? context.flags["preset"] : undefined);
+    if (!selected.ok) {
+      return commandFailure("record", selected.error, options);
+    }
+    const prepared = await prepareRecorder(config, selected.value.preset, context.env);
+    if (!prepared.ok) {
+      return commandFailure("record", prepared.error, options);
+    }
+    recorder = prepared.value.recorder;
+  }
+
   const game = await launchGame({ config, projectDir, env: context.env });
   if (!game.ok) {
+    recorder?.close();
     return commandFailure("record", game.error, options);
   }
   const { connection } = game.value;
@@ -102,6 +122,7 @@ export async function record(context: CommandContext): Promise<CommandResult<Rec
       return session;
     };
     const fail = async (error: CappyError, operation?: AdapterOperation): Promise<CommandResult<RecordReport>> => {
+      await recorder?.abort(config.timeouts.obsMs);
       const status = error.code === "OPERATION_CANCELLED" ? "cancelled" : "failed";
       const saved = await finish(status, operation);
       return commandFailure("record", error, {
@@ -109,6 +130,15 @@ export async function record(context: CommandContext): Promise<CommandResult<Rec
         data: { session: saved, replayable: false, events: operation?.events.length ?? 0 },
       });
     };
+
+    let recording: RecordingStarted | undefined;
+    if (recorder !== undefined) {
+      const confirmed = await recorder.start(config.timeouts.obsMs);
+      if (!confirmed.ok) {
+        return await fail(confirmed.error);
+      }
+      recording = confirmed.value;
+    }
 
     const started = await connection.startFreeform({ correlationId: context.correlationId, startTimeoutMs: config.timeouts.readyMs });
     if (!started.ok) {
@@ -156,6 +186,16 @@ export async function record(context: CommandContext): Promise<CommandResult<Rec
       return await fail(outcome.error, operation);
     }
 
+    let master: Artifact | undefined;
+    if (recorder !== undefined && recording !== undefined) {
+      const collected = await collectMaster(recorder, recording, workspace.value, `sessions/${session.id}`, config.timeouts.obsMs);
+      if (!collected.ok) {
+        return await fail(collected.error, operation);
+      }
+      master = collected.value;
+    }
+    const withMaster = master === undefined ? {} : { master };
+
     const handoff = outcome.value.replay;
     const advertisesReplay = connection.capabilities.includes("replay");
     if (handoff === undefined) {
@@ -168,7 +208,7 @@ export async function record(context: CommandContext): Promise<CommandResult<Rec
       const saved = await finish("completed", operation);
       return commandSuccess(
         "record",
-        { session: saved, replayable: false, events: operation.events.length },
+        { session: saved, replayable: false, events: operation.events.length, ...withMaster },
         { ...options, warnings: ["the adapter does not support replay; this session cannot be replayed"] },
       );
     }
@@ -177,9 +217,10 @@ export async function record(context: CommandContext): Promise<CommandResult<Rec
       return await fail(stored.error, operation);
     }
     const saved = await finish("completed", operation, { replay: stored.value });
-    return commandSuccess("record", { session: saved, replayable: true, events: operation.events.length }, options);
+    return commandSuccess("record", { session: saved, replayable: true, events: operation.events.length, ...withMaster }, options);
   } finally {
     await game.value.close();
+    recorder?.close();
     interrupts.dispose();
   }
 }

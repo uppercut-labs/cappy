@@ -2,6 +2,7 @@ import type { CappyError, CommandResult } from "@cappy/core";
 import type { DoctorReport } from "./commands/doctor.js";
 import type { RecordReport } from "./commands/record.js";
 import type { ReplayReport } from "./commands/replay.js";
+import type { RunReport } from "./commands/run.js";
 import type { ScenariosReport } from "./commands/scenarios.js";
 
 /** Plain-text renderers for human mode. No ANSI styling is ever emitted. */
@@ -76,6 +77,9 @@ export function renderRecord(result: CommandResult<RecordReport>): string {
   }
   const { session } = report;
   const lines = [`Session ${session.id}: ${session.status}, ${report.events} event(s)`];
+  if (report.master !== undefined) {
+    lines.push(`Master: ${report.master.path} (${report.master.bytes} bytes, sha256 ${report.master.sha256})`);
+  }
   if (session.replay !== undefined) {
     lines.push(`Replay payload: ${session.replay.path} (${session.replay.bytes} bytes, sha256 ${session.replay.sha256})`);
     lines.push(`Replay it with: cappy replay ${session.id} --no-capture`);
@@ -88,5 +92,24 @@ export function renderReplay(report: ReplayReport): string {
   for (const event of report.events) {
     lines.push(`  ${String(event.t).padStart(8)} ms  ${event.type}`);
   }
+  return `${lines.join("\n")}\n`;
+}
+
+export function renderRun(result: CommandResult<RunReport>): string {
+  const report = result.data;
+  if (report === undefined) {
+    return "";
+  }
+  const parameters = Object.entries(report.scenario.parameters)
+    .map(([name, value]) => `${name}=${String(value)}`)
+    .join(" ");
+  const lines = [
+    `Capture ${report.captureId}: ${report.scenario.id}${parameters === "" ? "" : ` (${parameters})`}, preset ${report.preset}, state ${report.state}`,
+    `OBS ${report.obs.version}${report.obs.scene === undefined ? "" : `, scene "${report.obs.scene}"`}`,
+  ];
+  if (report.master !== undefined) {
+    lines.push(`Master: ${report.master.path} (${report.master.bytes} bytes, sha256 ${report.master.sha256})`);
+  }
+  lines.push(`${report.events.length} timeline event(s)`);
   return `${lines.join("\n")}\n`;
 }

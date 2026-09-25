@@ -30,7 +30,9 @@ npm run build
 npx cappy doctor              # check config, workspace, game command, FFmpeg/ffprobe, and OBS
 npx cappy scenarios           # launch the game and list the scenarios its adapter registers
 npx cappy doctor --json       # one structured JSON result on stdout
+npx cappy run boss_intro --param difficulty=3 --preset trailer   # capture a scenario with OBS
 npx cappy record              # record a freeform session; Enter stops, Ctrl+C cancels
+npx cappy record --capture    # also record an OBS master
 npx cappy record --duration 30
 npx cappy replay <session-id> --no-capture
 ```
@@ -53,7 +55,7 @@ CAPPY_REAL_TOOLS=1 npm test
 | `@cappy/workspace` | Managed `.cappy/` workspace: storage areas, ownership registry, atomic writes, hashing, safe cleanup, and the Git-ignore warning. |
 | `@cappy/protocol` | Versioned loopback WebSocket protocol: message schemas, handshake and capability negotiation, operation state, heartbeats. |
 | `@cappy/adapter-simulator` (`fixtures/`) | Deterministic protocol-speaking adapter used as an acceptance fixture. |
-| `@cappy/obs` | OBS WebSocket v5 client: connection, password authentication, requests, and the doctor probe. |
+| `@cappy/obs` | OBS WebSocket v5 client and recorder: password authentication, the doctor probe, confirmed start/stop, and master verification. |
 | `@cappy/media` | FFmpeg/ffprobe discovery and version checks. |
 | `@cappy/cli` | The `cappy` command: argument parsing, human and `--json` output, `doctor`, `scenarios`, and game launch. |
 | `@cappy/fake-obs` (`fixtures/`) | Fake OBS WebSocket v5 server for automated tests. |

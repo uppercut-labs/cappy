@@ -12,19 +12,24 @@ import {
 import { type DoctorReport, doctor } from "./commands/doctor.js";
 import { type RecordReport, record } from "./commands/record.js";
 import { type ReplayReport, replay } from "./commands/replay.js";
+import { type RunReport, run } from "./commands/run.js";
 import { type ScenariosReport, scenarios } from "./commands/scenarios.js";
 import { type CliIO, type CommandContext, noInterrupts } from "./context.js";
-import { renderDoctor, renderError, renderRecord, renderReplay, renderScenarios } from "./render.js";
+import { renderDoctor, renderError, renderRecord, renderReplay, renderRun, renderScenarios } from "./render.js";
 
 export const HELP = `Usage: cappy <command> [options]
 
 Commands:
   doctor               Check configuration, workspace, game command, FFmpeg, and OBS without capturing
   scenarios            Launch the game and list the scenarios its adapter registers
+  run <scenario>       Capture an authored scenario with OBS
   record               Record a freeform, replayable session (Enter stops, Ctrl+C cancels)
   replay <session-id>  Play a stored session back through the adapter
 
 Command options:
+  --param <key=value>  run: scenario parameter (repeatable)
+  --preset <name>      run, record --capture: capture preset (default: defaultPreset)
+  --capture            record: also record an OBS master
   --duration <seconds> record: stop automatically after this many seconds
   --no-capture         replay: verify playback without recording video
 
@@ -53,6 +58,10 @@ const COMMANDS: Record<string, Command<unknown>> = {
     run: scenarios,
     render: (result) => (result.ok ? renderScenarios(result.data as ScenariosReport) : ""),
   } as Command<unknown>,
+  run: {
+    run,
+    render: (result) => renderRun(result as CommandResult<RunReport>),
+  } as Command<unknown>,
   record: {
     run: record,
     render: (result) => renderRecord(result as CommandResult<RecordReport>),
@@ -64,7 +73,7 @@ const COMMANDS: Record<string, Command<unknown>> = {
 };
 
 /** Commands that take positional arguments after their name. */
-const TAKES_ARGUMENTS = new Set(["replay"]);
+const TAKES_ARGUMENTS = new Set(["replay", "run"]);
 
 /** Run the CLI in-process and return the exit code. */
 export async function main(argv: readonly string[], io: CliIO): Promise<number> {
@@ -100,6 +109,9 @@ export async function main(argv: readonly string[], io: CliIO): Promise<number> 
         version: { type: "boolean" },
         duration: { type: "string" },
         "no-capture": { type: "boolean" },
+        capture: { type: "boolean" },
+        preset: { type: "string" },
+        param: { type: "string", multiple: true },
       },
     });
   } catch (cause) {
@@ -129,7 +141,13 @@ export async function main(argv: readonly string[], io: CliIO): Promise<number> 
     env: io.env,
     correlationId: newCorrelationId(),
     positionals: positionals.slice(1),
-    flags: { duration: values.duration, "no-capture": values["no-capture"] },
+    flags: {
+      duration: values.duration,
+      "no-capture": values["no-capture"],
+      capture: values.capture,
+      preset: values.preset,
+      param: values.param,
+    },
     progress: (text) => {
       if (!json) {
         io.writeError(text);

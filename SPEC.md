@@ -427,6 +427,8 @@ Workflow:
 
 A failure before successful recording must not create a successful capture. Partial data remains clearly marked failed/cancelled for diagnostics.
 
+Scenario parameters are passed as repeated `--param key=value`, parsed and validated against the adapter-registered schema (type, enum, range, required), with schema defaults applied. `--preset` selects a capture preset (default: `defaultPreset`, or an empty implicit preset when none is configured).
+
 ### 11.5 `cappy record`
 
 Starts a freeform session and asks the adapter to record replay data.
@@ -485,6 +487,15 @@ Cappy must not:
 - overwrite user OBS configuration.
 
 On timeout, disconnect, authentication failure, or unexpected recorder state, the capture job fails visibly.
+
+V1 implementation rules:
+
+- Cappy sends only `GetVersion`, `GetSceneList`, `GetRecordStatus`, `GetRecordDirectory`, `StartRecord`, `StopRecord`, and, when `obs.switchScene` is true, `SetCurrentProgramScene`. The recorder enforces this allowlist.
+- OBS is checked before the game launches: reachable, authenticated, capture scene present, and not already recording. Cappy never takes over a recording it did not start.
+- Start and stop are confirmed by polling `GetRecordStatus` until the output is active or inactive within `timeouts.obsMs`. An accepted request alone is never success.
+- The master is the path OBS reports from `StopRecord` (or its `RecordStateChanged` event). It must be an absolute path to a regular, non-empty file modified after the recording was requested, with a size that has stopped changing.
+- The verified master was produced by a recording Cappy started, so Cappy moves it into the managed workspace (`captures/<capture-id>/master.<ext>`, or `sessions/<session-id>/master.<ext>` for `record --capture`) and registers it with SHA-256 and size. Cappy does not redirect OBS output directories, because that would change OBS configuration.
+- On cancellation or failure after recording started, Cappy stops the recording it started. Partial OBS output from a failed stop is left where OBS wrote it.
 
 ## 13. FFmpeg integration
 

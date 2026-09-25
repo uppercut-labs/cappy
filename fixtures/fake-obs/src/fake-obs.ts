@@ -1,5 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
+import { mkdirSync, writeFileSync } from "node:fs";
 import type { AddressInfo } from "node:net";
+import path from "node:path";
 import type WebSocket from "ws";
 import { WebSocketServer } from "ws";
 
@@ -17,6 +19,23 @@ export interface FakeObsOptions {
   readonly obsWebSocketVersion?: string;
   /** Per-request overrides: return a failure status or never answer. */
   readonly failRequests?: Readonly<Record<string, { code: number; comment: string } | "hang">>;
+  /** Where StopRecord writes the master; required for recording. */
+  readonly recordDirectory?: string;
+  /** Master file contents written on StopRecord. */
+  readonly masterBytes?: Uint8Array;
+  /** Produce the master file with this function instead (for real media). */
+  readonly writeMaster?: (outputPath: string) => void;
+  /** Misbehaviors for failure tests. */
+  readonly recording?: {
+    /** StartRecord succeeds but the output never becomes active. */
+    readonly neverActivates?: boolean;
+    /** StopRecord succeeds but the output never becomes inactive. */
+    readonly neverStops?: boolean;
+    /** StopRecord reports a path but writes no file. */
+    readonly noOutputFile?: boolean;
+    /** Drop every connection when this request arrives. */
+    readonly disconnectOn?: string;
+  };
 }
 
 export interface FakeObsRequest {
@@ -31,6 +50,10 @@ export class FakeObsServer {
   readonly requests: FakeObsRequest[] = [];
   readonly scenes: string[];
   currentScene: string;
+  /** Whether the record output is active. */
+  recording = false;
+  /** Paths of masters written by StopRecord. */
+  readonly outputs: string[] = [];
   private readonly handlers = new Map<string, RequestHandler>();
   private readonly sockets = new Set<WebSocket>();
 
@@ -56,6 +79,47 @@ export class FakeObsServer {
       }
       this.currentScene = name;
       return {};
+    });
+    this.handle("GetRecordStatus", () => ({
+      outputActive: this.recording,
+      outputPaused: false,
+      outputTimecode: "00:00:00.000",
+      outputDuration: 0,
+      outputBytes: 0,
+    }));
+    this.handle("GetRecordDirectory", () => ({ recordDirectory: this.options.recordDirectory ?? "" }));
+    this.handle("StartRecord", () => {
+      if (this.recording || this.options.recordDirectory === undefined) {
+        return undefined;
+      }
+      this.emit("RecordStateChanged", { outputActive: false, outputState: "OBS_WEBSOCKET_OUTPUT_STARTING", outputPath: null });
+      if (this.options.recording?.neverActivates !== true) {
+        this.recording = true;
+        this.emit("RecordStateChanged", { outputActive: true, outputState: "OBS_WEBSOCKET_OUTPUT_STARTED", outputPath: null });
+      }
+      return {};
+    });
+    this.handle("StopRecord", () => {
+      if (!this.recording) {
+        return undefined;
+      }
+      const directory = this.options.recordDirectory ?? ".";
+      const outputPath = path.join(directory, `fake-obs-${Date.now()}-${this.outputs.length}.mkv`);
+      if (this.options.recording?.noOutputFile !== true) {
+        mkdirSync(directory, { recursive: true });
+        if (this.options.writeMaster === undefined) {
+          writeFileSync(outputPath, this.options.masterBytes ?? Buffer.from("fake master recording"));
+        } else {
+          this.options.writeMaster(outputPath);
+        }
+      }
+      this.outputs.push(outputPath);
+      this.emit("RecordStateChanged", { outputActive: true, outputState: "OBS_WEBSOCKET_OUTPUT_STOPPING", outputPath: null });
+      if (this.options.recording?.neverStops !== true) {
+        this.recording = false;
+        this.emit("RecordStateChanged", { outputActive: false, outputState: "OBS_WEBSOCKET_OUTPUT_STOPPED", outputPath });
+      }
+      return { outputPath };
     });
     server.on("connection", (socket) => this.accept(socket));
   }
@@ -154,6 +218,10 @@ export class FakeObsServer {
       );
     };
 
+    if (this.options.recording?.disconnectOn === requestType) {
+      this.disconnectAll();
+      return;
+    }
     const override = this.options.failRequests?.[requestType];
     if (override === "hang") {
       return;
