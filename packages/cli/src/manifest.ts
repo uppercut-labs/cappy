@@ -52,13 +52,13 @@ export async function successfulManifests(workspace: ManagedWorkspace): Promise<
   return manifests.filter((manifest): manifest is ArtifactManifest => manifest?.status === "succeeded");
 }
 
-/** The next take number for a source: one past the highest successful take. */
+/** The next take number for a source: one past the highest successful or retired take. */
 export async function nextTake(workspace: ManagedWorkspace, source: CaptureSource): Promise<number> {
   const key = sourceKey(source);
   const takes = (await successfulManifests(workspace))
     .filter((manifest) => sourceKey(manifest.identity.source) === key)
     .map((manifest) => manifest.identity.take);
-  return Math.max(0, ...takes) + 1;
+  return Math.max(0, ...takes, ...(await workspace.retiredTakes(key))) + 1;
 }
 
 /**

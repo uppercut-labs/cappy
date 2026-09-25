@@ -170,6 +170,8 @@ Ownership is recorded in a registry file, `cappy-workspace.json`, at the managed
 
 Registry schema version 2 adds `retiredTakes`: take numbers retired by cleanup, keyed by take source (section 16). A version 1 registry is read as having no retired takes and is written as version 2 on its next change.
 
+Every registry change is applied to the registry as it is on disk at that moment, not to a command's in-memory copy. Concurrent commands therefore do not drop each other's entries or retired takes. Take allocation reads retired takes from disk.
+
 Managed files are published atomically: written to a sibling temp file, then linked into place without overwriting. Replacing an existing managed file requires an explicit replace request; files Cappy did not create are never replaced.
 
 Before deleting a managed file, cleanup verifies that no path component is a symlink or junction, that the file's real location is inside the managed root, and that its current SHA-256 and size still match the registry. A file modified since Cappy wrote it is reported as rejected and left in place.
@@ -507,7 +509,7 @@ Deletes selected managed items immediately and reports exactly what happened. `-
 Selection:
 
 - Explicit targets are item IDs: captures (`cap_…`), sessions (`ses_…`), and comparisons (`cmp_…`). Raw paths are not accepted. An ID that is not in this workspace is refused with reason `not_found`.
-- `--failed` selects every capture whose manifest status is `failed` or `cancelled`, every capture directory without a manifest (an interrupted job), every session with status `failed` or `cancelled`, every orphaned `active` session (one no live command owns), every comparison with status `failed`, and every comparison directory without a manifest. A `regressed` comparison is a result and is not selected.
+- `--failed` selects every capture whose manifest status is `failed` or `cancelled`, every capture directory without a manifest (an interrupted job), every session with status `failed` or `cancelled`, every orphaned `active` session (one no live command owns), every comparison with status `failed`, and every comparison directory without a manifest. A `regressed` comparison is a result and is not selected. A capture whose manifest cannot be read is never selected by `--failed`; a warning names it, and it can still be cleaned by ID or with `--all`.
 - `--logs` selects every command log in `logs/`.
 - `--all` selects every capture, session, comparison, and log.
 - `--older-than <age>` keeps only bulk-selected items created more than `<age>` ago. `<age>` is a positive integer followed by `m`, `h`, `d`, or `w` (minutes, hours, days, weeks), for example `90m` or `7d`. On its own it filters `--all`. Combined with explicit IDs it fails with `USAGE_INVALID`.
@@ -530,7 +532,7 @@ Retiring takes. Removing a `succeeded` capture retires its take for its source (
 
 Result data: `dryRun`, the selected `items` (ID, kind, files, bytes), `removed`, `missing`, `refused` (target and reason), `kept` (path and reason), `skipped` (ID and reason), `retiredTakes`, and `bytesFreed`. Human output summarizes the same report.
 
-Exit: 0 when nothing was refused. When any selected file or explicit ID was refused, every other selected file is still removed, and the command exits 1 with `CLEAN_INCOMPLETE`, whose details carry the report. Missing files are not failures. Kept unregistered files and skipped in-progress items are warnings.
+Exit: 0 when nothing was refused. When any selected file or explicit ID was refused, every other selected file is still removed, and the command exits 1 with `CLEAN_INCOMPLETE`. The result still carries the full report as `data`, and the error details list the refused targets. Missing files are not failures. Kept unregistered files and skipped in-progress items are warnings.
 
 `clean` does not write a command log.
 

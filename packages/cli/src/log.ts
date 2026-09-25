@@ -78,8 +78,12 @@ function alive(pid: number): boolean {
   }
 }
 
-/** Correlation IDs of commands on this host that are still running. */
-export async function liveCorrelationIds(workspace: ManagedWorkspace): Promise<Set<string>> {
+/**
+ * Correlation IDs of commands that may still be running: live processes on
+ * this host and every lock from another host. Dead local locks are removed
+ * unless `prune` is false.
+ */
+export async function liveCorrelationIds(workspace: ManagedWorkspace, options: { prune?: boolean } = {}): Promise<Set<string>> {
   const directory = lockDirectory(workspace);
   const live = new Set<string>();
   const names = await readdir(directory).catch(() => [] as string[]);
@@ -90,7 +94,7 @@ export async function liveCorrelationIds(workspace: ManagedWorkspace): Promise<S
       // A lock from another host cannot be checked; treat it as live.
       if (lock.host !== hostname() || alive(lock.pid)) {
         live.add(lock.correlationId);
-      } else {
+      } else if (options.prune !== false) {
         await unlink(file).catch(() => undefined);
       }
     } catch {

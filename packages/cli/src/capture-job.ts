@@ -312,19 +312,19 @@ export async function executeCapture(
     }
     captured = planned.value;
 
-    // Takes: explicit takes must be unused; otherwise one past the highest.
+    // Takes: explicit takes must be unused and never retired; otherwise one
+    // past the highest successful or retired take.
     if (takeFlag.value !== undefined) {
       const key = sourceKey(captured.source);
       const used = (await successfulManifests(workspace)).some(
         (existing) => sourceKey(existing.identity.source) === key && existing.identity.take === takeFlag.value,
       );
-      if (used) {
-        return await fail(
-          cappyError("TAKE_EXISTS", `take ${takeFlag.value} already has a successful capture; takes are never overwritten`, command, {
-            details: { take: takeFlag.value },
-            retryable: false,
-          }),
-        );
+      const retired = (await workspace.retiredTakes(key)).includes(takeFlag.value);
+      if (used || retired) {
+        const message = retired
+          ? `take ${takeFlag.value} was retired by cleanup; take numbers are never reissued`
+          : `take ${takeFlag.value} already has a successful capture; takes are never overwritten`;
+        return await fail(cappyError("TAKE_EXISTS", message, command, { details: { take: takeFlag.value, retired }, retryable: false }));
       }
       take = takeFlag.value;
     } else {

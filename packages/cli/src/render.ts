@@ -1,4 +1,5 @@
 import type { CappyError, CommandResult } from "@cappy/core";
+import type { CleanReport } from "./commands/clean.js";
 import type { DoctorReport } from "./commands/doctor.js";
 import type { RecordReport } from "./commands/record.js";
 import type { ReplayReport } from "./commands/replay.js";
@@ -126,5 +127,48 @@ function renderCapture(report: RunReport): string {
     lines.push(`Manifest: ${report.manifest}`);
   }
   lines.push(`Log: ${report.log}`);
+  return `${lines.join("\n")}\n`;
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
+  const units = ["KB", "MB", "GB", "TB"];
+  let value = bytes / 1024;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  return `${value.toFixed(1)} ${units[unit] ?? "TB"}`;
+}
+
+export function renderClean(result: CommandResult<CleanReport>): string {
+  const report = result.data;
+  if (report === undefined) {
+    return "";
+  }
+  if (report.items.length === 0 && report.refused.length === 0) {
+    return "Nothing to clean.\n";
+  }
+  const verb = report.dryRun ? "Would remove" : "Removed";
+  const lines = [`${verb} ${report.removed.length} file(s) from ${report.items.length} item(s), ${formatBytes(report.bytesFreed)}${report.dryRun ? " (dry run; nothing was changed)" : ""}`];
+  for (const item of report.items) {
+    lines.push(`  ${item.kind.padEnd(7)}  ${item.id}  ${item.files.length} file(s), ${formatBytes(item.bytes)}`);
+  }
+  for (const { source, take } of report.retiredTakes) {
+    const subject = source.kind === "scenario" ? `scenario ${source.scenarioId}` : `replay of ${source.sessionId}`;
+    lines.push(`${report.dryRun ? "Would retire" : "Retired"} take ${take} of ${subject}; it will not be reissued.`);
+  }
+  for (const missing of report.missing) {
+    lines.push(`Missing (already gone): ${missing}`);
+  }
+  for (const { path, reason } of report.kept) {
+    lines.push(`Kept: ${path} (${reason})`);
+  }
+  for (const { target, reason } of report.refused) {
+    lines.push(`Refused: ${target} (${reason})`);
+  }
   return `${lines.join("\n")}\n`;
 }

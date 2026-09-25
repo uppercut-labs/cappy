@@ -26,7 +26,7 @@ Add `.cappy/` to `.gitignore`. `cappy doctor` warns when it is not ignored; Capp
 
 ## Ownership
 
-`cappy-workspace.json` records every managed file by root-relative path with its SHA-256 and size, plus imported and external files by absolute path.
+`cappy-workspace.json` records every managed file by root-relative path with its SHA-256 and size, plus imported and external files by absolute path. Since registry version 2, it also records retired take numbers (see below). A version 1 registry is upgraded the next time Cappy changes it, and older Cappy builds refuse a version 2 registry rather than reissue takes. Each change is applied to the registry as it is on disk at that moment, so commands running at the same time never drop each other's entries.
 
 - **Managed**: created by Cappy (sessions, masters, derivatives, manifests, logs). Only these can be deleted.
 - **Imported/external**: referenced by Cappy but owned by you or another system. Never deleted.
@@ -37,13 +37,52 @@ If `cappy-workspace.json` is corrupt, Cappy refuses to open the workspace rather
 
 ## Cleanup rules
 
-Cleanup (`ManagedWorkspace.remove` in `@cappy/workspace`) deletes only explicitly listed files, and reports exactly what happened:
+`cappy clean` (below) and the library primitive behind it, `ManagedWorkspace.remove` in `@cappy/workspace`, delete only explicitly selected files, and report exactly what happened:
 
 - a registered managed file inside the root is removed;
 - a missing file is reported as missing and dropped from the registry;
 - anything else is rejected and left in place: imported or external files, unregistered files, paths outside the root, paths through a symlink or junction, and files whose SHA-256 or size changed since Cappy wrote them.
 
-Cleanup never runs as a side effect of a capture. V1 exposes it as a library primitive; there is no bulk `cappy clean` command yet.
+Cleanup never runs as a side effect of a capture.
+
+## `cappy clean`
+
+```bash
+cappy clean --failed --dry-run           # preview: failed, cancelled, and interrupted leftovers
+cappy clean --failed                     # remove them
+cappy clean cap_… ses_…                  # remove specific captures or sessions
+cappy clean --older-than 30d             # everything older than 30 days
+cappy clean --logs --older-than 7d       # old command logs only
+cappy clean --all                        # every capture, session, and log
+```
+
+`clean` deletes as soon as it runs. `--dry-run` (`-dr`) runs the same selection and checks and changes nothing.
+
+What each item covers:
+
+- **Capture** (`cap_…`): everything Cappy wrote in `captures/<id>/`. A scenario capture also removes the scenario session it created.
+- **Session** (`ses_…`): everything in `sessions/<id>/`. Replay captures of the session are kept, and a warning names them, because they can no longer be re-captured.
+- **Log** (`--logs`): `logs/<correlation-id>.jsonl`.
+
+Cleaning a capture never removes a session you recorded with `cappy record`.
+
+Selectors:
+
+- `--failed` selects captures whose manifest is `failed` or `cancelled`, capture directories with no manifest (interrupted jobs), sessions that are `failed` or `cancelled`, and sessions left `active` by a command that is no longer running.
+- `--logs` selects every command log.
+- `--all` selects every capture, session, and log.
+- `--older-than <age>` keeps only items older than `90m`, `12h`, `7d`, `2w`, and so on. On its own it applies to everything.
+
+IDs and selectors combine, but `--older-than` works only with selectors. The registry and `cache/` are never touched.
+
+What is protected:
+
+- Anything a running command may still be writing is left alone: its `active` session, capture directories without a manifest while any command runs, and its log. Naming one refuses it; bulk selectors skip it with a warning.
+- Files Cappy did not create in an item's directory, such as an interrupted `.partial` output, are kept and reported as `not_managed`, and that directory stays.
+- A managed file that was edited or replaced by a link is refused.
+- Any refusal makes the command exit 1 with `CLEAN_INCOMPLETE`. Everything else selected is still removed, and the full report is in the result.
+
+Take numbers are never reissued. Cleaning a successful capture retires its take in the registry before any file is deleted. The next capture of that scenario (with the same parameters) or replayed session continues past it, and `--take <retired>` fails with `TAKE_EXISTS`.
 
 ## Interrupted commands
 

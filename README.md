@@ -47,6 +47,8 @@ npx cappy replay <session-id>              # capture the replay: OBS master, der
 npx cappy replay <session-id> --no-capture # only play it back
 npx cappy run boss_intro --take 3          # explicit take; never overwrites an existing one
 npx cappy run boss_intro -pa difficulty=3 -p trailer -j   # every flag has a whole-token shorthand
+npx cappy clean --failed --dry-run         # preview removing failed and interrupted leftovers
+npx cappy clean cap_…                      # remove a capture; its take number is never reissued
 ```
 
 Shorthands use initials for multi-word flags (`-nc` is `--no-capture`) and are never grouped; [docs/cli.md](docs/cli.md#shorthands) lists them all.

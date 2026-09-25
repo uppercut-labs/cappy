@@ -60,6 +60,7 @@ export const ERROR_CODES = {
   DERIVATIVE_FAILED: "operation",
   MANIFEST_INVALID: "internal",
   TAKE_EXISTS: "usage",
+  CLEAN_INCOMPLETE: "operation",
   INTERNAL_ERROR: "internal",
 } as const satisfies Record<string, ErrorCategory>;
 

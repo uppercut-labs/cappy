@@ -103,6 +103,21 @@ Captures a stored session's replay through the same pipeline as `run`, with a ma
 
 Before anything launches, the stored payload must still match its SHA-256 and the session must belong to this project. After the handshake, the adapter must match the recording adapter and advertise the capabilities the replay needs (`replay`, plus `deterministic_replay` when the recording had it). A different game build only warns.
 
+## `cappy clean [<id>...]`
+
+Deletes captures, sessions, and logs that Cappy created, at once. See [storage.md](storage.md#cappy-clean) for exactly what each item covers and what is protected.
+
+| Option | Meaning |
+| --- | --- |
+| `<id>...` | Capture (`cap_…`) or session (`ses_…`) IDs. |
+| `-f, --failed` | Failed, cancelled, and interrupted captures and sessions. |
+| `-l, --logs` | Every command log. |
+| `-a, --all` | Every capture, session, and log. |
+| `-ot, --older-than <age>` | Only bulk-selected items older than an age such as `90m`, `12h`, `7d`, or `2w`. Alone, it applies to `--all`. It cannot be combined with IDs. |
+| `-dr, --dry-run` | Report what would be removed and change nothing. |
+
+`data` reports `items` (ID, kind, files, bytes), `removed`, `missing`, `refused`, `kept`, `skipped`, `retiredTakes`, and `bytesFreed`. With `--dry-run`, `removed` and `bytesFreed` describe what would happen. A refused file or ID makes the command exit 1 with `CLEAN_INCOMPLETE`, after everything else selected has been removed. A command with no selector, or with `--older-than` and IDs, exits 2.
+
 ## Logs and correlation
 
 `record`, `run`, and `replay` write `logs/<correlation-id>.jsonl` in the managed workspace. The same correlation ID is in the JSON result, the session, the manifest, and every timeline event.

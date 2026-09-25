@@ -15,6 +15,11 @@ export const FLAGS = {
   capture: { type: "boolean", short: "ca" },
   "no-capture": { type: "boolean", short: "nc" },
   duration: { type: "string", short: "d" },
+  "dry-run": { type: "boolean", short: "dr" },
+  failed: { type: "boolean", short: "f" },
+  "older-than": { type: "string", short: "ot" },
+  logs: { type: "boolean", short: "l" },
+  all: { type: "boolean", short: "a" },
 } as const satisfies Record<string, FlagSpec>;
 
 export interface FlagSpec {

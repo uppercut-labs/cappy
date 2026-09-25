@@ -269,6 +269,69 @@ describe("safe cleanup", () => {
   });
 });
 
+describe("dry-run cleanup and retired takes", () => {
+  it("runs every cleanup check without deleting or unregistering anything", async () => {
+    const workspace = await open();
+    await workspace.writeManaged("captures/c1/a.txt", "a");
+    await workspace.writeManaged("captures/c1/b.txt", "b");
+    await writeFile(path.join(workspace.root, "captures/c1/b.txt"), "edited");
+    const registry = await readFile(path.join(workspace.root, REGISTRY_FILENAME), "utf8");
+
+    const preview = await workspace.remove(["captures/c1/a.txt", "captures/c1/b.txt", "captures/c1/gone.txt"], { dryRun: true });
+    expect(preview).toEqual({
+      removed: ["captures/c1/a.txt"],
+      missing: [],
+      rejected: [
+        { target: "captures/c1/b.txt", reason: "modified_since_managed_write" },
+        { target: "captures/c1/gone.txt", reason: "not_managed" },
+      ],
+    });
+    expect(existsSync(path.join(workspace.root, "captures/c1/a.txt"))).toBe(true);
+    expect(await readFile(path.join(workspace.root, REGISTRY_FILENAME), "utf8")).toBe(registry);
+    expect(await workspace.remove(["captures/c1/a.txt", "captures/c1/b.txt", "captures/c1/gone.txt"])).toEqual(preview);
+  });
+
+  it("records retired takes per group, only ever adding them", async () => {
+    const workspace = await open();
+    expect(await workspace.retiredTakes("scenario:a")).toEqual([]);
+    expect(await workspace.retireTakes("scenario:a", [3, 1])).toEqual({ ok: true, value: [1, 3] });
+    expect(await workspace.retireTakes("scenario:a", [3, 2])).toEqual({ ok: true, value: [1, 2, 3] });
+    expect(await (await open()).retiredTakes("scenario:a")).toEqual([1, 2, 3]);
+    expect(await workspace.retiredTakes("scenario:b")).toEqual([]);
+  });
+
+  it("applies each change to the registry on disk, so concurrent instances keep each other's changes", async () => {
+    const first = await open();
+    const second = await open();
+    await first.writeManaged("captures/c1/master.mkv", "m");
+    await second.retireTakes("replay:ses_1", [4]);
+    await first.writeManaged("captures/c1/manifest.json", "{}");
+
+    const reopened = await open();
+    expect(reopened.listManaged("captures/").map((file) => file.path).sort()).toEqual(["captures/c1/manifest.json", "captures/c1/master.mkv"]);
+    expect(await reopened.retiredTakes("replay:ses_1")).toEqual([4]);
+    // A stale instance still sees takes retired by another one.
+    expect(await first.retiredTakes("replay:ses_1")).toEqual([4]);
+  });
+
+  it("reads a version 1 registry and writes it as version 2 only on its next change", async () => {
+    const workspace = await open();
+    await workspace.writeManaged("cache/a.txt", "a");
+    const file = path.join(workspace.root, REGISTRY_FILENAME);
+    const v1 = JSON.parse(await readFile(file, "utf8")) as Record<string, unknown>;
+    delete v1["retiredTakes"];
+    v1["schemaVersion"] = 1;
+    await writeFile(file, JSON.stringify(v1));
+
+    const reopened = await open();
+    expect(reopened.managed("cache/a.txt")).toBeDefined();
+    expect(await reopened.retiredTakes("x")).toEqual([]);
+    expect(JSON.parse(await readFile(file, "utf8"))["schemaVersion"]).toBe(1);
+    await reopened.retireTakes("x", [1]);
+    expect(JSON.parse(await readFile(file, "utf8"))).toMatchObject({ schemaVersion: 2, retiredTakes: { x: [1] }, managed: { "cache/a.txt": {} } });
+  });
+});
+
 describe("git-ignore warning", () => {
   function git(...args: string[]): void {
     execFileSync("git", args, { cwd: project, stdio: "ignore" });

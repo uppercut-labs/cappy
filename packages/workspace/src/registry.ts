@@ -27,19 +27,36 @@ export const referenceEntrySchema = z.strictObject({
 });
 export type ReferenceEntry = z.output<typeof referenceEntrySchema>;
 
-export const registrySchema = z.strictObject({
-  schemaVersion: z.literal(1),
-  workspaceId: z.string().min(1),
-  createdAt: isoTimestamp,
-  /** Keyed by normalized path relative to the managed root. */
-  managed: z.record(z.string(), managedEntrySchema),
-  /** Keyed by absolute host path. */
-  references: z.record(z.string(), referenceEntrySchema),
-});
+export const REGISTRY_SCHEMA_VERSION = 2;
+
+/**
+ * Version 2 adds `retiredTakes`. A version 1 registry reads as having none
+ * and is written as version 2 on its next change.
+ */
+export const registrySchema = z
+  .strictObject({
+    schemaVersion: z.union([z.literal(1), z.literal(REGISTRY_SCHEMA_VERSION)]),
+    workspaceId: z.string().min(1),
+    createdAt: isoTimestamp,
+    /** Keyed by normalized path relative to the managed root. */
+    managed: z.record(z.string(), managedEntrySchema),
+    /** Keyed by absolute host path. */
+    references: z.record(z.string(), referenceEntrySchema),
+    /** Take numbers retired by cleanup, keyed by take group; never reissued. */
+    retiredTakes: z.record(z.string(), z.array(z.int().positive())).default({}),
+  })
+  .transform((registry) => ({ ...registry, schemaVersion: REGISTRY_SCHEMA_VERSION }));
 export type Registry = z.output<typeof registrySchema>;
 
 export function emptyRegistry(now: string): Registry {
-  return { schemaVersion: 1, workspaceId: `ws_${randomUUID()}`, createdAt: now, managed: {}, references: {} };
+  return {
+    schemaVersion: REGISTRY_SCHEMA_VERSION,
+    workspaceId: `ws_${randomUUID()}`,
+    createdAt: now,
+    managed: {},
+    references: {},
+    retiredTakes: {},
+  };
 }
 
 export function registryPath(root: string): string {

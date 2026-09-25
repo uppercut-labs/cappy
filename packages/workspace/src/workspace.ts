@@ -14,6 +14,7 @@ import {
 import { hashBytes, hashFile } from "./hash.js";
 import {
   PathRejectedError,
+  REGISTRY_FILENAME,
   STORAGE_AREAS,
   type StorageArea,
   assertNoLinkedComponents,
@@ -33,9 +34,15 @@ export interface ManagedFile {
 }
 
 export interface CleanupReport {
+  /** Removed paths, or with `dryRun` the paths that would be removed. */
   readonly removed: readonly string[];
   readonly missing: readonly string[];
   readonly rejected: readonly { readonly target: string; readonly reason: string }[];
+}
+
+export interface RemoveOptions {
+  /** Run every check and report the outcome without deleting or registering anything. */
+  readonly dryRun?: boolean;
 }
 
 export interface WriteOptions {
@@ -277,7 +284,7 @@ export class ManagedWorkspace {
           ...(options.role === undefined ? {} : { role: options.role }),
           ...(digest === undefined ? {} : { sha256: digest.sha256, bytes: digest.bytes }),
         };
-        await this.commit({ ...this.registry, references: { ...this.registry.references, [absolute]: entry } });
+        await this.update((registry) => ({ ...registry, references: { ...registry.references, [absolute]: entry } }));
         return ok(entry);
       } catch (cause) {
         return err(failure(cause, absolute));
@@ -286,16 +293,47 @@ export class ManagedWorkspace {
   }
 
   /**
+   * Record take numbers as retired for a take group, so they are never
+   * reissued. Retired takes are only ever added.
+   */
+  async retireTakes(group: string, takes: readonly number[]): Promise<Result<readonly number[]>> {
+    return this.serialize(async () => {
+      try {
+        let retired: number[] = [];
+        await this.update((registry) => {
+          retired = [...new Set([...(registry.retiredTakes[group] ?? []), ...takes])].sort((a, b) => a - b);
+          return { ...registry, retiredTakes: { ...registry.retiredTakes, [group]: retired } };
+        });
+        return ok(retired);
+      } catch (cause) {
+        return err(failure(cause, REGISTRY_FILENAME));
+      }
+    });
+  }
+
+  /**
+   * Take numbers retired for a take group, read from the registry on disk so
+   * a take retired by a concurrent command is never reissued.
+   */
+  async retiredTakes(group: string): Promise<readonly number[]> {
+    const current = await readRegistry(this.root).catch(() => undefined);
+    const registry = current?.kind === "ok" ? current.registry : this.registry;
+    return registry.retiredTakes[group] ?? [];
+  }
+
+  /**
    * Delete explicitly selected managed files. Anything that is not a
    * registered managed file inside the root, has been replaced by a link, or
-   * no longer matches the recorded hash is rejected and left untouched.
+   * no longer matches the recorded hash is rejected and left untouched. With
+   * `dryRun`, every check runs but nothing is deleted or unregistered.
    */
-  async remove(targets: readonly string[]): Promise<CleanupReport> {
+  async remove(targets: readonly string[], options: RemoveOptions = {}): Promise<CleanupReport> {
     return this.serialize(async () => {
       const removed: string[] = [];
       const missing: string[] = [];
       const rejected: { target: string; reason: string }[] = [];
-      let managed = { ...this.registry.managed };
+      const dropped = new Set<string>();
+      const managed = this.registry.managed;
 
       for (const target of targets) {
         const reason = this.referenceReason(target);
@@ -315,7 +353,7 @@ export class ManagedWorkspace {
           }
           throw cause;
         }
-        const entry = managed[normalized];
+        const entry = dropped.has(normalized) ? undefined : managed[normalized];
         if (entry === undefined) {
           rejected.push({ target, reason: "not_managed" });
           continue;
@@ -332,7 +370,9 @@ export class ManagedWorkspace {
             rejected.push({ target, reason: "modified_since_managed_write" });
             continue;
           }
-          await unlink(hostPath);
+          if (options.dryRun !== true) {
+            await unlink(hostPath);
+          }
           removed.push(normalized);
         } catch (cause) {
           if (cause instanceof PathRejectedError) {
@@ -346,11 +386,14 @@ export class ManagedWorkspace {
             continue;
           }
         }
-        managed = Object.fromEntries(Object.entries(managed).filter(([key]) => key !== normalized));
+        dropped.add(normalized);
       }
 
-      if (removed.length > 0 || missing.length > 0) {
-        await this.commit({ ...this.registry, managed });
+      if (dropped.size > 0 && options.dryRun !== true) {
+        await this.update((registry) => ({
+          ...registry,
+          managed: Object.fromEntries(Object.entries(registry.managed).filter(([key]) => !dropped.has(key))),
+        }));
       }
       return { removed, missing, rejected };
     });
@@ -430,11 +473,21 @@ export class ManagedWorkspace {
       createdAt: now(),
       ...(role === undefined ? {} : { role }),
     };
-    await this.commit({ ...this.registry, managed: { ...this.registry.managed, [target.path]: entry } });
+    await this.update((registry) => ({ ...registry, managed: { ...registry.managed, [target.path]: entry } }));
     return { ...target, entry };
   }
 
-  private async commit(next: Registry): Promise<void> {
+  /**
+   * Apply a change to the registry as it is on disk now, not to this
+   * instance's copy, so concurrent commands do not drop each other's entries
+   * or retired takes.
+   */
+  private async update(change: (registry: Registry) => Registry): Promise<void> {
+    const current = await readRegistry(this.root);
+    if (current.kind === "invalid") {
+      throw new Error(`workspace registry became unreadable: ${current.reason}`);
+    }
+    const next = change(current.kind === "ok" ? current.registry : this.registry);
     await writeRegistry(this.root, next);
     this.registry = next;
   }
