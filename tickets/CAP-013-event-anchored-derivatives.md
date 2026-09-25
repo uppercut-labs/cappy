@@ -1,5 +1,7 @@
 # CAP-013 - Anchor derivative times to timeline events
 
+**Status:** Complete
+
 ## Goal
 
 Presets can cut clips and grab stills or thumbnails around semantic events instead of fixed seconds (SPEC section 13, "Event anchors"; ADR-014).
@@ -29,3 +31,25 @@ Presets can cut clips and grab stills or thumbnails around semantic events inste
 ## Dependencies
 
 None.
+
+## Completion
+
+Completed 2026-09-25 (America/Chicago).
+
+- A clip with a `SPELL_CAST` start (offset -2 s in the criterion; the unit test uses -0.5 s) and an `IMPACT` end (+1 s) covers the offset window from the first `SPELL_CAST` to the first `IMPACT` at or after it. An earlier `IMPACT` is ignored. The manifest records `window: { startMs, endMs, startEventId, endEventId }`. Covered by `packages/media/test/derivatives.test.ts` ("cuts a clip…") and end to end with the simulator in `packages/cli/test/processing.test.ts` ("cuts event-anchored clips, stills, and thumbnails…"), which also checks that FFmpeg received exactly the resolved `-ss` and `-t`.
+- `occurrence` (2nd, `"last"`, out of range) and `where` (dotted path `target.kind`, strict `3` vs `"3"`, every condition must match, a missing path never matches) select the documented event. `SCENARIO_STARTED` works as an anchor.
+- V1 numeric presets are unchanged: the existing processing and real-FFmpeg tests pass untouched, including the numeric still at 30 s on a 2 s master that must fail. Numeric windows and times are now recorded too (`opening` has `window: { startMs: 500, endMs: 1500 }`).
+- Invalid anchors fail before the game launches with `DERIVATIVE_OPTIONS_INVALID` (exit 3, no `StartRecord`). This covers a bad event type (`1BAD`, `SPELL CAST`, empty), both or neither of `duration` and `end`, an object `where` value, occurrence 0, unknown anchor fields, and a numeric `end` not after `start`.
+- A required derivative whose anchor never happened fails the capture with `DERIVATIVE_ANCHOR_UNRESOLVED`, keeping the master and a `failed` manifest. An optional one is skipped with a warning. An empty clamped window fails with `DERIVATIVE_WINDOW_EMPTY`. Anchored windows and times past the master are clamped with a warning; a still goes to the last frame, using the probed frame rate, or 100 ms before the end when ffprobe reports none.
+- Stills and thumbnails accept `at` anchors (`impact` still on `IMPACT`, `thumb` on `SCENARIO_STARTED` `"last"`).
+- With `CAPPY_REAL_TOOLS=1`, a real H.264 master produces an anchored clip whose probed duration is within 100 ms of its resolved window, and an anchored still (320x240 PNG) at the resolved `IMPACT` time. It passed three consecutive runs.
+- Docs: a new `docs/presets.md` (derivatives and event anchors), anchored examples in `cappy.config.example.json` (validated by a test), `README.md`, `docs/getting-started.md` (an optional `SETTLED` still for the Godot demo), and `docs/cli.md`. SPEC 13 now states that clamping applies only to anchored times.
+
+Validation (macOS):
+
+- `npm run typecheck`: passed.
+- `npm run lint`: passed.
+- `npm test`: 226 passed, 11 skipped (opt-in).
+- `CAPPY_REAL_TOOLS=1 npx vitest run`: 235 passed, 2 skipped (the OBS smoke tests), with FFmpeg 9.0.1 and headless Godot.
+- `CAPPY_REAL_TOOLS=1 CAPPY_OBS_SMOKE=1 CAPPY_OBS_SCENE=Capture npx vitest run`, with the local OBS: 237 passed.
+- `git diff --check`: passed.

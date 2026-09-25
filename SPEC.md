@@ -669,6 +669,7 @@ Resolution rules:
 - A clip window that extends past either end of the master is clamped to it, with a warning.
 - A clamped window that is not positive fails with `DERIVATIVE_WINDOW_EMPTY`.
 - A still or thumbnail time past the master is clamped to its last frame, with a warning.
+- Clamping applies only to times that involve an anchor. Times given only in seconds are used exactly as written, as in V1, so a numeric still past the end of the master still fails.
 - These failures follow the required/optional rule above: they fail the job for a required derivative and become a warning for an optional one.
 - Each preset derivative produces at most one output. A later option may produce one clip per match; it is not part of this set.
 

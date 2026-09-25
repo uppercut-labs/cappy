@@ -25,7 +25,17 @@
       "derivatives": [
         { "kind": "mp4", "role": "delivery", "options": { "crf": 20, "preset": "medium" } },
         { "kind": "clip", "role": "highlight", "options": { "start": 1.5, "duration": 4 } },
+        {
+          "kind": "clip",
+          "role": "moment",
+          "required": false,
+          "options": {
+            "start": { "event": "SPELL_CAST", "offset": -2, "where": { "spell": "fireball" } },
+            "end": { "event": "IMPACT", "offset": 1 }
+          }
+        },
         { "kind": "thumbnail", "role": "thumb", "options": { "at": 2, "width": 640 } },
+        { "kind": "still", "role": "impact", "required": false, "options": { "at": { "event": "IMPACT", "occurrence": "last" } } },
         { "kind": "still", "role": "poster", "required": false, "options": { "at": 2 } }
       ]
     },

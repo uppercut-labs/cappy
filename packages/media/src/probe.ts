@@ -8,11 +8,20 @@ export interface MediaInfo {
   readonly height?: number;
   readonly videoCodec?: string;
   readonly audioCodec?: string;
+  /** Frames per second of the video stream, when ffprobe reports one. */
+  readonly frameRate?: number;
 }
 
 interface ProbeJson {
   format?: { format_name?: string; duration?: string };
-  streams?: { codec_type?: string; codec_name?: string; width?: number; height?: number }[];
+  streams?: { codec_type?: string; codec_name?: string; width?: number; height?: number; avg_frame_rate?: string; r_frame_rate?: string }[];
+}
+
+/** Parse ffprobe's `30000/1001`-style rate; `0/0` and malformed rates are unknown. */
+function frameRateOf(rate: string | undefined): number | undefined {
+  const [numerator, denominator] = (rate ?? "").split("/").map(Number);
+  const value = denominator === undefined ? numerator : (numerator ?? Number.NaN) / denominator;
+  return value !== undefined && Number.isFinite(value) && value > 0 ? value : undefined;
 }
 
 /**
@@ -44,6 +53,7 @@ export async function probeMedia(ffprobe: string, file: string, options: { timeo
   }
   const audio = parsed.streams?.find((stream) => stream.codec_type === "audio");
   const seconds = Number(parsed.format?.duration);
+  const frameRate = frameRateOf(video.avg_frame_rate) ?? frameRateOf(video.r_frame_rate);
   return ok({
     formatName: parsed.format?.format_name ?? "unknown",
     ...(Number.isFinite(seconds) && seconds > 0 ? { durationMs: Math.round(seconds * 1000) } : {}),
@@ -51,5 +61,6 @@ export async function probeMedia(ffprobe: string, file: string, options: { timeo
     ...(video.height === undefined ? {} : { height: video.height }),
     ...(video.codec_name === undefined ? {} : { videoCodec: video.codec_name }),
     ...(audio?.codec_name === undefined ? {} : { audioCodec: audio.codec_name }),
+    ...(frameRate === undefined ? {} : { frameRate }),
   });
 }

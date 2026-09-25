@@ -42,7 +42,8 @@ Make a project directory anywhere and add `cappy.config.json`. Start from [cappy
     "trailer": {
       "derivatives": [
         { "kind": "mp4", "role": "delivery" },
-        { "kind": "thumbnail", "role": "thumb", "options": { "at": 1 } }
+        { "kind": "thumbnail", "role": "thumb", "options": { "at": 1 } },
+        { "kind": "still", "role": "settled", "required": false, "options": { "at": { "event": "SETTLED" } } }
       ]
     }
   },
@@ -56,6 +57,7 @@ Make a project directory anywhere and add `cappy.config.json`. Start from [cappy
   - Windows PowerShell: `$env:CAPPY_OBS_PASSWORD = '…'`
 - If OBS authentication is off, remove `passwordEnv`.
 - Add `.cappy/` to the project's `.gitignore`.
+- The `settled` still is anchored to the demo's `SETTLED` event rather than a fixed second. It is optional because only `orb_launch` emits that event. See [presets.md](presets.md) for anchors.
 
 ## 4. Check the setup
 

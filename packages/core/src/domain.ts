@@ -221,6 +221,17 @@ export const artifactSchema = z.strictObject({
   durationMs: z.number().nonnegative().optional(),
   width: z.int().positive().optional(),
   height: z.int().positive().optional(),
+  /** A clip's resolved window on the master, with the anchoring events' IDs. */
+  window: z
+    .strictObject({
+      startMs: z.number().nonnegative(),
+      endMs: z.number().nonnegative(),
+      startEventId: nonEmpty.optional(),
+      endEventId: nonEmpty.optional(),
+    })
+    .optional(),
+  /** A still's or thumbnail's resolved frame time on the master, with the anchoring event's ID. */
+  at: z.strictObject({ ms: z.number().nonnegative(), eventId: nonEmpty.optional() }).optional(),
 });
 export type Artifact = z.output<typeof artifactSchema>;
 

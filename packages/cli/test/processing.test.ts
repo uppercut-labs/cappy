@@ -131,6 +131,84 @@ describe("derivatives and manifests", () => {
     expect(harness.obs.requests.map((request) => request.requestType)).not.toContain("StartRecord");
   });
 
+  it("cuts event-anchored clips, stills, and thumbnails and records their resolved times", async () => {
+    await configure(
+      harness,
+      {},
+      presetWith([
+        { kind: "clip", role: "highlight", options: { start: { event: "SPELL_CAST", offset: -0.2, where: { spell: "fireball" } }, end: { event: "IMPACT", offset: 0.3 } } },
+        { kind: "clip", role: "opening", options: { start: 0.5, duration: 1 } },
+        { kind: "still", role: "impact", options: { at: { event: "IMPACT" } } },
+        { kind: "thumbnail", role: "thumb", options: { at: { event: "SCENARIO_STARTED", occurrence: "last" } } },
+      ]),
+    );
+    const { code, result } = await runCli(harness, ["run", "boss_intro"]);
+    expect(code).toBe(0);
+    expect(result["warnings"]).toEqual([]);
+    const manifest = await manifestOf(result);
+    const byType = Object.fromEntries(manifest["timing"]["timeline"].map((event: { type: string }) => [event.type, event]));
+    const byRole = Object.fromEntries(manifest["artifacts"].map((artifact: { role: string }) => [artifact.role, artifact]));
+    const spell = byType["SPELL_CAST"];
+    const impact = byType["IMPACT"];
+    const round = (ms: number): number => Math.round(ms * 1000) / 1000;
+
+    expect(byRole["highlight"]["window"]).toEqual({ startMs: round(spell.t - 200), endMs: round(impact.t + 300), startEventId: spell.id, endEventId: impact.id });
+    expect(byRole["opening"]["window"]).toEqual({ startMs: 500, endMs: 1500 });
+    expect(byRole["impact"]["at"]).toEqual({ ms: impact.t, eventId: impact.id });
+    expect(byRole["thumb"]["at"]).toEqual({ ms: byType["SCENARIO_STARTED"].t, eventId: byType["SCENARIO_STARTED"].id });
+
+    // FFmpeg was asked for exactly the resolved window.
+    const args = async (role: string, extension: string): Promise<string[]> =>
+      (JSON.parse(await readFile(path.join(harness.project, ".cappy/captures", result["data"]["captureId"], `${role}.${extension}`), "utf8")) as { args: string[] }).args;
+    const highlight = await args("highlight", "mp4");
+    expect(Number(highlight[highlight.indexOf("-ss") + 1])).toBeCloseTo((spell.t - 200) / 1000, 6);
+    expect(Number(highlight[highlight.indexOf("-t") + 1])).toBeCloseTo((impact.t + 300 - (spell.t - 200)) / 1000, 6);
+    const still = await args("impact", "png");
+    expect(Number(still[still.indexOf("-ss") + 1])).toBeCloseTo(impact.t / 1000, 6);
+  });
+
+  it("fails a required derivative whose anchor never happened, and keeps the master", async () => {
+    await configure(harness, {}, presetWith([{ kind: "clip", role: "finale", options: { start: { event: "BOSS_DEFEATED" }, duration: 1 } }]));
+    const { code, result } = await runCli(harness, ["run", "boss_intro"]);
+    expect(code).toBe(1);
+    expect(result).toMatchObject({ ok: false, error: { code: "DERIVATIVE_ANCHOR_UNRESOLVED", details: { role: "finale" } }, data: { state: "failed" } });
+    expect(await captureFiles(result["data"]["captureId"])).toEqual(["manifest.json", "master.mkv"]);
+    const manifest = await manifestOf(result);
+    expect(manifest["result"]["checks"]).toContainEqual(expect.objectContaining({ name: "derivative.finale", passed: false }));
+  });
+
+  it("skips an optional derivative whose anchor never happened, with a warning", async () => {
+    await configure(
+      harness,
+      {},
+      presetWith([
+        { kind: "still", role: "finale", required: false, options: { at: { event: "IMPACT", occurrence: 2 } } },
+        { kind: "still", role: "impact", options: { at: { event: "IMPACT", offset: 60 } } },
+      ]),
+    );
+    const { code, result } = await runCli(harness, ["run", "boss_intro"]);
+    expect(code).toBe(0);
+    expect(result["warnings"]).toEqual([
+      expect.stringContaining('optional derivative "finale" was skipped: derivative "finale": no IMPACT #2 event'),
+      expect.stringMatching(/still "impact" time .* was clamped to the master \(1900 ms\)/),
+    ]);
+    const manifest = await manifestOf(result);
+    expect(manifest["artifacts"].map((artifact: { role: string }) => artifact.role)).toEqual(["master", "impact"]);
+    // Clamped to the fake master's last frame (2 s long, frame rate unknown).
+    expect(manifest["artifacts"][1]["at"]["ms"]).toBe(1900);
+  });
+
+  it("rejects invalid anchors before launching the game", async () => {
+    await configure(harness, {}, presetWith([{ kind: "clip", role: "highlight", options: { start: { event: "SPELL CAST" }, duration: 1, end: 2 } }]));
+    const { code, result } = await runCli(harness, ["run", "boss_intro"]);
+    expect(code).toBe(3);
+    expect(result["error"]).toMatchObject({
+      code: "DERIVATIVE_OPTIONS_INVALID",
+      details: { problems: expect.arrayContaining([expect.stringContaining("highlight: start"), expect.stringContaining("exactly one of duration or end")]) },
+    });
+    expect(harness.obs.requests.map((request) => request.requestType)).not.toContain("StartRecord");
+  });
+
   it("numbers takes per scenario and parameters without overwriting earlier takes", async () => {
     await configure(harness);
     const first = await runCli(harness, ["run", "boss_intro"]);
@@ -187,6 +265,28 @@ describe.runIf(process.env["CAPPY_REAL_TOOLS"] === "1")("real FFmpeg media", () 
     expect(byRole["thumb"]).toMatchObject({ mediaType: "image/jpeg", width: 160, height: 120 });
     expect(byRole["poster"]).toMatchObject({ mediaType: "image/png", width: 320, height: 240 });
     expect(manifest["tooling"]["ffmpeg"]["version"]).not.toContain("fake");
+  });
+
+  it("cuts a real anchored clip and still at the resolved times", async () => {
+    await configure(
+      harness,
+      { writeMaster: writeRealMaster },
+      {
+        tools: {},
+        ...presetWith([
+          { kind: "clip", role: "highlight", options: { start: { event: "SPELL_CAST", offset: -0.2 }, end: { event: "IMPACT", offset: 1 }, preset: "ultrafast" } },
+          { kind: "still", role: "impact", options: { at: { event: "IMPACT" } } },
+        ]),
+      },
+    );
+    const { code, result } = await runCli(harness, ["run", "boss_intro"]);
+    expect(code).toBe(0);
+    const manifest = await manifestOf(result);
+    const byRole = Object.fromEntries(manifest["artifacts"].map((artifact: { role: string }) => [artifact.role, artifact]));
+    const impact = manifest["timing"]["timeline"].find((event: { type: string }) => event.type === "IMPACT");
+    const { startMs, endMs } = byRole["highlight"]["window"];
+    expect(Math.abs(byRole["highlight"]["durationMs"] - (endMs - startMs))).toBeLessThanOrEqual(100);
+    expect(byRole["impact"]).toMatchObject({ mediaType: "image/png", width: 320, height: 240, at: { ms: impact.t, eventId: impact.id } });
   });
 
   it("fails a real required derivative that yields no frames, keeping the master", async () => {

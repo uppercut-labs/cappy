@@ -10,6 +10,7 @@ Cappy is a local developer system for reproducible game capture: authored scenar
 - Getting started (new project and Godot demo): [docs/getting-started.md](docs/getting-started.md)
 - CLI reference: [docs/cli.md](docs/cli.md)
 - Managed storage and cleanup: [docs/storage.md](docs/storage.md)
+- Capture presets and event anchors: [docs/presets.md](docs/presets.md)
 - Host acceptance status: [docs/acceptance.md](docs/acceptance.md)
 - Configuration example: [cappy.config.example.json](cappy.config.example.json)
 - Adapter protocol reference: [docs/protocol.md](docs/protocol.md)
@@ -57,7 +58,7 @@ Every `record`, `run`, and `replay` writes `logs/<correlation-id>.jsonl` in the 
 
 Exit codes: 0 success, 1 operation failed, 2 invalid usage, 3 configuration, 4 missing dependency, 70 internal error, 130 cancelled.
 
-A capture preset lists the derivatives FFmpeg makes from the verified master:
+A capture preset lists the derivatives FFmpeg makes from the verified master. Times can be fixed seconds or event anchors on the capture's timeline, as described in [docs/presets.md](docs/presets.md):
 
 ```json
 "presets": {
@@ -66,8 +67,9 @@ A capture preset lists the derivatives FFmpeg makes from the verified master:
     "derivatives": [
       { "kind": "mp4", "role": "delivery" },
       { "kind": "clip", "role": "highlight", "options": { "start": 2, "duration": 5 } },
+      { "kind": "clip", "role": "moment", "options": { "start": { "event": "SPELL_CAST", "offset": -2 }, "end": { "event": "IMPACT", "offset": 1 } } },
       { "kind": "thumbnail", "role": "thumb", "options": { "at": 3 } },
-      { "kind": "still", "role": "poster", "required": false }
+      { "kind": "still", "role": "impact", "required": false, "options": { "at": { "event": "IMPACT" } } }
     ]
   }
 }

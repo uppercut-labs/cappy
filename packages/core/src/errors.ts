@@ -58,6 +58,8 @@ export const ERROR_CODES = {
   MEDIA_PROBE_FAILED: "operation",
   DERIVATIVE_OPTIONS_INVALID: "configuration",
   DERIVATIVE_FAILED: "operation",
+  DERIVATIVE_ANCHOR_UNRESOLVED: "operation",
+  DERIVATIVE_WINDOW_EMPTY: "operation",
   MANIFEST_INVALID: "internal",
   TAKE_EXISTS: "usage",
   CLEAN_INCOMPLETE: "operation",

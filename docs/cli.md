@@ -76,7 +76,7 @@ Captures an authored scenario.
 | Option | Meaning |
 | --- | --- |
 | `-pa, --param key=value` | Scenario parameter; repeatable. Parsed and validated against the adapter's schema; defaults are applied. |
-| `-p, --preset <name>` | Capture preset (default: `defaultPreset`, or a master-only preset). |
+| `-p, --preset <name>` | Capture preset (default: `defaultPreset`, or a master-only preset). See [presets.md](presets.md) for derivatives and event anchors. |
 | `-t, --take <n>` | Explicit take number. Fails with `TAKE_EXISTS` if that take already succeeded. |
 
 Pipeline: preflight (config, preset options, FFmpeg/ffprobe, workspace, OBS scene and idle state) before the game launches; scenario and parameter validation; take allocation; scenario session record; `ready`; confirmed OBS start; scenario start; events; completion; confirmed OBS stop; verified master moved into `captures/<capture-id>/`; ffprobe; derivatives; manifest. `data.state` is `succeeded` only when everything passed. Ctrl+C cancels (exit 130) and stops the recording Cappy started.

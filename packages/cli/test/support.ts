@@ -23,7 +23,8 @@ console.log(JSON.stringify({ format: { format_name: "matroska,webm", duration: "
  * Fake ffmpeg: writes its output file (the last argument). The derivative
  * role, which appears in the output file name, selects a failure mode:
  * fail-* exits 1, empty-* writes an empty file, missing-* writes nothing,
- * corrupt-* writes bytes the fake ffprobe rejects.
+ * corrupt-* writes bytes the fake ffprobe rejects. Otherwise the output is
+ * JSON recording the arguments, so tests can check seek times.
  */
 const FAKE_FFMPEG = `const fs = require("node:fs");
 const path = require("node:path");
@@ -35,7 +36,7 @@ if (name.startsWith(".fail-")) { console.error("Conversion failed!"); process.ex
 if (name.startsWith(".empty-")) fs.writeFileSync(output, "");
 else if (name.startsWith(".missing-")) {}
 else if (name.startsWith(".corrupt-")) fs.writeFileSync(output, "CORRUPT\\n");
-else fs.writeFileSync(output, "derived from input\\n");
+else fs.writeFileSync(output, JSON.stringify({ derivedFrom: "input", args }) + "\\n");
 `;
 
 /**

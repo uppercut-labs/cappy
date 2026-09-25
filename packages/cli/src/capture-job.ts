@@ -443,6 +443,11 @@ export async function executeCapture(
         ffmpeg: { path: setup.tools.ffmpeg?.path ?? "ffmpeg", version: setup.tools.ffmpeg?.version ?? "unknown" },
         ffprobe: setup.tools.ffprobe?.path ?? "ffprobe",
         timeoutMs: config.timeouts.processMs,
+        timing: {
+          timeline,
+          ...(probe.value.durationMs === undefined ? {} : { masterDurationMs: probe.value.durationMs }),
+          ...(probe.value.frameRate === undefined ? {} : { frameRate: probe.value.frameRate }),
+        },
       });
       if (!produced.ok) {
         log.record("derivative.failed", { role: derivative.role, required: derivative.required, code: produced.error.code });
@@ -453,7 +458,8 @@ export async function executeCapture(
         warnings.push(`optional derivative "${derivative.role}" was skipped: ${produced.error.message}`);
         continue;
       }
-      const { media, ...artifact } = produced.value;
+      const { media, warnings: timingWarnings, ...artifact } = produced.value;
+      warnings.push(...timingWarnings);
       artifacts.push(artifact);
       checks.push({ name: `derivative.${derivative.role}`, passed: true });
       log.record("derivative.published", { role: derivative.role, path: artifact.path, format: media.formatName });
