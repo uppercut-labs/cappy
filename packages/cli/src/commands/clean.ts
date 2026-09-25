@@ -53,7 +53,7 @@ export async function clean(context: CommandContext): Promise<CommandResult<Clea
   const bulk = { failed: flag("failed"), logs: flag("logs"), all: flag("all") };
   const dryRun = flag("dry-run");
   if (ids.length === 0 && !bulk.failed && !bulk.logs && !bulk.all && olderThanFlag === undefined) {
-    return usage("choose what to clean: item IDs, --failed, --logs, --all, or --older-than <age>", context.correlationId);
+    return usage("choose what to clean: capture, session, or comparison IDs, --failed, --logs, --all, or --older-than <age>", context.correlationId);
   }
   let maxAgeMs: number | undefined;
   if (typeof olderThanFlag === "string") {
@@ -85,6 +85,7 @@ export async function clean(context: CommandContext): Promise<CommandResult<Clea
       case "session":
         return item.record.state === "ok" && item.record.status === "active" && live.has(item.record.correlationId);
       case "capture":
+      case "comparison":
         return item.record.state === "none" && live.size > 0;
       case "log":
         return live.has(item.id);
@@ -96,6 +97,8 @@ export async function clean(context: CommandContext): Promise<CommandResult<Clea
         return item.record.state === "none" || (item.record.state === "ok" && item.record.status !== "succeeded");
       case "session":
         return item.record.state === "ok" && item.record.status !== "completed";
+      case "comparison":
+        return item.record.state === "none" || (item.record.state === "ok" && item.record.status === "failed");
       case "log":
         return false;
     }

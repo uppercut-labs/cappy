@@ -10,6 +10,7 @@ import {
   serializeCommandResult,
 } from "@cappy/core";
 import { type CleanReport, clean } from "./commands/clean.js";
+import { type CompareReport, compare } from "./commands/compare.js";
 import { type DoctorReport, doctor } from "./commands/doctor.js";
 import { type RecordReport, record } from "./commands/record.js";
 import { type ReplayReport, replay } from "./commands/replay.js";
@@ -17,7 +18,7 @@ import { type RunReport, run } from "./commands/run.js";
 import { type ScenariosReport, scenarios } from "./commands/scenarios.js";
 import { type CliIO, type CommandContext, noInterrupts } from "./context.js";
 import { parseOptions, translateShorthands } from "./flags.js";
-import { renderClean, renderDoctor, renderError, renderRecord, renderReplay, renderRun, renderScenarios } from "./render.js";
+import { renderClean, renderCompare, renderDoctor, renderError, renderRecord, renderReplay, renderRun, renderScenarios } from "./render.js";
 
 export const HELP = `Usage: cappy <command> [options]
 
@@ -27,7 +28,8 @@ Commands:
   run <scenario>       Capture an authored scenario with OBS, FFmpeg derivatives, and a manifest
   record               Record a freeform, replayable session (Enter stops, Ctrl+C cancels)
   replay <session-id>  Capture a stored session's replay (or --no-capture to only play it)
-  clean [<id>...]      Delete captures, sessions, or logs Cappy created (--dry-run previews)
+  compare <a> <b>      Compare two captures of the same source: triptych video and SSIM/PSNR
+  clean [<id>...]      Delete captures, sessions, comparisons, or logs Cappy created (--dry-run previews)
 
 Command options:
   -pa, --param <key=value>   run: scenario parameter (repeatable)
@@ -39,7 +41,8 @@ Command options:
   -f,  --failed              clean: failed, cancelled, and interrupted captures and sessions
   -ot, --older-than <age>    clean: only items older than an age such as 90m, 12h, 7d, 2w
   -l,  --logs                clean: command logs
-  -a,  --all                 clean: every capture, session, and log
+  -a,  --all                 clean: every capture, session, comparison, and log
+  -ms, --min-ssim <score>    compare: record "regressed" and exit 1 when mean SSIM is below 0..1
   -dr, --dry-run             clean: report what would be removed without deleting anything
 
 Options:
@@ -85,10 +88,14 @@ const COMMANDS: Record<string, Command<unknown>> = {
     run: clean,
     render: (result) => renderClean(result as CommandResult<CleanReport>),
   } as Command<unknown>,
+  compare: {
+    run: compare,
+    render: (result) => renderCompare(result as CommandResult<CompareReport>),
+  } as Command<unknown>,
 };
 
 /** Commands that take positional arguments after their name. */
-const TAKES_ARGUMENTS = new Set(["replay", "run", "clean"]);
+const TAKES_ARGUMENTS = new Set(["replay", "run", "clean", "compare"]);
 
 /** Run the CLI in-process and return the exit code. */
 export async function main(argv: readonly string[], io: CliIO): Promise<number> {

@@ -6,7 +6,7 @@ import type { ManagedFile, ManagedWorkspace } from "@cappy/workspace";
 import { z } from "zod";
 
 /** The units `cappy clean` selects (SPEC 11.7). */
-export type ItemKind = "capture" | "session" | "log";
+export type ItemKind = "capture" | "session" | "comparison" | "log";
 
 /** What a capture's manifest says, read leniently so a newer or damaged manifest is still recognized. */
 export type CaptureRecord =
@@ -32,6 +32,11 @@ export type SessionRecord =
       readonly correlationId: string;
     };
 
+export type ComparisonRecord =
+  | { readonly state: "none" }
+  | { readonly state: "unreadable" }
+  | { readonly state: "ok"; readonly status: "succeeded" | "regressed" | "failed"; readonly createdAt: string };
+
 interface ItemBase {
   readonly id: string;
   /** Root-relative directory of a capture or session; logs have none. */
@@ -45,6 +50,7 @@ interface ItemBase {
 export type WorkspaceItem =
   | (ItemBase & { readonly kind: "capture"; readonly directory: string; readonly record: CaptureRecord })
   | (ItemBase & { readonly kind: "session"; readonly directory: string; readonly record: SessionRecord })
+  | (ItemBase & { readonly kind: "comparison"; readonly directory: string; readonly record: ComparisonRecord })
   | (ItemBase & { readonly kind: "log" });
 
 const leniently = z.iso.datetime({ offset: true });
@@ -53,6 +59,11 @@ const captureManifest = z.object({
   status: z.enum(["succeeded", "failed", "cancelled"]),
   identity: z.object({ take: z.int().positive(), source: captureSourceSchema, sessionId: z.string().min(1) }),
   timing: z.object({ startedAt: leniently }),
+});
+
+const comparisonManifest = z.object({
+  status: z.enum(["succeeded", "regressed", "failed"]),
+  createdAt: leniently,
 });
 
 const sessionMetadata = z.object({
@@ -75,7 +86,7 @@ async function readJson<T>(file: ManagedFile | undefined, schema: z.ZodType<T>):
 }
 
 /** Item directories under an area: those on disk plus those the registry still lists. */
-async function itemIds(workspace: ManagedWorkspace, area: "captures" | "sessions"): Promise<string[]> {
+async function itemIds(workspace: ManagedWorkspace, area: "captures" | "sessions" | "comparisons"): Promise<string[]> {
   const ids = new Set<string>();
   const entries = await readdir(workspace.area(area), { withFileTypes: true }).catch(() => [] as Dirent[]);
   for (const entry of entries) {
@@ -107,7 +118,7 @@ async function fallbackCreatedAt(workspace: ManagedWorkspace, files: readonly Ma
   return new Date();
 }
 
-/** Every capture, session, and command log in the workspace. */
+/** Every capture, session, comparison, and command log in the workspace. */
 export async function readInventory(workspace: ManagedWorkspace): Promise<WorkspaceItem[]> {
   const items: WorkspaceItem[] = [];
   for (const id of await itemIds(workspace, "captures")) {
@@ -127,6 +138,13 @@ export async function readInventory(workspace: ManagedWorkspace): Promise<Worksp
     const record: SessionRecord = await readJson(workspace.managed(`${directory}/session.json`), sessionMetadata);
     const createdAt = record.state === "ok" ? new Date(record.startedAt) : await fallbackCreatedAt(workspace, files, directory);
     items.push({ id, kind: "session", directory, files, createdAt, record });
+  }
+  for (const id of await itemIds(workspace, "comparisons")) {
+    const directory = `comparisons/${id}`;
+    const files = workspace.listManaged(`${directory}/`);
+    const record: ComparisonRecord = await readJson(workspace.managed(`${directory}/manifest.json`), comparisonManifest);
+    const createdAt = record.state === "ok" ? new Date(record.createdAt) : await fallbackCreatedAt(workspace, files, directory);
+    items.push({ id, kind: "comparison", directory, files, createdAt, record });
   }
   for (const file of workspace.listManaged("logs/")) {
     const name = file.path.slice("logs/".length);

@@ -546,14 +546,15 @@ Compares two existing captures of the same source, usually replay captures of on
 
 Eligibility, checked before any media work:
 
-- The two IDs must be different (`USAGE_INVALID`), and each must name a capture in this workspace (`CAPTURE_NOT_FOUND`).
+- The two IDs must be different (`USAGE_INVALID`, exit 2), and each must name a capture in this workspace (`CAPTURE_NOT_FOUND`, exit 2). `--min-ssim` outside 0 to 1 is `USAGE_INVALID`.
 - Both captures must have `succeeded` manifests, with the same source: replay captures of the same session, or scenario captures with the same scenario ID and resolved parameters (the take-grouping key of section 16). Otherwise the command fails with `COMPARE_INCOMPATIBLE`.
-- Each master must still match its manifest's SHA-256 and size (`COMPARE_INPUT_INVALID`).
+- Each master must still match its manifest's SHA-256 and size, and each timeline must hold its operation's start and completion events (`COMPARE_INPUT_INVALID`).
+- `COMPARE_INCOMPATIBLE` and `COMPARE_INPUT_INVALID` exit 1. None of these checks creates a comparison directory.
 - When both captures report the same `gameBuild`, or neither reports one, the result carries a warning.
 
 Alignment: in each capture, the operation's start event (`SCENARIO_STARTED` or `REPLAY_STARTED`) is time zero. The compared span is the shorter of the two operations, measured from `<LABEL>_STARTED` to `<LABEL>_COMPLETED`, and also bounded by each master's remaining duration. A span that is not positive fails with `COMPARE_INPUT_INVALID`.
 
-Normalization: B is scaled to A's width and height, and both are sampled at A's frame rate. The manifest records the resulting size and rate, and whether B was scaled.
+Normalization: B is scaled to A's width and height, and both are sampled at A's frame rate (30 when ffprobe reports none). The manifest records the resulting size and rate, and whether B was scaled.
 
 Outputs, in `comparisons/<comparison-id>/`, all published as managed files:
 
@@ -568,7 +569,7 @@ Timeline diff: the adapter events (`source: "adapter"`) of the two captures, wit
 
 Gate: without `--min-ssim`, a completed comparison is `succeeded` and exits 0. With `--min-ssim <score>` (0 to 1), a comparison whose mean SSIM is below the score is recorded as `regressed`, keeps every output, and exits 1 with `COMPARISON_REGRESSED`. Its details carry the scores and the manifest path.
 
-Failure: any FFmpeg or ffprobe failure writes a `failed` comparison manifest with the error and the checks that ran, and publishes no partial output. A rejected partial output, which Cappy itself just created, is removed.
+Failure: once media work starts, a failed ffprobe of a master (`MEDIA_PROBE_FAILED`) or a failed FFmpeg run, missing or unprobeable triptych, or unreadable statistics (`COMPARISON_FAILED`) writes a `failed` comparison manifest with the error and the checks that ran, and exits 1. No partial output is published. Partial files, which Cappy itself just created, are removed. FFmpeg runs inside the comparison directory and writes its statistics there under unique partial names.
 
 The comparison manifest (`comparisonVersion: 1`) records:
 

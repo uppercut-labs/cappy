@@ -20,6 +20,7 @@ export const FLAGS = {
   "older-than": { type: "string", short: "ot" },
   logs: { type: "boolean", short: "l" },
   all: { type: "boolean", short: "a" },
+  "min-ssim": { type: "string", short: "ms" },
 } as const satisfies Record<string, FlagSpec>;
 
 export interface FlagSpec {

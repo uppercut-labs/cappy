@@ -206,6 +206,24 @@ export class ManagedWorkspace {
       .map(([key, entry]) => ({ path: key, hostPath: toHostPath(this.root, key), entry }));
   }
 
+  /**
+   * Create a directory inside the managed root, with the same link and escape
+   * checks as a managed write, and return its host path. Tools that must run
+   * inside an item's directory use this before writing partial files there.
+   */
+  async ensureDirectory(relativePath: string): Promise<Result<string>> {
+    try {
+      const normalized = normalizeManagedPath(relativePath);
+      const hostPath = toHostPath(this.root, normalized);
+      await assertNoLinkedComponents(this.root, normalized);
+      await mkdir(hostPath, { recursive: true });
+      await assertRealPathWithin(this.root, hostPath, normalized);
+      return ok(hostPath);
+    } catch (cause) {
+      return err(failure(cause, relativePath));
+    }
+  }
+
   reference(hostPath: string): ReferenceEntry | undefined {
     return this.registry.references[path.resolve(hostPath)];
   }

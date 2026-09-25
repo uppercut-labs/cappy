@@ -103,16 +103,44 @@ Captures a stored session's replay through the same pipeline as `run`, with a ma
 
 Before anything launches, the stored payload must still match its SHA-256 and the session must belong to this project. After the handshake, the adapter must match the recording adapter and advertise the capabilities the replay needs (`replay`, plus `deterministic_replay` when the recording had it). A different game build only warns.
 
-## `cappy clean [<id>...]`
+## `cappy compare <capture-a> <capture-b>`
 
-Deletes captures, sessions, and logs that Cappy created, at once. See [storage.md](storage.md#cappy-clean) for exactly what each item covers and what is protected.
+Compares two successful captures of the same source. Usually these are replay captures of one session, made with two game builds. A is the reference.
+
+```bash
+cappy replay ses_…                       # with build 1
+cappy replay ses_…                       # with build 2
+cappy compare cap_A cap_B --min-ssim 0.97
+```
 
 | Option | Meaning |
 | --- | --- |
-| `<id>...` | Capture (`cap_…`) or session (`ses_…`) IDs. |
-| `-f, --failed` | Failed, cancelled, and interrupted captures and sessions. |
+| `-ms, --min-ssim <score>` | Record the comparison as `regressed`, and exit 1 with `COMPARISON_REGRESSED`, when mean SSIM is below this score (0 to 1). Without it, scores are informational. |
+
+What `compare` does:
+
+- Both captures must be `succeeded` and share a source: the same replayed session, or the same scenario with the same parameters. Their masters must still match their manifests. Anything else is refused before any media work: `COMPARE_INCOMPATIBLE` or `COMPARE_INPUT_INVALID` (exit 1), and `CAPTURE_NOT_FOUND` or `USAGE_INVALID` (exit 2).
+- Each capture's `SCENARIO_STARTED` or `REPLAY_STARTED` is time zero. The compared span is the shorter of the two operations.
+- B is scaled to A's size, and both are sampled at A's frame rate.
+- Results go under `comparisons/<cmp-id>/`:
+  - `triptych.mp4`: A, B, and their difference amplified four times, side by side;
+  - `frames.json`: per-frame SSIM and PSNR;
+  - `manifest.json`.
+- It needs FFmpeg and ffprobe, and exits 4 without them. It never launches the game or touches OBS.
+- A warning notes when both captures report the same game build, or neither reports one.
+
+`data` carries the comparison ID, `status` (`succeeded`, `regressed`, or `failed`), both captures with their aligned starts, `alignment`, `normalization`, `scores` (SSIM mean, min and its time; PSNR mean and min, `null` when every frame is identical), the artifacts, and the manifest path. A failed FFmpeg run exits 1 with `COMPARISON_FAILED` and leaves only a `failed` manifest.
+
+## `cappy clean [<id>...]`
+
+Deletes captures, sessions, comparisons, and logs that Cappy created, at once. See [storage.md](storage.md#cappy-clean) for exactly what each item covers and what is protected.
+
+| Option | Meaning |
+| --- | --- |
+| `<id>...` | Capture (`cap_…`), session (`ses_…`), or comparison (`cmp_…`) IDs. |
+| `-f, --failed` | Failed, cancelled, and interrupted captures, sessions, and comparisons. |
 | `-l, --logs` | Every command log. |
-| `-a, --all` | Every capture, session, and log. |
+| `-a, --all` | Every capture, session, comparison, and log. |
 | `-ot, --older-than <age>` | Only bulk-selected items older than an age such as `90m`, `12h`, `7d`, or `2w`. Alone, it applies to `--all`. It cannot be combined with IDs. |
 | `-dr, --dry-run` | Report what would be removed and change nothing. |
 

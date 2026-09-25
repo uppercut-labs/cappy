@@ -48,13 +48,14 @@ npx cappy replay <session-id>              # capture the replay: OBS master, der
 npx cappy replay <session-id> --no-capture # only play it back
 npx cappy run boss_intro --take 3          # explicit take; never overwrites an existing one
 npx cappy run boss_intro -pa difficulty=3 -p trailer -j   # every flag has a whole-token shorthand
+npx cappy compare <capture-a> <capture-b> --min-ssim 0.97  # triptych video + SSIM/PSNR; exit 1 if regressed
 npx cappy clean --failed --dry-run         # preview removing failed and interrupted leftovers
 npx cappy clean cap_…                      # remove a capture; its take number is never reissued
 ```
 
 Shorthands use initials for multi-word flags (`-nc` is `--no-capture`) and are never grouped; [docs/cli.md](docs/cli.md#shorthands) lists them all.
 
-Every `record`, `run`, and `replay` writes `logs/<correlation-id>.jsonl` in the managed workspace; the same correlation ID appears in the command's JSON result, sessions, manifest, and timeline events.
+Every `record`, `run`, `replay`, and `compare` writes `logs/<correlation-id>.jsonl` in the managed workspace; the same correlation ID appears in the command's JSON result, sessions, manifest, and timeline events.
 
 Exit codes: 0 success, 1 operation failed, 2 invalid usage, 3 configuration, 4 missing dependency, 70 internal error, 130 cancelled.
 
@@ -100,6 +101,6 @@ The Godot addon lives in [adapters/godot](adapters/godot/README.md). `npm run go
 | `@cappy/protocol` | Versioned loopback WebSocket protocol: message schemas, handshake and capability negotiation, operation state, heartbeats. |
 | `@cappy/adapter-simulator` (`fixtures/`) | Deterministic protocol-speaking adapter used as an acceptance fixture. |
 | `@cappy/obs` | OBS WebSocket v5 client and recorder: password authentication, the doctor probe, confirmed start/stop, and master verification. |
-| `@cappy/media` | FFmpeg/ffprobe discovery, ffprobe validation, and atomic derivative production. |
-| `@cappy/cli` | The `cappy` command: argument parsing, human and `--json` output, `doctor`, `scenarios`, and game launch. |
+| `@cappy/media` | FFmpeg/ffprobe discovery, ffprobe validation, atomic derivative production with event anchors, and capture comparison (SSIM/PSNR, triptych). |
+| `@cappy/cli` | The `cappy` command: argument parsing and shorthands, human and `--json` output, every command (`doctor` through `compare` and `clean`), and game launch. |
 | `@cappy/fake-obs` (`fixtures/`) | Fake OBS WebSocket v5 server for automated tests. |

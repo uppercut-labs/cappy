@@ -12,7 +12,7 @@ const nonEmpty = z.string().min(1);
 const isoTimestamp = z.iso.datetime({ offset: true });
 export const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/, "expected a lowercase hex SHA-256 digest");
 
-export function newId(prefix: "ses" | "cap" | "evt" | "job"): string {
+export function newId(prefix: "ses" | "cap" | "cmp" | "evt" | "job"): string {
   return `${prefix}_${randomUUID()}`;
 }
 
@@ -317,3 +317,81 @@ export const manifestSchema = z
     }
   });
 export type ArtifactManifest = z.output<typeof manifestSchema>;
+
+// ---------------------------------------------------------------------------
+// Comparison Manifest
+
+export const COMPARISON_MANIFEST_VERSION = 1;
+export const COMPARISON_STATUSES = ["succeeded", "regressed", "failed"] as const;
+export type ComparisonStatus = (typeof COMPARISON_STATUSES)[number];
+
+const comparedCaptureSchema = z.strictObject({
+  captureId: nonEmpty,
+  take: z.int().positive(),
+  gameBuild: nonEmpty.optional(),
+  master: z.strictObject({ path: nonEmpty, sha256: sha256Schema }),
+  /** The operation start event's time on this capture's master, in milliseconds. */
+  alignedStartMs: z.number().nonnegative(),
+});
+
+export const comparisonManifestSchema = z
+  .strictObject({
+    comparisonVersion: z.literal(COMPARISON_MANIFEST_VERSION),
+    status: z.enum(COMPARISON_STATUSES),
+    identity: z.strictObject({
+      comparisonId: nonEmpty,
+      project: z.strictObject({ id: nonEmpty, name: nonEmpty }),
+      /** The source both captures share. */
+      source: captureSourceSchema,
+      correlationId: nonEmpty,
+    }),
+    createdAt: isoTimestamp,
+    /** The reference capture. */
+    a: comparedCaptureSchema,
+    /** The capture compared against the reference. */
+    b: comparedCaptureSchema,
+    alignment: z.strictObject({ event: nonEmpty, spanMs: z.number().positive() }),
+    normalization: z
+      .strictObject({ width: z.int().positive(), height: z.int().positive(), frameRate: z.number().positive(), scaledB: z.boolean() })
+      .optional(),
+    scores: z
+      .strictObject({
+        frames: z.int().positive(),
+        ssim: z.strictObject({ mean: z.number().min(0).max(1), min: z.number().min(0).max(1), minAtMs: z.number().nonnegative() }),
+        /** Over frames with a finite PSNR; null when every frame is identical. */
+        psnr: z.strictObject({ mean: z.number().nullable(), min: z.number().nullable() }),
+      })
+      .optional(),
+    threshold: z.strictObject({ minSsim: z.number().min(0).max(1) }).optional(),
+    artifacts: z.array(artifactSchema),
+    tooling: z.strictObject({ ffmpeg: toolVersionSchema, ffprobe: toolVersionSchema }),
+    result: z.strictObject({
+      warnings: z.array(z.string()).default([]),
+      checks: z.array(verificationCheckSchema),
+      error: z.strictObject({ code: nonEmpty, message: nonEmpty }).optional(),
+    }),
+  })
+  .superRefine((manifest, ctx) => {
+    if (manifest.status === "failed") {
+      if (manifest.result.error === undefined) {
+        ctx.addIssue({ code: "custom", path: ["result", "error"], message: "failed comparisons must record their error" });
+      }
+      return;
+    }
+    // A completed comparison must be unambiguous evidence.
+    if (manifest.result.error !== undefined) {
+      ctx.addIssue({ code: "custom", path: ["result", "error"], message: "completed comparisons cannot carry an error" });
+    }
+    if (manifest.scores === undefined || manifest.normalization === undefined) {
+      ctx.addIssue({ code: "custom", path: ["scores"], message: "completed comparisons require scores and normalization" });
+      return;
+    }
+    if (manifest.result.checks.length === 0 || manifest.result.checks.some((check) => !check.passed)) {
+      ctx.addIssue({ code: "custom", path: ["result", "checks"], message: "completed comparisons require every check to pass" });
+    }
+    const below = manifest.threshold !== undefined && manifest.scores.ssim.mean < manifest.threshold.minSsim;
+    if (below !== (manifest.status === "regressed")) {
+      ctx.addIssue({ code: "custom", path: ["status"], message: "a comparison is regressed exactly when its mean SSIM is below its threshold" });
+    }
+  });
+export type ComparisonManifest = z.output<typeof comparisonManifestSchema>;

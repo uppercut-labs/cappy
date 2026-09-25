@@ -63,6 +63,11 @@ export const ERROR_CODES = {
   MANIFEST_INVALID: "internal",
   TAKE_EXISTS: "usage",
   CLEAN_INCOMPLETE: "operation",
+  CAPTURE_NOT_FOUND: "usage",
+  COMPARE_INCOMPATIBLE: "operation",
+  COMPARE_INPUT_INVALID: "operation",
+  COMPARISON_FAILED: "operation",
+  COMPARISON_REGRESSED: "operation",
   INTERNAL_ERROR: "internal",
 } as const satisfies Record<string, ErrorCategory>;
 

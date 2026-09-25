@@ -1,5 +1,6 @@
 import type { CappyError, CommandResult } from "@cappy/core";
 import type { CleanReport } from "./commands/clean.js";
+import type { CompareReport } from "./commands/compare.js";
 import type { DoctorReport } from "./commands/doctor.js";
 import type { RecordReport } from "./commands/record.js";
 import type { ReplayReport } from "./commands/replay.js";
@@ -169,6 +170,41 @@ export function renderClean(result: CommandResult<CleanReport>): string {
   }
   for (const { target, reason } of report.refused) {
     lines.push(`Refused: ${target} (${reason})`);
+  }
+  return `${lines.join("\n")}\n`;
+}
+
+export function renderCompare(result: CommandResult<CompareReport>): string {
+  const report = result.data;
+  if (report?.comparisonId === undefined) {
+    return "";
+  }
+  const subject = report.source.kind === "scenario" ? `scenario ${report.source.scenarioId}` : `replay of ${report.source.sessionId}`;
+  const build = (build?: string): string => (build === undefined ? "" : `, build ${build}`);
+  const lines = [
+    `Comparison ${report.comparisonId}: ${report.status ?? "failed"} (${subject})`,
+    `  A ${report.a.captureId} (take ${report.a.take}${build(report.a.gameBuild)})`,
+    `  B ${report.b.captureId} (take ${report.b.take}${build(report.b.gameBuild)})`,
+  ];
+  const normalization = report.normalization;
+  lines.push(
+    `Aligned on ${report.alignment.event}, ${report.alignment.spanMs} ms${
+      normalization === undefined ? "" : ` at ${normalization.width}x${normalization.height}, ${Math.round(normalization.frameRate * 100) / 100} fps${normalization.scaledB ? " (B scaled to A)" : ""}`
+    }`,
+  );
+  const scores = report.scores;
+  if (scores !== undefined) {
+    const psnr = scores.psnr.mean === null ? "identical frames" : `mean ${scores.psnr.mean.toFixed(2)} dB, min ${String(scores.psnr.min?.toFixed(2))} dB`;
+    lines.push(`SSIM mean ${scores.ssim.mean.toFixed(4)}, min ${scores.ssim.min.toFixed(4)} at ${scores.ssim.minAtMs} ms; PSNR ${psnr} over ${scores.frames} frame(s)`);
+  }
+  if (report.threshold !== undefined) {
+    lines.push(`Threshold: mean SSIM >= ${report.threshold.minSsim}`);
+  }
+  for (const artifact of report.artifacts) {
+    lines.push(`  ${artifact.role.padEnd(9)} ${artifact.path}`);
+  }
+  if (report.manifest !== undefined) {
+    lines.push(`Manifest: ${report.manifest}`);
   }
   return `${lines.join("\n")}\n`;
 }

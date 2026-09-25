@@ -3,7 +3,7 @@ import { homedir } from "node:os";
 import path from "node:path";
 
 /** Semantic storage areas inside a managed root (SPEC section 7). */
-export const STORAGE_AREAS = ["sessions", "captures", "cache", "logs"] as const;
+export const STORAGE_AREAS = ["sessions", "captures", "comparisons", "cache", "logs"] as const;
 export type StorageArea = (typeof STORAGE_AREAS)[number];
 
 export const REGISTRY_FILENAME = "cappy-workspace.json";

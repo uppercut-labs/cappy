@@ -8,15 +8,20 @@ import { FakeObsServer, type FakeObsOptions } from "@cappy/fake-obs";
 export const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 export const simulatorBin = path.join(repoRoot, "fixtures/adapter-simulator/dist/bin.js");
 
-/** Fake ffprobe: valid JSON for any file unless its content contains CORRUPT. */
+/**
+ * Fake ffprobe: valid JSON for any file unless its content contains CORRUPT.
+ * Content starting with SIZE:<w>x<h> reports that video size.
+ */
 const FAKE_FFPROBE = `const fs = require("node:fs");
 const args = process.argv.slice(2);
 if (args[0] === "-hide_banner") { console.log("ffprobe version 9.9.9-fake"); process.exit(0); }
 let text = "";
 try { text = fs.readFileSync(args[args.length - 1], "utf8"); } catch {}
 if (text.includes("CORRUPT")) { console.error("Invalid data found when processing input"); process.exit(1); }
+const size = /^SIZE:(\\d+)x(\\d+)/.exec(text);
 console.log(JSON.stringify({ format: { format_name: "matroska,webm", duration: "2.000" }, streams: [
-  { codec_type: "video", codec_name: "h264", width: 1280, height: 720 }, { codec_type: "audio", codec_name: "aac" } ] }));
+  { codec_type: "video", codec_name: "h264", width: size ? Number(size[1]) : 1280, height: size ? Number(size[2]) : 720 },
+  { codec_type: "audio", codec_name: "aac" } ] }));
 `;
 
 /**
@@ -24,7 +29,10 @@ console.log(JSON.stringify({ format: { format_name: "matroska,webm", duration: "
  * role, which appears in the output file name, selects a failure mode:
  * fail-* exits 1, empty-* writes an empty file, missing-* writes nothing,
  * corrupt-* writes bytes the fake ffprobe rejects. Otherwise the output is
- * JSON recording the arguments, so tests can check seek times.
+ * JSON recording the arguments, so tests can check seek times. A comparison
+ * also writes SSIM/PSNR stats files: 1.0 throughout for identical inputs, a
+ * dip at frame 2 otherwise, and a failure when the second input contains
+ * FAILCMP.
  */
 const FAKE_FFMPEG = `const fs = require("node:fs");
 const path = require("node:path");
@@ -32,6 +40,25 @@ const args = process.argv.slice(2);
 if (args[0] === "-hide_banner") { console.log("ffmpeg version 9.9.9-fake"); process.exit(0); }
 const output = args[args.length - 1];
 const name = path.basename(output);
+const graph = args[args.indexOf("-filter_complex") + 1] || "";
+if (graph.includes("ssim=stats_file=")) {
+  // A comparison: identical inputs score 1, different ones dip at frame 2.
+  const inputs = args.flatMap((arg, i) => (arg === "-i" ? [fs.readFileSync(args[i + 1], "utf8")] : []));
+  if (inputs[1].includes("FAILCMP")) { console.error("Comparison failed!"); process.exit(1); }
+  const fps = Number(/fps=([0-9.]+)/.exec(graph)[1]);
+  const frames = Math.max(3, Math.round(Number(args[args.indexOf("-t") + 1]) * fps));
+  const same = inputs[0] === inputs[1];
+  let ssim = "", psnr = "";
+  for (let n = 1; n <= frames; n++) {
+    const score = same ? 1 : n === 2 ? 0.5 : 0.99;
+    ssim += "n:" + n + " Y:" + score + " U:" + score + " V:" + score + " All:" + score.toFixed(6) + " (" + (same ? "inf" : "20.0") + ")\\n";
+    psnr += "n:" + n + " mse_avg:0.00 psnr_avg:" + (same ? "inf" : n === 2 ? "12.50" : "40.00") + " psnr_y:0\\n";
+  }
+  fs.writeFileSync(/ssim=stats_file=([^\\[]+)\\[/.exec(graph)[1], ssim);
+  fs.writeFileSync(/psnr=stats_file=([^\\[]+)\\[/.exec(graph)[1], psnr);
+  fs.writeFileSync(output, JSON.stringify({ derivedFrom: "comparison", args }) + "\\n");
+  process.exit(0);
+}
 if (name.startsWith(".fail-")) { console.error("Conversion failed!"); process.exit(1); }
 if (name.startsWith(".empty-")) fs.writeFileSync(output, "");
 else if (name.startsWith(".missing-")) {}
