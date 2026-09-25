@@ -7,6 +7,7 @@ Cappy is a local developer system for reproducible game capture: authored scenar
 - Architecture decisions: [ADR.md](ADR.md)
 - Deferred ideas: [Ideas.md](Ideas.md)
 - Living system model: [docs/system-model.dot](docs/system-model.dot)
+- Adapter protocol reference: [docs/protocol.md](docs/protocol.md)
 - Tickets: [tickets/](tickets/)
 
 ## Development
@@ -26,3 +27,5 @@ npm test            # Vitest unit and integration suites
 | --- | --- |
 | `@cappy/core` | Engine-neutral domain contracts, configuration schema and loader, structured errors, and the CLI result envelope. |
 | `@cappy/workspace` | Managed `.cappy/` workspace: storage areas, ownership registry, atomic writes, hashing, safe cleanup, and the Git-ignore warning. |
+| `@cappy/protocol` | Versioned loopback WebSocket protocol: message schemas, handshake and capability negotiation, operation state, heartbeats. |
+| `@cappy/adapter-simulator` (`fixtures/`) | Deterministic protocol-speaking adapter used as an acceptance fixture. |

@@ -292,6 +292,8 @@ A concrete file with:
 - Versioned JSON messages.
 - One Cappy controller coordinates one active game connection per capture job in V1.
 - Message schemas are validated at runtime.
+- Cappy is the listener; the game adapter connects as a client. A launched game receives `CAPPY_ENDPOINT` and a random per-launch `CAPPY_SESSION_TOKEN`, which it echoes in its hello. Connections without the token are turned away (local-session isolation, ADR-010).
+- The adapter-facing message reference is [docs/protocol.md](docs/protocol.md).
 
 ### 9.2 Handshake
 
@@ -303,7 +305,7 @@ The first valid adapter message identifies:
 - game build identity if available;
 - capabilities.
 
-Cappy chooses a compatible protocol version or closes with a clear incompatibility error.
+Cappy chooses a compatible protocol version or closes with a clear incompatibility error. Protocol versions are integer majors; V1 implements version 1. Unknown hello fields are ignored so newer adapters can still negotiate.
 
 ### 9.3 Required operation families
 

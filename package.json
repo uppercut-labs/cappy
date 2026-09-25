@@ -5,7 +5,8 @@
   "description": "Reproducible game capture: scenarios, replayable sessions, OBS recording, and FFmpeg derivatives.",
   "type": "module",
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "fixtures/adapter-simulator"
   ],
   "engines": {
     "node": ">=24"

@@ -1,4 +1,9 @@
 {
   "files": [],
-  "references": [{ "path": "packages/core" }, { "path": "packages/workspace" }]
+  "references": [
+    { "path": "packages/core" },
+    { "path": "packages/workspace" },
+    { "path": "packages/protocol" },
+    { "path": "fixtures/adapter-simulator" }
+  ]
 }

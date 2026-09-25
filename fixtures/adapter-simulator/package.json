@@ -1,0 +1,22 @@
+{
+  "name": "@cappy/adapter-simulator",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Deterministic game adapter simulator used as an acceptance fixture for the Cappy protocol.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "dependencies": {
+    "@cappy/protocol": "0.1.0",
+    "ws": "^8.21.3"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.1"
+  }
+}
