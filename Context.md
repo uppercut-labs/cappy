@@ -43,6 +43,15 @@ A developer should be able to:
 - Cappy may delete only artifacts it created and tracks as managed. Imported/external files are never deleted by Cappy.
 - The generalized commentary/replay practice viewer discussed separately is not part of Cappy.
 
+## Post-V1 Increments
+
+V1 was accepted on 2026-09-25. These ideas were then promoted from `Ideas.md` (ADR-012 to ADR-016):
+
+- **Cleanup command.** `cappy clean` deletes selected managed items at once; `--dry-run` previews. Items are selected by ID or by the explicit bulk selectors `--failed`, `--older-than`, `--logs`, and `--all`. A scenario capture takes its own scenario session with it. A replayed session is never removed as a side effect. Take numbers of cleaned captures are retired and never reissued.
+- **Event-anchored derivatives.** Clip start and end, and still and thumbnail times, can be tied to timeline events by type, occurrence, and payload conditions, plus an offset. Each preset derivative still produces one output.
+- **Capture comparison.** `cappy compare` compares two successful captures of the same source, usually replays of one session made with two builds. It produces a triptych video, SSIM/PSNR scores, worst-frame stills, and a timeline diff, and can gate on mean SSIM.
+- **CLI shorthands.** Every flag has a whole-token shorthand made of initials, such as `-dr` for `--dry-run`.
+
 ## Working System Model
 
 The editable living model is stored in `docs/system-model.dot` and is maintained as Graphviz DOT. SVG/PNG renders are derived artifacts.
@@ -96,6 +105,25 @@ cappy replay <session-id> --preset trailer
 
 Cappy may capture the replay again with different capture settings, cameras, UI presentation, or derivatives only when the adapter advertises the corresponding capability.
 
+### Comparison
+
+After two replay captures of one session, typically made with two game builds, the developer compares them:
+
+```text
+cappy compare <capture-a> <capture-b> --min-ssim 0.97
+```
+
+Cappy aligns the two masters at the operation start and writes a comparison, with its own manifest, beside the captures. It never switches builds itself.
+
+### Cleanup
+
+The developer reclaims workspace space explicitly:
+
+```text
+cappy clean --failed --older-than 7d --dry-run
+cappy clean cap_… ses_…
+```
+
 ## External Systems
 
 ### Instrumented Game
@@ -131,13 +159,16 @@ Post-processing and media inspection backend invoked as subprocesses. Cappy vali
 - timeline events;
 - master capture metadata and hashes;
 - derivative metadata and hashes;
-- managed ownership records needed for safe deletion.
+- managed ownership records needed for safe deletion;
+- retired take numbers, per take source;
+- comparison manifests, per-frame comparison scores, and timeline diffs.
 
 ### Derived
 
 - MP4 delivery copies derived from a master capture;
 - clips, thumbnails, and still frames derived from a master;
-- clip ranges derived from timeline markers;
+- clip windows and still times resolved from event anchors on the master timeline;
+- comparison triptych videos and worst-frame stills derived from two masters;
 - rendered Graphviz previews derived from DOT source.
 
 ### External
@@ -156,6 +187,7 @@ Default generated workspace:
 .cappy/
   sessions/
   captures/
+  comparisons/
   cache/
   logs/
 ```
@@ -178,7 +210,9 @@ A project may configure an external managed artifact root. The manifest records 
 
 **Capture Job** — One attempt to produce media/evidence from a scenario or replay.
 
-**Take** — A numbered capture attempt for the same intended moment.
+**Take** — A numbered capture attempt for the same intended moment. Take numbers are never reissued, even after cleanup.
+
+**Retired Take** — The take number of a successful capture removed by cleanup; it stays used for its source.
 
 **Timeline Event** — A timestamped semantic event emitted by the game adapter or Cappy, such as `SCENARIO_READY`, `SPELL_CAST`, or `CAPTURE_STARTED`.
 
@@ -192,6 +226,14 @@ A project may configure an external managed artifact root. The manifest records 
 
 **Managed Artifact** — A file created and tracked by Cappy that Cappy may delete through an explicit cleanup operation.
 
+**Event Anchor** — A derivative time given as a timeline event (type, occurrence, optional payload conditions) plus an offset, instead of a fixed second.
+
+**Comparison** — One aligned comparison of two successful captures of the same source, with its own outputs and manifest. Its status is `succeeded`, `regressed` (below the requested mean-SSIM threshold), or `failed`.
+
+**Aligned Start** — The operation start event (`SCENARIO_STARTED` or `REPLAY_STARTED`) that a comparison treats as time zero in each capture.
+
+**Cleanup Item** — The unit `cappy clean` selects: a capture, session, comparison, or command log.
+
 ## Workflow Preferences
 
 - Preferred living-model format: Graphviz DOT.
@@ -201,10 +243,8 @@ A project may configure an external managed artifact root. The manifest records 
 
 ## Discovery Progress
 
-- Completed rounds: 2
-- Product questions answered: 8
-- Diagram setup question: answered separately.
-- Discovery status: closed.
+- V1 discovery: 2 rounds, 8 product questions. Diagram setup question answered separately. Closed.
+- Post-V1 promotion discovery (2026-09-25): 4 rounds, 12 product questions (which ideas to promote; cleanup confirmation, bulk selectors, cascade, and take reuse; shorthand scope, anchor matching, multiple matches, and still anchors; comparison eligibility, outputs, and gate). Closed.
 - Remaining uncertainty is implementation-level, inexpensive, and reversible.
 
 ## Build-Pack Status

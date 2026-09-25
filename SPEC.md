@@ -1,7 +1,7 @@
 # Cappy Implementation Specification
 
 **Status:** Build-ready  
-**Version:** 0.1  
+**Version:** 0.2 (V1 plus the post-V1 increments in section 25)\
 **Date:** 2026-09-25  
 **Context:** [Context.md](Context.md)  
 **Decisions:** [ADR.md](ADR.md)  
@@ -49,7 +49,7 @@ V1 is successful when all of the following are true:
 - Cloud account, remote worker, or distributed capture.
 - Linux acceptance.
 - Unity/Unreal/native/emulator production adapters.
-- Cross-build visual regression comparison.
+- Cross-build visual regression comparison. (Post-V1, `cappy compare` compares two existing captures, section 11.8; Cappy still does not switch builds itself.)
 - Universal replay encoding.
 - AI gameplay analysis.
 - Automatic cinematic camera creation.
@@ -149,6 +149,7 @@ Recommended semantic layout:
 .cappy/
   sessions/
   captures/
+  comparisons/
   cache/
   logs/
 ```
@@ -166,6 +167,8 @@ Every file Cappy may delete must be provably managed by metadata associated with
 Path traversal outside the resolved managed root must be rejected for managed writes and cleanup.
 
 Ownership is recorded in a registry file, `cappy-workspace.json`, at the managed root. It lists each managed file by root-relative path with its SHA-256 and byte size, and each imported/external reference by absolute path. If the registry is unreadable, Cappy refuses to open the workspace rather than guess ownership.
+
+Registry schema version 2 adds `retiredTakes`: take numbers retired by cleanup, keyed by take source (section 16). A version 1 registry is read as having no retired takes and is written as version 2 on its next change.
 
 Managed files are published atomically: written to a sibling temp file, then linked into place without overwriting. Replacing an existing managed file requires an explicit replace request; files Cappy did not create are never replaced.
 
@@ -233,6 +236,12 @@ Minimum metadata:
 An adapter-owned payload plus Cappy-owned envelope metadata.
 
 Cappy may copy, hash, store, reference, and return the payload but must not interpret game-specific replay bytes.
+
+### Comparison
+
+One comparison of two successful captures of the same source, usually replay captures of one session made with two game builds (section 11.8). It has a comparison ID (`cmp_…`), references both captures without owning them, and stores its own outputs and manifest under `comparisons/<comparison-id>/`.
+
+Statuses: `succeeded` (completed, and at or above any `--min-ssim` threshold), `regressed` (completed, below the threshold), and `failed`. A `regressed` comparison is a valid result, not an error in the comparison itself.
 
 ### Capture Job
 
@@ -386,6 +395,27 @@ Exit codes are stable:
 | 70 | internal error |
 | 130 | cancelled |
 
+Every long flag has a whole-token shorthand:
+
+- A flag made of several words uses their initials (`--dry-run` is `-dr`, `--no-capture` is `-nc`).
+- A one-word flag uses its first letter. When two flags would share a shorthand, the less frequently used one takes its first two letters (`--preset` is `-p`, `--param` is `-pa`). `-C` for `--project` predates the rule and is kept.
+- A shorthand is one token. `-dr` never means `-d -r`, and single-letter flags cannot be grouped.
+- A shorthand's value follows as the next argument (`-ot 7d`). Option values are never translated, even when they start with `-`.
+- An unknown shorthand fails with `USAGE_INVALID` (exit 2).
+- A new flag must follow the rule without colliding with an existing shorthand.
+
+| Flag | Shorthand | Flag | Shorthand |
+| --- | --- | --- | --- |
+| `--json` | `-j` | `--capture` | `-ca` |
+| `--project <dir>` | `-C` | `--no-capture` | `-nc` |
+| `--config <path>` | `-c` | `--duration <seconds>` | `-d` |
+| `--help` | `-h` | `--dry-run` | `-dr` |
+| `--version` | `-v` | `--failed` | `-f` |
+| `--preset <name>` | `-p` | `--older-than <age>` | `-ot` |
+| `--param <key=value>` | `-pa` | `--logs` | `-l` |
+| `--take <n>` | `-t` | `--all` | `-a` |
+| `--min-ssim <score>` | `-ms` | | |
+
 ### 11.2 `cappy doctor`
 
 Checks, without performing capture:
@@ -466,6 +496,93 @@ Payloads up to 1 MiB are returned inline; larger ones are handed over as a path 
 
 A captured replay runs through the same pipeline as `cappy run`: preflight (including the session and payload checks above) before the game launches, a confirmed OBS start before playback, a confirmed stop, a verified master, derivatives, and a manifest whose source is `{ "kind": "replay", "sessionId": ... }` and whose `identity.sessionId` is the replayed session. `--no-capture` plays the session back without OBS or media tools.
 
+### 11.7 `cappy clean`
+
+```text
+cappy clean [<id>...] [--failed] [--older-than <age>] [--logs] [--all] [--dry-run]
+```
+
+Deletes selected managed items immediately and reports exactly what happened. `--dry-run` resolves the same selection, performs the same ownership and hash checks, reports the predicted outcome, and changes nothing: no file, no registry entry, no retired take. Cleanup never runs as a side effect of another command.
+
+Selection:
+
+- Explicit targets are item IDs: captures (`cap_…`), sessions (`ses_…`), and comparisons (`cmp_…`). Raw paths are not accepted. An ID that is not in this workspace is refused with reason `not_found`.
+- `--failed` selects every capture whose manifest status is `failed` or `cancelled`, every capture directory without a manifest (an interrupted job), every session with status `failed` or `cancelled`, every orphaned `active` session (one no live command owns), every comparison with status `failed`, and every comparison directory without a manifest. A `regressed` comparison is a result and is not selected.
+- `--logs` selects every command log in `logs/`.
+- `--all` selects every capture, session, comparison, and log.
+- `--older-than <age>` keeps only bulk-selected items created more than `<age>` ago. `<age>` is a positive integer followed by `m`, `h`, `d`, or `w` (minutes, hours, days, weeks), for example `90m` or `7d`. On its own it filters `--all`. Combined with explicit IDs it fails with `USAGE_INVALID`.
+- IDs and bulk selectors combine as a union. A command with no selector fails with `USAGE_INVALID`.
+- Item age comes from a capture's manifest `timing.startedAt`, a session's `startedAt`, and a comparison manifest's `createdAt`. Items without these (a manifest-less directory or a log) use the earliest registry `createdAt` among their files.
+- The registry, `cache/` (run locks), and anything outside `sessions/`, `captures/`, `comparisons/`, and `logs/` are never selected.
+
+What an item includes:
+
+- A capture: every managed file under `captures/<id>/`. A scenario capture also includes the scenario session its manifest names in `identity.sessionId`, when that session's origin is `scenario`. Cleaning a capture never removes a replayed session.
+- A session: every managed file under `sessions/<id>/`. Replay captures of that session are kept, and the result warns with their IDs, because they can no longer be re-captured.
+- A comparison: every managed file under `comparisons/<id>/`. The compared captures are kept.
+- A log: `logs/<correlation-id>.jsonl`.
+
+In-progress protection. An item is in progress when any run lock is live on this host, or any lock from another host exists, and the item is one of these: an `active` session, a capture or comparison directory without a manifest, or the log of a command that holds a lock. An explicitly named item that is in progress is refused with reason `in_progress`. Bulk selectors skip in-progress items with a warning.
+
+Deletion follows the workspace cleanup rules in sections 7.1 and 17. Each managed file is removed, reported missing, or refused with a reason. Once an item's managed files are gone, Cappy removes any of its directories that are left empty. Unregistered files in an item's directory, such as the `.partial` output of an interrupted job, are kept and reported with reason `not_managed`, and their directory stays.
+
+Retiring takes. Removing a `succeeded` capture retires its take for its source (section 16). The take is recorded in the registry before any file is removed, so a failure part-way never frees the take number for reuse.
+
+Result data: `dryRun`, the selected `items` (ID, kind, files, bytes), `removed`, `missing`, `refused` (target and reason), `kept` (path and reason), `skipped` (ID and reason), `retiredTakes`, and `bytesFreed`. Human output summarizes the same report.
+
+Exit: 0 when nothing was refused. When any selected file or explicit ID was refused, every other selected file is still removed, and the command exits 1 with `CLEAN_INCOMPLETE`, whose details carry the report. Missing files are not failures. Kept unregistered files and skipped in-progress items are warnings.
+
+`clean` does not write a command log.
+
+### 11.8 `cappy compare <capture-a> <capture-b>`
+
+```text
+cappy compare <capture-a> <capture-b> [--min-ssim <score>]
+```
+
+Compares two existing captures of the same source, usually replay captures of one session made with two game builds, and produces an aligned visual comparison. It needs FFmpeg and ffprobe (exit 4 when either is unavailable) but not the game, adapter, or OBS. A is the reference; B is compared against it.
+
+Eligibility, checked before any media work:
+
+- The two IDs must be different (`USAGE_INVALID`), and each must name a capture in this workspace (`CAPTURE_NOT_FOUND`).
+- Both captures must have `succeeded` manifests, with the same source: replay captures of the same session, or scenario captures with the same scenario ID and resolved parameters (the take-grouping key of section 16). Otherwise the command fails with `COMPARE_INCOMPATIBLE`.
+- Each master must still match its manifest's SHA-256 and size (`COMPARE_INPUT_INVALID`).
+- When both captures report the same `gameBuild`, or neither reports one, the result carries a warning.
+
+Alignment: in each capture, the operation's start event (`SCENARIO_STARTED` or `REPLAY_STARTED`) is time zero. The compared span is the shorter of the two operations, measured from `<LABEL>_STARTED` to `<LABEL>_COMPLETED`, and also bounded by each master's remaining duration. A span that is not positive fails with `COMPARE_INPUT_INVALID`.
+
+Normalization: B is scaled to A's width and height, and both are sampled at A's frame rate. The manifest records the resulting size and rate, and whether B was scaled.
+
+Outputs, in `comparisons/<comparison-id>/`, all published as managed files:
+
+- `triptych.mp4`: A, B, and their absolute per-pixel difference amplified four times, side by side over the span (H.264, CRF 20, x264 preset `medium`, no audio).
+- `frames.json`: per compared frame, its time from the aligned start, its SSIM (the "All" value, 0 to 1), and its PSNR in dB (`null` for identical frames).
+- `worst-<n>-a.png`, `worst-<n>-b.png`, `worst-<n>-diff.png`: A, B normalized to A, and the amplified difference, for up to three lowest-SSIM frames at least one second apart (`n` = 1 is the lowest).
+- `manifest.json`: the comparison manifest.
+
+Scores: mean and minimum SSIM, with the time of the minimum, and mean and minimum PSNR over frames with a finite PSNR (`null` when every frame is identical).
+
+Timeline diff: the adapter events (`source: "adapter"`) of the two captures, with times measured from each capture's aligned start. Events are matched by type and occurrence order, so the n-th `SPELL_CAST` in A is matched with the n-th in B. For each type the diff reports the counts in A and B, the occurrences missing from B and extra in B, and the mean and maximum drift of matched occurrences (B's time minus A's). A count difference adds a warning. The timeline diff never changes the status or exit code.
+
+Gate: without `--min-ssim`, a completed comparison is `succeeded` and exits 0. With `--min-ssim <score>` (0 to 1), a comparison whose mean SSIM is below the score is recorded as `regressed`, keeps every output, and exits 1 with `COMPARISON_REGRESSED`. Its details carry the scores and the manifest path.
+
+Failure: any FFmpeg or ffprobe failure writes a `failed` comparison manifest with the error and the checks that ran, and publishes no partial output. A rejected partial output, which Cappy itself just created, is removed.
+
+The comparison manifest (`comparisonVersion: 1`) records:
+
+- the comparison ID, status, `createdAt`, and correlation ID;
+- the project, and the shared source;
+- for A and B: the capture ID, take, `gameBuild` when reported, the master's SHA-256, and the aligned start on that master;
+- the alignment event and the span;
+- the normalization;
+- the scores, and the `minSsim` threshold when one was given;
+- the worst frames (time, SSIM, and paths), and the timeline diff;
+- artifacts with SHA-256 and size;
+- FFmpeg and ffprobe versions;
+- warnings, checks, and, when not `succeeded`, the error.
+
+`compare` holds a run lock while it runs and writes a command log, like `run`.
+
 ## 12. OBS integration
 
 Use OBS WebSocket.
@@ -523,11 +640,39 @@ V1 derivative options (`presets.<name>.derivatives[].options`), validated before
 | Kind | Output | Options |
 | --- | --- | --- |
 | `mp4` | `<role>.mp4` (H.264/AAC, faststart) | `crf` (0-51, default 20), `preset` (x264 preset, default `medium`), `audio` (default true) |
-| `clip` | `<role>.mp4` | `start` and `duration` in seconds from the start of the master (required), plus the `mp4` options |
-| `thumbnail` | `<role>.jpg` | `at` seconds (default 0), `width` pixels (default 640, aspect preserved) |
-| `still` | `<role>.png` (full resolution) | `at` seconds (default 0) |
+| `clip` | `<role>.mp4` | `start` (required), and exactly one of `duration` (seconds, positive) or `end`, plus the `mp4` options. `start` and `end` are seconds from the start of the master, or event anchors |
+| `thumbnail` | `<role>.jpg` | `at`, seconds or an event anchor (default 0), and `width` in pixels (default 640, aspect preserved) |
+| `still` | `<role>.png` (full resolution) | `at`, seconds or an event anchor (default 0) |
 
-FFmpeg writes each output to a uniquely named `.<role>.<uuid>.partial.<ext>` file beside its final path. The output is accepted only after a zero exit, a non-empty file, and an ffprobe result with a video stream; it is then published as a managed file. A rejected partial output, which Cappy itself just created, is removed. A failed required derivative fails the job. A failed optional derivative (`required: false`) is reported as a warning and left out of the manifest's checks and artifacts. Clip ranges relative to timeline events depend on timeline/master synchronization and are not part of this derivative set.
+FFmpeg writes each output to a uniquely named `.<role>.<uuid>.partial.<ext>` file beside its final path. The output is accepted only after a zero exit, a non-empty file, and an ffprobe result with a video stream; it is then published as a managed file. A rejected partial output, which Cappy itself just created, is removed. A failed required derivative fails the job. A failed optional derivative (`required: false`) is reported as a warning and left out of the manifest's checks and artifacts.
+
+#### Event anchors
+
+An event anchor places a derivative time relative to a timeline event instead of at a fixed second:
+
+```json
+{ "event": "SPELL_CAST", "offset": -2, "occurrence": 1, "where": { "spell": "fireball" } }
+```
+
+- `event` (required) is a timeline event type, using the timeline event type syntax. Any event on the capture's timeline qualifies, including Cappy lifecycle events such as `SCENARIO_STARTED`.
+- `offset` is in seconds and may be negative (default 0).
+- `occurrence` is a 1-based index or `"last"` (default 1).
+- In `where`, each key is a dot-separated path into the event's payload object (`"target.kind"`), and each value is a JSON string, number, boolean, or `null`. An event matches only when every path exists and equals its value strictly. `where` is optional.
+
+Anchors resolve during processing, against the capture's timeline on the master clock (section 15). The candidates are the events whose type matches and whose payload satisfies `where`, ordered by `t` and then `seq`. `occurrence` picks one of them. For a clip's `end` anchor, candidates are limited to events at or after the start event, or at or after the numeric `start`. The resolved time is the event's `t` plus `offset`. Cappy does not pad for `timing.sync.uncertaintyMs`; use `offset`.
+
+Resolution rules:
+
+- An anchor with no matching event fails the derivative with `DERIVATIVE_ANCHOR_UNRESOLVED`.
+- A clip window that extends past either end of the master is clamped to it, with a warning.
+- A clamped window that is not positive fails with `DERIVATIVE_WINDOW_EMPTY`.
+- A still or thumbnail time past the master is clamped to its last frame, with a warning.
+- These failures follow the required/optional rule above: they fail the job for a required derivative and become a warning for an optional one.
+- Each preset derivative produces at most one output. A later option may produce one clip per match; it is not part of this set.
+
+Anchor syntax is validated with the other options before the game launches (`DERIVATIVE_OPTIONS_INVALID`): the event type syntax, `occurrence`, `where` values, and exactly one of `duration` or `end`.
+
+Every clip artifact records its resolved window (`window: { startMs, endMs }`, plus `startEventId` and `endEventId` when anchored). Every still and thumbnail artifact records its frame time (`at: { ms }`, plus `eventId` when anchored). Numeric times are recorded the same way. These are additive, optional artifact fields in manifest version 1.
 
 ## 14. Capture presets
 
@@ -539,7 +684,7 @@ Example conceptual fields:
 - required derivatives;
 - video container/codec intent passed to FFmpeg;
 - thumbnail/still requirements;
-- optional event-relative clip rules;
+- event-anchored clip, thumbnail, and still times (section 13);
 - game-side presentation parameters such as capture mode only when exposed by the adapter.
 
 A preset cannot require a capability the current adapter does not advertise.
@@ -612,7 +757,9 @@ Existing successful takes are never overwritten implicitly.
 
 `--take <n>` requests an explicit take; if a successful capture of the same source already has that take, the job fails with `TAKE_EXISTS` before anything is recorded. Failed and cancelled jobs do not consume take numbers.
 
-Takes are grouped by source: the scenario ID plus its resolved parameters, or the replayed session ID. The next take is one past the highest take among successful manifests in the workspace for that source. Every capture has its own `captures/<capture-id>/` directory.
+Takes are grouped by source: the scenario ID plus its resolved parameters, or the replayed session ID. The next take is one past the highest take for that source among successful manifests in the workspace and the takes retired by cleanup. Every capture has its own `captures/<capture-id>/` directory.
+
+Take numbers are never reissued. Cleaning a successful capture retires its take (section 11.7): automatic numbering continues past it, and `--take <n>` for a retired take fails with `TAKE_EXISTS`.
 
 ## 17. Cleanup and destructive behavior
 
@@ -627,13 +774,15 @@ Rules:
 - missing targets are non-destructive and reported;
 - bulk destructive cleanup requires an explicit command/flag and cannot occur as a side effect of ordinary capture.
 
+`cappy clean` (section 11.7) is the command-line surface for these rules. `ManagedWorkspace.remove` in `@cappy/workspace` is the primitive that enforces them.
+
 ## 18. Logging
 
 Each operation gets a correlation ID.
 
 Human logs should be useful without leaking secrets. JSON mode returns bounded structured results; verbose diagnostic logs may live under the managed logs directory.
 
-V1 writes one structured log per command, `logs/<correlation-id>.jsonl`, for `record`, `run`, and `replay`. Every entry, session, manifest, and timeline event carries the command's correlation ID. Entries hold events, IDs, paths, states, and error codes only.
+V1 writes one structured log per command, `logs/<correlation-id>.jsonl`, for `record`, `run`, `replay`, and `compare`. `clean` writes none; its result is the record of what it did. Every entry, session, manifest, and timeline event carries the command's correlation ID. Entries hold events, IDs, paths, states, and error codes only.
 
 Do not log:
 
@@ -653,7 +802,7 @@ Ctrl+C or an explicit cancellation request should:
 
 After an unclean controller crash, the next command may detect orphaned in-progress metadata and mark/reconcile it, but must not guess that a capture succeeded.
 
-V1: `record`, `run`, and captured `replay` hold a run lock (`cache/running/<correlation-id>.json`, with PID and host) while they may leave `active` state. Each of those commands first marks as `failed` every session still `active` whose command holds no live lock on this host, and reports the reconciled sessions as a warning. A capture interrupted before its manifest was written has no manifest and is therefore never successful. Locks from other hosts are never treated as dead.
+V1: `record`, `run`, and captured `replay` hold a run lock (`cache/running/<correlation-id>.json`, with PID and host) while they may leave `active` state. `compare` also holds one while it runs, so `clean` treats its unfinished directory as in progress. Each of those commands first marks as `failed` every session still `active` whose command holds no live lock on this host, and reports the reconciled sessions as a warning. A capture interrupted before its manifest was written has no manifest and is therefore never successful. Locks from other hosts are never treated as dead.
 
 ## 20. Security boundary
 
@@ -707,7 +856,10 @@ A deterministic adapter simulator and fake OBS/media backends must prove:
 - missing master;
 - FFmpeg derivative failure;
 - cancellation;
-- cleanup safety.
+- cleanup safety;
+- `cappy clean` selection, dry run, in-progress protection, and take retirement;
+- event-anchored derivative resolution and its failures;
+- comparison eligibility, alignment, gating, and failure.
 
 ### Real-tool smoke tests
 
@@ -716,7 +868,8 @@ Opt-in/local smoke tests cover:
 - real OBS WebSocket recording;
 - real ffprobe/FFmpeg derivative generation;
 - real Godot fixture scenario;
-- real Godot freeform record and replay.
+- real Godot freeform record and replay;
+- real FFmpeg event-anchored clips and comparisons (SSIM, triptych, worst-frame stills).
 
 The normal automated suite must not require OBS GUI availability.
 
@@ -744,3 +897,14 @@ Cappy V1 is done when:
 - real OBS + FFmpeg smoke evidence exists for each supported host or any unavailable host gate is explicitly documented as unresolved rather than inferred;
 - cleanup safety tests prove Cappy cannot delete imported/external files;
 - `Context.md`, `ADR.md`, `SPEC.md`, `Ideas.md`, tickets, and `docs/system-model.dot` remain synchronized.
+
+## 25. Post-V1 increments
+
+After V1 was accepted, these ideas were promoted from `Ideas.md` on 2026-09-25 (ADR-012 to ADR-016):
+
+- whole-token flag shorthands across the CLI (section 11.1);
+- `cappy clean`, with retired take numbers (sections 11.7, 16, and 17);
+- event-anchored clip, thumbnail, and still times (section 13);
+- `cappy compare` for two captures of the same source, with a triptych video, SSIM/PSNR scores, worst-frame stills, and a timeline diff (section 11.8).
+
+They keep the V1 host platforms (Windows and macOS) and every V1 rule on ownership and safety. Their tickets are CAP-011 to CAP-016.

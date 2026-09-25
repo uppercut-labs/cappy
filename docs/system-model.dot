@@ -4,11 +4,11 @@ digraph Cappy {
   edge [fontname="Arial"];
 
   developer [label="Developer / Agent"];
-  cli [label="Cappy CLI\ndoctor / scenarios / run / record / replay\nHuman + JSON modes"];
+  cli [label="Cappy CLI\ndoctor / scenarios / run / record / replay\nclean / compare\nHuman + JSON modes"];
   core [label="Cappy Controller\ncapture job state machine"];
   config [label="Project Config\ncappy.config.json (source-controlled)"];
   secrets [label="Environment\nOBS password (never stored)"];
-  workspace [label="Managed Workspace\n.cappy/ or external root\nownership registry"];
+  workspace [label="Managed Workspace\n.cappy/ or external root\nownership registry + retired takes"];
   sessions [label="Sessions\nsession.json + replay.bin + timeline.json"];
   logs [label="Correlated Logs + Run Locks\nlogs/, cache/running/"];
   protocol [label="Versioned Loopback\nWebSocket Protocol\n(session token)"];
@@ -19,6 +19,7 @@ digraph Cappy {
   obs [label="OBS\nRecorder"];
   ffmpeg [label="FFmpeg / ffprobe"];
   artifacts [label="Capture\nmaster + derivatives + manifest"];
+  comparisons [label="Comparison\ntriptych + scores + worst frames\n+ timeline diff + manifest"];
 
   developer -> cli [label="commands"];
   cli -> core [label="commands"];
@@ -27,6 +28,7 @@ digraph Cappy {
   core -> workspace [label="managed writes / safe cleanup"];
   workspace -> sessions [label="sessions/"];
   workspace -> artifacts [label="captures/"];
+  workspace -> comparisons [label="comparisons/"];
   core -> logs [label="correlation ID"];
 
   core -> game [label="launch with endpoint + token"];
@@ -48,7 +50,10 @@ digraph Cappy {
 
   core -> ffmpeg [label="probe / derive"];
   artifacts -> ffmpeg [label="master input"];
-  ffmpeg -> artifacts [label="MP4 / clips / stills"];
+  ffmpeg -> artifacts [label="MP4 / clips / stills\n(fixed or event-anchored)"];
+  timeline -> ffmpeg [label="anchor resolution"];
+  artifacts -> comparisons [label="two masters + timelines\n(same source)"];
+  ffmpeg -> comparisons [label="SSIM / PSNR / triptych / stills"];
 
   sessions -> artifacts [label="source identity"];
   timeline -> artifacts [label="timing + events"];

@@ -109,3 +109,53 @@
 **Rationale:** OBS already owns capture composition. Automatically rewriting its project state would expand scope and introduce destructive configuration risk.
 
 **Consequences:** Preflight fails clearly when configured OBS expectations are unavailable. Cappy controls recording state, not scene construction.
+
+## ADR-012 - Cleanup is an explicit command that deletes immediately
+
+**Status:** Accepted (2026-09-25, post-V1)
+
+**Decision:** `cappy clean` deletes the managed items it selects when it runs. `--dry-run` previews the same selection without changing anything. Items are selected by ID (capture, session, comparison) or by the explicit bulk selectors `--failed`, `--older-than`, `--logs`, and `--all`; raw paths are not accepted. Cleaning a scenario capture also removes the scenario session it created. Cleaning a capture never removes a replayed session.
+
+**Rationale:** The owner chose conventional CLI behavior over a confirm-by-default flow. Destructive safety already lives in the workspace primitive: only registered, unmodified, managed files inside the root can be deleted, whatever the command asks. Explicit selectors satisfy the rule that bulk cleanup needs an explicit command or flag. Selecting by item ID matches how people and manifests refer to captures and sessions.
+
+**Consequences:** Agents and scripts should run `--dry-run` first when a selection is broad. Anything a live command owns is protected by the run locks. Refusals make the command exit 1 while still removing what it safely can.
+
+## ADR-013 - Take numbers are never reissued
+
+**Status:** Accepted (2026-09-25, post-V1)
+
+**Decision:** Removing a successful capture retires its take number for its source. Retired takes are recorded in the workspace registry (schema version 2), and take allocation treats them as used.
+
+**Rationale:** Takes are cited outside Cappy, in bug reports, devlogs, and review notes. If take 3 could later mean a different capture, those citations would silently change meaning. SPEC section 16 already promised monotonic takes. The registry is the one file that already records what cleanup did, so the ledger lives there.
+
+**Consequences:** Take numbering can have gaps. A version 1 registry is upgraded on its next write, and older Cappy builds refuse a version 2 registry instead of reissuing takes.
+
+## ADR-014 - Derivative times may be anchored to timeline events
+
+**Status:** Accepted (2026-09-25, post-V1)
+
+**Decision:** Clip start and end times, and still and thumbnail times, may be event anchors. An anchor names an event type, an occurrence (n-th or last), optional payload equality conditions (`where`, with dot-separated paths), and an offset in seconds. Anchors resolve against the capture's master-clock timeline during processing. Each preset derivative produces at most one output.
+
+**Rationale:** Cappy's value is capturing semantic moments, and the synchronized timeline already exists by processing time. Payload conditions make an anchor precise without Cappy interpreting game semantics. Keeping one output per role keeps manifest roles one-to-one with preset derivatives.
+
+**Consequences:** An unresolved anchor follows the existing required/optional derivative semantics. Resolved windows and event IDs are recorded in the manifest. Producing one clip per match is deferred to `Ideas.md`.
+
+## ADR-015 - Comparison works on existing captures of the same source
+
+**Status:** Accepted (2026-09-25, post-V1). Narrows the V1 non-goal on cross-build comparison.
+
+**Decision:** `cappy compare <a> <b>` compares two successful captures of the same source, aligned at their operation start events. It produces a triptych video (A, B, and the difference), per-frame SSIM/PSNR, worst-frame stills, and a timeline diff under a new managed `comparisons/` area, with its own manifest. `--min-ssim` gates on mean SSIM, recording `regressed` and exiting 1. The timeline diff is informational.
+
+**Rationale:** How a build is switched is project-specific, and replay capture already produces the inputs. Comparing existing captures reuses FFmpeg, which is already a dependency, and needs no change to orchestration. Mean SSIM is robust to the one-frame capture jitter that a per-frame minimum would flag as a regression.
+
+**Consequences:** Cappy does not launch two builds itself; that orchestration stays in `Ideas.md`, as do per-frame and timeline gates. A comparison references its captures but never owns them, so cleaning a comparison keeps them.
+
+## ADR-016 - CLI shorthands are whole-token initials
+
+**Status:** Accepted (2026-09-25, post-V1)
+
+**Decision:** Every long flag has a single-dash shorthand. A multi-word flag uses its initials (`--dry-run` is `-dr`). A one-word flag uses its first letter, and on a collision the less-used flag takes two letters. Shorthands are whole tokens, so POSIX grouping is not supported. `-C` is kept for `--project`.
+
+**Rationale:** The owner prefers memorable initials-style shorthands (`--full-command` as `-fc`) across the whole CLI. Node's `parseArgs` supports only single-letter shorts, so an alias layer that translates whole tokens keeps parsing strict and predictable.
+
+**Consequences:** One alias table, checked by tests for collisions and for following the rule, is translated before argument parsing. Every new flag must fit the rule.
