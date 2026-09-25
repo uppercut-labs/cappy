@@ -16,7 +16,8 @@
     "build": "tsc -b",
     "typecheck": "tsc -b && tsc -p tsconfig.test.json",
     "lint": "eslint .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "godot:demo": "node scripts/assemble-godot-demo.mjs .godot-demo"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

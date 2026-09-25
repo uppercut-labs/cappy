@@ -6,3 +6,5 @@ coverage/
 .env
 .env.*
 cappy.config.local.json
+.godot/
+.godot-demo/

@@ -29,3 +29,19 @@ describe("package boundaries", () => {
     expect(offenders).toEqual([]);
   });
 });
+
+describe("Godot adapter boundary", () => {
+  it("keeps recorder and media tooling out of the Godot addon and demo", async () => {
+    const offenders: string[] = [];
+    for (const dir of ["adapters/godot", "fixtures/godot-demo"]) {
+      const entries = await readdir(path.join(repoRoot, dir), { withFileTypes: true, recursive: true });
+      for (const entry of entries.filter((item) => item.isFile() && /\.(gd|godot|tscn|cfg)$/.test(item.name))) {
+        const file = path.join(entry.parentPath, entry.name);
+        if (/\bobs\b|obs-?websocket|ffmpeg|ffprobe/i.test(await readFile(file, "utf8"))) {
+          offenders.push(path.relative(repoRoot, file));
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+});

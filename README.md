@@ -59,11 +59,15 @@ Each successful `cappy run` leaves `captures/<capture-id>/` with the master, its
 
 The OBS WebSocket password is never stored in config. Set `obs.passwordEnv` to the name of an environment variable and export the password there.
 
-Opt-in smoke tests against the real FFmpeg/ffprobe on PATH:
+Opt-in smoke tests against the real FFmpeg/ffprobe and Godot 4.x on PATH:
 
 ```bash
 CAPPY_REAL_TOOLS=1 npm test
 ```
+
+## Godot
+
+The Godot addon lives in [adapters/godot](adapters/godot/README.md). `npm run godot:demo` assembles the demo fixture with the addon into `.godot-demo/`.
 
 ## Packages
 

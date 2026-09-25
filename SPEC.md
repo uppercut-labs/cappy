@@ -349,6 +349,8 @@ It must:
 
 Cappy does not prescribe a universal replay implementation inside Godot. The fixture implementation may use deterministic inputs/state suitable for demonstrating the contract.
 
+V1 implementation: the addon is `adapters/godot/addons/cappy/` (autoload `Cappy`; API documented in `adapters/godot/README.md`). It stays inert unless launched by Cappy, validates scenario parameters against their specs before the game's own validation hook, sends `started` before invoking the game so events follow it, and quits a Cappy-launched game when the controller disconnects. Scripts use `preload` rather than `class_name` so a freshly assembled project runs without an editor import. The demo (`fixtures/godot-demo`) derives every event time from the 60 Hz physics tick. Because Godot cannot load files outside its project, `scripts/assemble-godot-demo.mjs` combines the demo and addon into a runnable directory.
+
 ## 11. CLI contract
 
 ### 11.1 Global behavior

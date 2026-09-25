@@ -1,0 +1,24 @@
+; Cappy Godot demo: an acceptance fixture for the Cappy adapter.
+; The addon lives in adapters/godot; scripts/assemble-godot-demo.mjs combines them.
+
+config_version=5
+
+[application]
+
+config/name="Cappy Godot Demo"
+config/version="0.1.0"
+run/main_scene="res://main.tscn"
+config/features=PackedStringArray("4.7")
+
+[autoload]
+
+Cappy="*res://addons/cappy/cappy_adapter.gd"
+
+[display]
+
+window/size/viewport_width=960
+window/size/viewport_height=540
+
+[physics]
+
+common/physics_ticks_per_second=60
