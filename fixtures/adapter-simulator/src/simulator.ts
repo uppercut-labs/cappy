@@ -77,6 +77,8 @@ export interface SimulatorProcessOptions {
   readonly timeScale?: number;
   /** Write every replay payload received from Cappy into this directory. */
   readonly receivedReplayDir?: string;
+  /** Replace the default scenarios, for example to simulate a build whose events differ. */
+  readonly scenarios?: readonly SimulatedScenario[];
 }
 
 export const SIMULATOR_REPLAY_FORMAT = "cappy-sim-replay-v1";

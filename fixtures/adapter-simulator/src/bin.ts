@@ -30,6 +30,7 @@ try {
     ...(extra.replayDir === undefined ? {} : { replayDir: extra.replayDir }),
     ...(extra.omitReplay === undefined ? {} : { omitReplay: extra.omitReplay }),
     ...(extra.timeScale === undefined ? {} : { timeScale: extra.timeScale }),
+    ...(extra.scenarios === undefined ? {} : { scenarios: extra.scenarios }),
   });
   const stop = (): void => simulator.close();
   process.once("SIGTERM", stop);

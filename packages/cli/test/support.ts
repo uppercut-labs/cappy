@@ -32,7 +32,8 @@ console.log(JSON.stringify({ format: { format_name: "matroska,webm", duration: "
  * JSON recording the arguments, so tests can check seek times. A comparison
  * also writes SSIM/PSNR stats files: 1.0 throughout for identical inputs, a
  * dip at frame 2 otherwise, and a failure when the second input contains
- * FAILCMP.
+ * FAILCMP. Worst-frame extraction writes each still, and fails when the
+ * second input contains FAILSTILL.
  */
 const FAKE_FFMPEG = `const fs = require("node:fs");
 const path = require("node:path");
@@ -57,6 +58,13 @@ if (graph.includes("ssim=stats_file=")) {
   fs.writeFileSync(/ssim=stats_file=([^\\[]+)\\[/.exec(graph)[1], ssim);
   fs.writeFileSync(/psnr=stats_file=([^\\[]+)\\[/.exec(graph)[1], psnr);
   fs.writeFileSync(output, JSON.stringify({ derivedFrom: "comparison", args }) + "\\n");
+  process.exit(0);
+}
+if (graph.includes("blend=all_mode=difference")) {
+  // Worst-frame stills: every "-frames:v 1 <file>" output.
+  const inputs = args.flatMap((arg, i) => (arg === "-i" ? [fs.readFileSync(args[i + 1], "utf8")] : []));
+  if (inputs[1].includes("FAILSTILL")) { console.error("Still extraction failed!"); process.exit(1); }
+  args.forEach((arg, i) => { if (args[i - 2] === "-frames:v") fs.writeFileSync(arg, JSON.stringify({ derivedFrom: "still", args }) + "\\n"); });
   process.exit(0);
 }
 if (name.startsWith(".fail-")) { console.error("Conversion failed!"); process.exit(1); }

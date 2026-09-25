@@ -200,7 +200,18 @@ export function renderCompare(result: CommandResult<CompareReport>): string {
   if (report.threshold !== undefined) {
     lines.push(`Threshold: mean SSIM >= ${report.threshold.minSsim}`);
   }
-  for (const artifact of report.artifacts) {
+  for (const frame of report.worstFrames ?? []) {
+    lines.push(`  worst #${frame.rank}  ${frame.tMs} ms, SSIM ${frame.ssim.toFixed(4)}: ${frame.diff}`);
+  }
+  const differing = report.timelineDiff.filter((entry) => entry.countA !== entry.countB);
+  const drift = report.timelineDiff.reduce<number | null>(
+    (max, entry) => (entry.maxDriftMs === null || (max !== null && Math.abs(max) >= Math.abs(entry.maxDriftMs)) ? max : entry.maxDriftMs),
+    null,
+  );
+  lines.push(
+    `Timeline: ${report.timelineDiff.length} adapter event type(s), ${differing.length === 0 ? "same counts" : `${differing.length} with different counts (${differing.map((entry) => `${entry.type} ${entry.countA}->${entry.countB}`).join(", ")})`}${drift === null ? "" : `, largest drift ${drift} ms`}`,
+  );
+  for (const artifact of report.artifacts.filter((entry) => !entry.role.startsWith("worst-"))) {
     lines.push(`  ${artifact.role.padEnd(9)} ${artifact.path}`);
   }
   if (report.manifest !== undefined) {

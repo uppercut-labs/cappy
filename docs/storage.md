@@ -21,6 +21,7 @@ The default root is `.cappy/` in the project. Set `workspace.root` in `cappy.con
   comparisons/<comparison-id>/
     triptych.mp4                A | B | amplified difference
     frames.json                 per-frame SSIM and PSNR
+    worst-<n>-a|b|diff.png      A, B, and difference at the worst moments
     manifest.json               succeeded, regressed, or failed
   logs/<correlation-id>.jsonl   one structured log per command
   cache/running/                run locks for in-flight commands

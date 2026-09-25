@@ -55,6 +55,9 @@ async function captureManifest(data: Record<string, any>): Promise<Record<string
   return JSON.parse(await readFile(path.join(root(), data["manifest"]), "utf8")) as Record<string, any>;
 }
 
+/** Every output of a completed comparison whose span is under a second: one worst frame. */
+const OUTPUTS = ["frames.json", "manifest.json", "triptych.mp4", "worst-1-a.png", "worst-1-b.png", "worst-1-diff.png"];
+
 const timelineTime = (manifest: Record<string, any>, type: string): number =>
   manifest["timing"]["timeline"].find((event: { type: string }) => event.type === type).t;
 
@@ -81,7 +84,7 @@ describe("cappy compare", () => {
     expect(data["alignment"]["spanMs"]).toBeGreaterThan(500);
 
     const directory = `comparisons/${data["comparisonId"]}`;
-    expect((await readdir(path.join(root(), directory))).sort()).toEqual(["frames.json", "manifest.json", "triptych.mp4"]);
+    expect((await readdir(path.join(root(), directory))).sort()).toEqual(OUTPUTS);
     const manifest = await manifestAt(data["manifest"]);
     expect(manifest).toMatchObject({ comparisonVersion: 1, status: "succeeded", identity: { comparisonId: data["comparisonId"] }, tooling: { ffmpeg: { version: "9.9.9-fake" } } });
     for (const artifact of manifest["artifacts"]) {
@@ -110,6 +113,17 @@ describe("cappy compare", () => {
     expect(mean).toBeLessThan(0.99);
     expect([min, minAtMs]).toEqual([0.5, 33.333]);
     expect(informational.result["data"]["scores"]["psnr"]).toEqual({ mean: expect.any(Number), min: 12.5 });
+    const directory = `comparisons/${informational.result["data"]["comparisonId"]}`;
+    expect(informational.result["data"]["worstFrames"]).toEqual([
+      { rank: 1, tMs: 33.333, ssim: 0.5, a: `${directory}/worst-1-a.png`, b: `${directory}/worst-1-b.png`, diff: `${directory}/worst-1-diff.png` },
+    ]);
+    // The stills show the worst moment of each master, B scaled to A.
+    const stillArgs = (JSON.parse(await readFile(path.join(root(), directory, "worst-1-diff.png"), "utf8")) as { args: string[] }).args;
+    expect(stillArgs.filter((arg, index) => stillArgs[index - 1] === "-ss").map(Number)).toEqual(
+      [informational.result["data"]["a"], informational.result["data"]["b"]].map((side: { alignedStartMs: number }) => expect.closeTo((side.alignedStartMs + 33.333) / 1000, 6)),
+    );
+    const informationalManifest = await manifestAt(`${directory}/manifest.json`);
+    expect(informationalManifest["artifacts"].map((artifact: { role: string }) => artifact.role)).toEqual(["triptych", "frames", "worst-1-a", "worst-1-b", "worst-1-diff"]);
 
     const passing = await compare([first["captureId"], second["captureId"], "--min-ssim", "0.5"]);
     expect(passing.code).toBe(0);
@@ -120,7 +134,7 @@ describe("cappy compare", () => {
     expect(gated.result).toMatchObject({ ok: false, error: { code: "COMPARISON_REGRESSED", details: { minSsim: 0.99 } }, data: { status: "regressed" } });
     const manifest = await manifestAt(gated.result["data"]["manifest"]);
     expect(manifest).toMatchObject({ status: "regressed", threshold: { minSsim: 0.99 } });
-    expect((await readdir(path.join(root(), "comparisons", gated.result["data"]["comparisonId"]))).sort()).toEqual(["frames.json", "manifest.json", "triptych.mp4"]);
+    expect((await readdir(path.join(root(), "comparisons", gated.result["data"]["comparisonId"]))).sort()).toEqual(OUTPUTS);
   });
 
   it("normalizes a different resolution to A's and records it", async () => {
@@ -132,6 +146,37 @@ describe("cappy compare", () => {
     expect(result["data"]["normalization"]).toEqual({ width: 1280, height: 720, frameRate: 30, scaledB: true });
     const args = (JSON.parse(await readFile(path.join(root(), result["data"]["artifacts"][0]["path"]), "utf8")) as { args: string[] }).args;
     expect(args[args.indexOf("-filter_complex") + 1]).toContain("[1:v]fps=30,scale=1280:720");
+  });
+
+  it("reports how the builds' events differ without changing the verdict", async () => {
+    const first = await capture();
+    const changed = [
+      {
+        id: "boss_intro",
+        name: "Boss intro",
+        parameters: { difficulty: { type: "integer", minimum: 1, maximum: 3, default: 2 } },
+        requiredCapabilities: ["scenarios"],
+        events: [
+          { event: "BOSS_APPEAR", t: 130 },
+          { event: "SPELL_CAST", t: 350, payload: { spell: "fireball" } },
+          { event: "SPELL_CAST", t: 420, payload: { spell: "frost" } },
+          { event: "IMPACT", t: 520, durationMs: 100 },
+        ],
+      },
+    ];
+    const { result: run } = await runCli(harness, ["run", "boss_intro"], { sim: { build: "1.1.0", timeScale: 0.2, scenarios: changed } });
+    const { code, result } = await compare([first["captureId"], run["data"]["captureId"], "--min-ssim", "0.9"]);
+    expect(code).toBe(0);
+    expect(result["data"]["status"]).toBe("succeeded");
+    const diff = Object.fromEntries(result["data"]["timelineDiff"].map((entry: { type: string }) => [entry.type, entry]));
+    expect(Object.keys(diff)).toEqual(["BOSS_APPEAR", "SPELL_CAST", "IMPACT"]);
+    expect(diff["SPELL_CAST"]).toMatchObject({ countA: 1, countB: 2, matched: 1, missingAtMs: [], extraAtMs: [expect.any(Number)] });
+    expect(diff["IMPACT"]).toMatchObject({ countA: 1, countB: 1, matched: 1, missingAtMs: [], extraAtMs: [] });
+    // Scripted times differ by 20 ms between the builds; B's is later.
+    expect(diff["IMPACT"]["meanDriftMs"]).toBeCloseTo(20, 0);
+    expect(diff["BOSS_APPEAR"]["maxDriftMs"]).toBeCloseTo(30, 0);
+    expect(result["warnings"]).toEqual(["timeline differs: SPELL_CAST occurs 1 time(s) in A and 2 in B"]);
+    expect((await manifestAt(result["data"]["manifest"]))["timelineDiff"]).toEqual(result["data"]["timelineDiff"]);
   });
 
   it("aligns replay captures of one session on REPLAY_STARTED and warns when both report the same build", async () => {
@@ -193,6 +238,16 @@ describe("cappy compare", () => {
     expect(await manifestAt(result["data"]["manifest"])).toMatchObject({ status: "failed", result: { error: { code: "COMPARISON_FAILED" } } });
   });
 
+  it("publishes nothing when a worst-frame still cannot be extracted", async () => {
+    masters = ["m".repeat(2048), "FAILSTILL"];
+    const first = await capture();
+    const second = await capture();
+    const { code, result } = await compare([first["captureId"], second["captureId"]]);
+    expect(code).toBe(1);
+    expect(result).toMatchObject({ error: { code: "COMPARISON_FAILED", message: expect.stringContaining("worst frame 1") }, data: { status: "failed", artifacts: [] } });
+    expect(await readdir(path.join(root(), "comparisons", result["data"]["comparisonId"]))).toEqual(["manifest.json"]);
+  });
+
   it("is cleaned by ID and by --failed, --all, and --older-than, never taking its captures with it", async () => {
     const first = await capture();
     const second = await capture();
@@ -240,6 +295,8 @@ describe("cappy compare", () => {
     expect(stdout).toContain(`A ${first["captureId"]} (take 1, build 1.0.0)`);
     expect(stdout).toContain("Aligned on SCENARIO_STARTED");
     expect(stdout).toContain("SSIM mean 1.0000, min 1.0000");
+    expect(stdout).toMatch(/worst #1 +0 ms, SSIM 1\.0000: comparisons\/cmp_\S+\/worst-1-diff\.png/);
+    expect(stdout).toContain("Timeline: 3 adapter event type(s), same counts");
     expect(stdout).toMatch(/triptych +comparisons\/cmp_\S+\/triptych\.mp4/);
   });
 });
@@ -282,6 +339,12 @@ describe.runIf(process.env["CAPPY_REAL_TOOLS"] === "1")("real FFmpeg comparison"
     const worstOnMaster = b["alignedStartMs"] + scores["ssim"]["minAtMs"];
     expect(worstOnMaster).toBeGreaterThanOrEqual(250 - 34);
     expect(worstOnMaster).toBeLessThanOrEqual(450 + 34);
+    const [worst] = result["data"]["worstFrames"];
+    expect(worst).toMatchObject({ rank: 1, tMs: scores["ssim"]["minAtMs"], ssim: scores["ssim"]["min"] });
+    for (const still of [worst.a, worst.b, worst.diff]) {
+      const probed = await probeMedia("ffprobe", path.join(root(), still), { timeoutMs: 30_000 });
+      expect(probed.ok && [probed.value.width, probed.value.height, probed.value.videoCodec], still).toEqual([320, 240, "png"]);
+    }
   });
 });
 

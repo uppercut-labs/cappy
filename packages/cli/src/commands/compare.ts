@@ -8,11 +8,14 @@ import {
   type ComparisonManifest,
   type ComparisonStatus,
   type Result,
+  type TimelineDiffEntry,
+  type TimelineEvent,
   COMPARISON_MANIFEST_VERSION,
   cappyError,
   commandFailure,
   commandSuccess,
   comparisonManifestSchema,
+  diffTimelines,
   err,
   loadConfig,
   manifestSchema,
@@ -23,6 +26,7 @@ import {
   type ComparisonScores,
   DEFAULT_COMPARISON_FRAME_RATE,
   type Normalization,
+  type WorstFrame,
   locateTool,
   probeMedia,
   produceComparison,
@@ -53,6 +57,8 @@ export interface CompareReport {
   readonly normalization?: Normalization & { readonly scaledB: boolean };
   readonly scores?: ComparisonScores;
   readonly threshold?: { readonly minSsim: number };
+  readonly worstFrames?: readonly (WorstFrame & { readonly a: string; readonly b: string; readonly diff: string })[];
+  readonly timelineDiff: readonly TimelineDiffEntry[];
   readonly artifacts: readonly Artifact[];
   readonly manifest?: string;
   readonly log?: string;
@@ -97,6 +103,7 @@ interface Aligned {
   readonly event: string;
   readonly startMs: number;
   readonly operationMs: number;
+  readonly timeline: readonly TimelineEvent[];
 }
 
 /** Find a capture's operation start and length on its master clock. */
@@ -113,7 +120,7 @@ function alignmentOf(manifest: ArtifactManifest): Result<Aligned> {
   if (started === undefined || completed === undefined) {
     return invalid(`has no ${label}_STARTED/${label}_COMPLETED events to align on`);
   }
-  return ok({ event: `${label}_STARTED`, startMs: started.t, operationMs: completed.t - started.t });
+  return ok({ event: `${label}_STARTED`, startMs: started.t, operationMs: completed.t - started.t, timeline });
 }
 
 function masterOf(manifest: ArtifactManifest): Artifact | undefined {
@@ -218,7 +225,9 @@ export async function compare(context: CommandContext): Promise<CommandResult<Co
   const spanMs = Math.round(Math.min(...spans) * 1000) / 1000;
   const alignment = { event: aligned[0]?.event ?? "", spanMs };
   const source = manifestA.identity.source;
-  const report = (extra: Partial<CompareReport> = {}): CompareReport => ({ source, a, b, alignment, artifacts: [], ...extra });
+  const [alignedA, alignedB] = aligned as [Aligned, Aligned];
+  const timelineDiff = diffTimelines(alignedA.timeline, alignedA.startMs, alignedB.timeline, alignedB.startMs);
+  const report = (extra: Partial<CompareReport> = {}): CompareReport => ({ source, a, b, alignment, timelineDiff, artifacts: [], ...extra });
   if (!(spanMs > 0)) {
     return commandFailure(
       COMMAND,
@@ -227,6 +236,9 @@ export async function compare(context: CommandContext): Promise<CommandResult<Co
     );
   }
   const warnings: string[] = [];
+  for (const entry of timelineDiff.filter((difference) => difference.countA !== difference.countB)) {
+    warnings.push(`timeline differs: ${entry.type} occurs ${entry.countA} time(s) in A and ${entry.countB} in B`);
+  }
   if (a.gameBuild === b.gameBuild) {
     warnings.push(
       a.gameBuild === undefined
@@ -260,6 +272,7 @@ export async function compare(context: CommandContext): Promise<CommandResult<Co
   const artifacts: Artifact[] = [];
   let normalization: (Normalization & { scaledB: boolean }) | undefined;
   let scores: ComparisonScores | undefined;
+  let worstFrames: CompareReport["worstFrames"];
 
   const finish = async (status: ComparisonStatus, error?: CappyError): Promise<CommandResult<CompareReport>> => {
     const manifest: ComparisonManifest = {
@@ -273,6 +286,8 @@ export async function compare(context: CommandContext): Promise<CommandResult<Co
       ...(normalization === undefined ? {} : { normalization }),
       ...(scores === undefined ? {} : { scores }),
       ...(threshold === undefined ? {} : { threshold }),
+      ...(worstFrames === undefined ? {} : { worstFrames: [...worstFrames] }),
+      timelineDiff,
       artifacts,
       tooling: { ffmpeg: { version: ffmpeg.version }, ffprobe: { version: ffprobe.version } },
       result: { warnings, checks, ...(error === undefined ? {} : { error: { code: error.code, message: error.message } }) },
@@ -297,6 +312,7 @@ export async function compare(context: CommandContext): Promise<CommandResult<Co
       ...(normalization === undefined ? {} : { normalization }),
       ...(scores === undefined ? {} : { scores }),
       ...(threshold === undefined ? {} : { threshold }),
+      ...(worstFrames === undefined ? {} : { worstFrames }),
       artifacts,
       ...(manifestPath === undefined ? {} : { manifest: manifestPath }),
       log: log.path,
@@ -360,8 +376,9 @@ export async function compare(context: CommandContext): Promise<CommandResult<Co
       return await finish("failed", produced.error);
     }
     const { media: _media, ...triptych } = produced.value.triptych;
-    artifacts.push(triptych, produced.value.framesFile);
+    artifacts.push(triptych, produced.value.framesFile, ...produced.value.stills);
     scores = produced.value.scores;
+    worstFrames = produced.value.worstFrames;
     checks.push({ name: "comparison.media", passed: true, detail: `${scores.frames} frame(s)` });
     const regressed = threshold !== undefined && scores.ssim.mean < threshold.minSsim;
     return await finish(regressed ? "regressed" : "succeeded");

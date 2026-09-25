@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { capabilitySetSchema } from "./capabilities.js";
+import { timelineDiffEntrySchema } from "./timeline.js";
 
 /*
  * Engine-neutral domain contracts. Vocabulary follows Context.md: Project,
@@ -363,6 +364,21 @@ export const comparisonManifestSchema = z
       })
       .optional(),
     threshold: z.strictObject({ minSsim: z.number().min(0).max(1) }).optional(),
+    /** The lowest-SSIM frames, at least a second apart, lowest first. */
+    worstFrames: z
+      .array(
+        z.strictObject({
+          rank: z.int().positive(),
+          tMs: z.number().nonnegative(),
+          ssim: z.number().min(0).max(1),
+          a: nonEmpty,
+          b: nonEmpty,
+          diff: nonEmpty,
+        }),
+      )
+      .optional(),
+    /** Adapter events compared by type and occurrence. Informational only. */
+    timelineDiff: z.array(timelineDiffEntrySchema).optional(),
     artifacts: z.array(artifactSchema),
     tooling: z.strictObject({ ffmpeg: toolVersionSchema, ffprobe: toolVersionSchema }),
     result: z.strictObject({
@@ -382,8 +398,8 @@ export const comparisonManifestSchema = z
     if (manifest.result.error !== undefined) {
       ctx.addIssue({ code: "custom", path: ["result", "error"], message: "completed comparisons cannot carry an error" });
     }
-    if (manifest.scores === undefined || manifest.normalization === undefined) {
-      ctx.addIssue({ code: "custom", path: ["scores"], message: "completed comparisons require scores and normalization" });
+    if (manifest.scores === undefined || manifest.normalization === undefined || manifest.worstFrames === undefined || manifest.timelineDiff === undefined) {
+      ctx.addIssue({ code: "custom", path: ["scores"], message: "completed comparisons require scores, normalization, worst frames, and a timeline diff" });
       return;
     }
     if (manifest.result.checks.length === 0 || manifest.result.checks.some((check) => !check.passed)) {

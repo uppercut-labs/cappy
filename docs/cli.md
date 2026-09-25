@@ -125,11 +125,20 @@ What `compare` does:
 - Results go under `comparisons/<cmp-id>/`:
   - `triptych.mp4`: A, B, and their difference amplified four times, side by side;
   - `frames.json`: per-frame SSIM and PSNR;
+  - `worst-<n>-a.png`, `worst-<n>-b.png`, and `worst-<n>-diff.png`: A, B, and the difference at up to three lowest-SSIM moments, at least a second apart (`n` = 1 is the worst);
   - `manifest.json`.
+- A timeline diff compares the adapter events of the two captures, by type and in order of occurrence, with times measured from each aligned start. For each type it reports the counts in A and B, the occurrences missing from B or extra in B, and the mean and largest drift (B's time minus A's). A count difference adds a warning. The timeline diff never changes the status or exit code; only `--min-ssim` does.
 - It needs FFmpeg and ffprobe, and exits 4 without them. It never launches the game or touches OBS.
 - A warning notes when both captures report the same game build, or neither reports one.
 
-`data` carries the comparison ID, `status` (`succeeded`, `regressed`, or `failed`), both captures with their aligned starts, `alignment`, `normalization`, `scores` (SSIM mean, min and its time; PSNR mean and min, `null` when every frame is identical), the artifacts, and the manifest path. A failed FFmpeg run exits 1 with `COMPARISON_FAILED` and leaves only a `failed` manifest.
+`data` carries:
+
+- the comparison ID and `status` (`succeeded`, `regressed`, or `failed`);
+- both captures, with their aligned starts;
+- `alignment` and `normalization`;
+- `scores`: SSIM mean, minimum, and the minimum's time; PSNR mean and minimum, which are `null` when every frame is identical;
+- `worstFrames` and `timelineDiff`;
+- the artifacts, and the manifest path. A failed FFmpeg run exits 1 with `COMPARISON_FAILED` and leaves only a `failed` manifest.
 
 ## `cappy clean [<id>...]`
 

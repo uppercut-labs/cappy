@@ -6,6 +6,7 @@ import {
   canTransition,
   capabilitySetSchema,
   captureJobSchema,
+  comparisonManifestSchema,
   isKnownCapability,
   manifestSchema,
   missingCapabilities,
@@ -204,5 +205,42 @@ describe("manifest", () => {
     expect(manifestSchema.safeParse({ ...failed, result: { ...failed.result, error: { code: "OBS_START_FAILED", message: "no" } } }).success).toBe(
       true,
     );
+  });
+});
+
+describe("comparison manifest", () => {
+  const sha = "a".repeat(64);
+  const side = (captureId: string) => ({ captureId, take: 1, master: { path: `captures/${captureId}/master.mkv`, sha256: sha }, alignedStartMs: 12 });
+  const completed = {
+    comparisonVersion: 1,
+    status: "succeeded",
+    identity: { comparisonId: "cmp_1", project: { id: "p", name: "P" }, source: { kind: "replay", sessionId: "ses_1" }, correlationId: "op_1" },
+    createdAt: "2026-09-25T20:00:00.000Z",
+    a: side("cap_a"),
+    b: side("cap_b"),
+    alignment: { event: "REPLAY_STARTED", spanMs: 1000 },
+    normalization: { width: 320, height: 240, frameRate: 30, scaledB: false },
+    scores: { frames: 30, ssim: { mean: 0.95, min: 0.8, minAtMs: 400 }, psnr: { mean: 35, min: 20 } },
+    worstFrames: [{ rank: 1, tMs: 400, ssim: 0.8, a: "a.png", b: "b.png", diff: "d.png" }],
+    timelineDiff: [],
+    artifacts: [],
+    tooling: { ffmpeg: { version: "9" }, ffprobe: { version: "9" } },
+    result: { warnings: [], checks: [{ name: "comparison.media", passed: true }] },
+  };
+
+  it("is regressed exactly when mean SSIM is below the threshold", () => {
+    expect(comparisonManifestSchema.safeParse(completed).success).toBe(true);
+    expect(comparisonManifestSchema.safeParse({ ...completed, threshold: { minSsim: 0.9 } }).success).toBe(true);
+    expect(comparisonManifestSchema.safeParse({ ...completed, threshold: { minSsim: 0.97 } }).success).toBe(false);
+    expect(comparisonManifestSchema.safeParse({ ...completed, status: "regressed", threshold: { minSsim: 0.97 } }).success).toBe(true);
+    expect(comparisonManifestSchema.safeParse({ ...completed, status: "regressed" }).success).toBe(false);
+  });
+
+  it("requires every diagnostic for a completed comparison and an error for a failed one", () => {
+    const { worstFrames: _worst, ...withoutStills } = completed;
+    expect(comparisonManifestSchema.safeParse(withoutStills).success).toBe(false);
+    const failed = { ...withoutStills, status: "failed", scores: undefined, normalization: undefined };
+    expect(comparisonManifestSchema.safeParse(failed).success).toBe(false);
+    expect(comparisonManifestSchema.safeParse({ ...failed, result: { ...failed.result, error: { code: "COMPARISON_FAILED", message: "no" } } }).success).toBe(true);
   });
 });

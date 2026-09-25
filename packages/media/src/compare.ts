@@ -107,6 +107,61 @@ export function parseFrameScores(ssimLog: string, psnrLog: string, frameRate: nu
   return frames;
 }
 
+export interface WorstFrame {
+  /** 1 is the lowest SSIM. */
+  readonly rank: number;
+  readonly tMs: number;
+  readonly ssim: number;
+}
+
+/**
+ * The `count` lowest-SSIM frames, lowest first, each at least `spacingMs`
+ * from every frame already chosen, so one glitch does not fill every slot.
+ */
+export function selectWorstFrames(frames: readonly FrameScore[], count = 3, spacingMs = 1000): WorstFrame[] {
+  const chosen: FrameScore[] = [];
+  for (const frame of [...frames].sort((x, y) => x.ssim - y.ssim || x.frame - y.frame)) {
+    if (chosen.length === count) {
+      break;
+    }
+    if (chosen.every((other) => Math.abs(other.tMs - frame.tMs) >= spacingMs)) {
+      chosen.push(frame);
+    }
+  }
+  return chosen.map((frame, index) => ({ rank: index + 1, tMs: frame.tMs, ssim: frame.ssim }));
+}
+
+/**
+ * One frame of A, the same moment of B scaled to A's size, and their
+ * amplified grayscale difference, as three PNGs.
+ */
+export function worstFrameArguments(
+  a: ComparisonInput,
+  b: ComparisonInput,
+  tMs: number,
+  normalization: Normalization,
+  files: { readonly a: string; readonly b: string; readonly diff: string },
+): string[] {
+  const { width, height } = normalization;
+  const prepare = `scale=${width}:${height}:flags=bicubic,format=rgb24,split=2`;
+  const graph = [
+    `[0:v]${prepare}[a0][a1]`,
+    `[1:v]${prepare}[b0][b1]`,
+    "[a1]format=gray[ag]",
+    "[b1]format=gray[bg]",
+    `[ag][bg]blend=all_mode=difference,lutyuv=y='min(val*${DIFFERENCE_GAIN},255)',format=gray[d]`,
+  ].join(";");
+  return [
+    "-nostdin", "-hide_banner", "-loglevel", "error", "-n",
+    "-ss", seconds(a.startMs + tMs), "-i", a.path,
+    "-ss", seconds(b.startMs + tMs), "-i", b.path,
+    "-filter_complex", graph,
+    "-map", "[a0]", "-frames:v", "1", files.a,
+    "-map", "[b0]", "-frames:v", "1", files.b,
+    "-map", "[d]", "-frames:v", "1", files.diff,
+  ];
+}
+
 export interface ComparisonScores {
   readonly frames: number;
   readonly ssim: { readonly mean: number; readonly min: number; readonly minAtMs: number };
@@ -139,6 +194,9 @@ export interface ComparisonOutput {
   readonly scores: ComparisonScores;
   readonly triptych: Artifact & { readonly media: MediaInfo };
   readonly framesFile: Artifact;
+  /** Worst frames with the managed paths of their A, B, and difference stills. */
+  readonly worstFrames: readonly (WorstFrame & { readonly a: string; readonly b: string; readonly diff: string })[];
+  readonly stills: readonly Artifact[];
 }
 
 function comparisonError(reason: string, details: Record<string, unknown> = {}): CappyError {
@@ -146,11 +204,12 @@ function comparisonError(reason: string, details: Record<string, unknown> = {}):
 }
 
 /**
- * Run the comparison and publish `triptych.mp4` and `frames.json` into
- * `directory` as managed files. FFmpeg writes only uniquely named partial
- * files beside the outputs; nothing is published unless FFmpeg exits cleanly,
- * the triptych probes as video, and both stats files parse. Partial files are
- * always removed. The masters are only ever read.
+ * Run the comparison and publish `triptych.mp4`, `frames.json`, and the
+ * worst-frame stills into `directory` as managed files. FFmpeg writes only
+ * uniquely named partial files beside the outputs; nothing is published until
+ * every FFmpeg run exits cleanly, the triptych and every still probe as
+ * media, and both stats files parse. Partial files are always removed. The
+ * masters are only ever read.
  */
 export async function produceComparison(
   a: ComparisonInput,
@@ -174,6 +233,16 @@ export async function produceComparison(
   const files = { ssimLog: `.ssim.${id}.partial.log`, psnrLog: `.psnr.${id}.partial.log`, triptych: `.triptych.${id}.partial.mp4` };
   const partials = Object.values(files).map((name) => path.join(hostDir, name));
   const discard = (): Promise<unknown> => Promise.all(partials.map((file) => unlink(file).catch(() => undefined)));
+  /** A partial output FFmpeg claims to have written must exist, be non-empty, and probe as media. */
+  const validate = async (name: string, what: string): Promise<Result<MediaInfo>> => {
+    const file = path.join(hostDir, name);
+    const produced = await stat(file).catch(() => undefined);
+    if (produced === undefined || produced.size === 0) {
+      return err(comparisonError(produced === undefined ? `FFmpeg produced no ${what}` : `FFmpeg produced an empty ${what}`));
+    }
+    const media = await probeMedia(options.ffprobe, file, { timeoutMs: options.timeoutMs });
+    return media.ok ? media : err(comparisonError(`the ${what} is not valid media`, { probe: media.error.message }));
+  };
   try {
     const run = await runProcess(options.ffmpeg.path, comparisonArguments(a, b, spanMs, normalization, files), {
       cwd: hostDir,
@@ -183,13 +252,9 @@ export async function produceComparison(
       return err(comparisonError(run.timedOut ? "FFmpeg timed out" : `FFmpeg exited with ${String(run.exitCode)}`, { stderr: run.stderr.slice(-800) }));
     }
     const triptychPath = path.join(hostDir, files.triptych);
-    const produced = await stat(triptychPath).catch(() => undefined);
-    if (produced === undefined || produced.size === 0) {
-      return err(comparisonError(produced === undefined ? "FFmpeg produced no triptych" : "FFmpeg produced an empty triptych"));
-    }
-    const media = await probeMedia(options.ffprobe, triptychPath, { timeoutMs: options.timeoutMs });
+    const media = await validate(files.triptych, "triptych");
     if (!media.ok) {
-      return err(comparisonError("the triptych is not valid media", { probe: media.error.message }));
+      return media;
     }
     const [ssimLog, psnrLog] = await Promise.all(
       [files.ssimLog, files.psnrLog].map((name) => readFile(path.join(hostDir, name), "utf8").catch(() => "")),
@@ -197,6 +262,25 @@ export async function produceComparison(
     const frames = parseFrameScores(ssimLog ?? "", psnrLog ?? "", normalization.frameRate);
     if (frames === undefined) {
       return err(comparisonError("FFmpeg's SSIM/PSNR statistics are missing or unreadable"));
+    }
+
+    // Worst frames: A, B, and difference stills, staged before anything is published.
+    const worst = selectWorstFrames(frames);
+    const staged: { frame: WorstFrame; files: { a: string; b: string; diff: string } }[] = [];
+    for (const frame of worst) {
+      const stills = { a: `.worst-${frame.rank}-a.${id}.partial.png`, b: `.worst-${frame.rank}-b.${id}.partial.png`, diff: `.worst-${frame.rank}-diff.${id}.partial.png` };
+      partials.push(...Object.values(stills).map((name) => path.join(hostDir, name)));
+      const extracted = await runProcess(options.ffmpeg.path, worstFrameArguments(a, b, frame.tMs, normalization, stills), { cwd: hostDir, timeoutMs: options.timeoutMs });
+      if (extracted.exitCode !== 0) {
+        return err(comparisonError(`FFmpeg could not extract worst frame ${frame.rank}`, { stderr: extracted.stderr.slice(-800) }));
+      }
+      for (const name of Object.values(stills)) {
+        const still = await validate(name, `worst-frame ${frame.rank} still`);
+        if (!still.ok) {
+          return still;
+        }
+      }
+      staged.push({ frame, files: stills });
     }
 
     const published = await workspace.publishFile(triptychPath, target.value.path, { move: true, role: "triptych" });
@@ -207,7 +291,34 @@ export async function produceComparison(
     if (!framesWritten.ok) {
       return framesWritten;
     }
+    const stills: Artifact[] = [];
+    const worstFrames: (WorstFrame & { a: string; b: string; diff: string })[] = [];
+    for (const { frame, files: names } of staged) {
+      const paths: Record<string, string> = {};
+      for (const [column, name] of Object.entries(names)) {
+        const role = `worst-${frame.rank}-${column}`;
+        const still = await workspace.publishFile(path.join(hostDir, name), `${directory}/${role}.png`, { move: true, role });
+        if (!still.ok) {
+          return still;
+        }
+        paths[column] = still.value.path;
+        stills.push({
+          role,
+          path: still.value.path,
+          ownership: "managed",
+          mediaType: "image/png",
+          bytes: still.value.entry.bytes,
+          sha256: still.value.entry.sha256,
+          source: { tool: "ffmpeg", version: options.ffmpeg.version },
+          width: normalization.width,
+          height: normalization.height,
+        });
+      }
+      worstFrames.push({ ...frame, a: paths["a"] ?? "", b: paths["b"] ?? "", diff: paths["diff"] ?? "" });
+    }
     return ok({
+      worstFrames,
+      stills,
       frames,
       scores: summarizeScores(frames),
       triptych: {
