@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "project": { "id": "my-game", "name": "My Game" },
+  "game": {
+    "command": "godot",
+    "args": ["--path", "/absolute/path/to/my-game"],
+    "cwd": "."
+  },
+  "adapter": {
+    "host": "127.0.0.1",
+    "port": 0,
+    "requiredCapabilities": ["scenarios"]
+  },
+  "workspace": {},
+  "obs": {
+    "url": "ws://127.0.0.1:4455",
+    "passwordEnv": "CAPPY_OBS_PASSWORD",
+    "scene": "Capture",
+    "switchScene": false
+  },
+  "tools": {},
+  "presets": {
+    "trailer": {
+      "scene": "Capture",
+      "derivatives": [
+        { "kind": "mp4", "role": "delivery", "options": { "crf": 20, "preset": "medium" } },
+        { "kind": "clip", "role": "highlight", "options": { "start": 1.5, "duration": 4 } },
+        { "kind": "thumbnail", "role": "thumb", "options": { "at": 2, "width": 640 } },
+        { "kind": "still", "role": "poster", "required": false, "options": { "at": 2 } }
+      ]
+    },
+    "master-only": {}
+  },
+  "defaultPreset": "trailer",
+  "timeouts": {
+    "connectMs": 30000,
+    "readyMs": 60000,
+    "obsMs": 10000,
+    "processMs": 300000
+  }
+}

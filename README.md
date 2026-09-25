@@ -7,8 +7,17 @@ Cappy is a local developer system for reproducible game capture: authored scenar
 - Architecture decisions: [ADR.md](ADR.md)
 - Deferred ideas: [Ideas.md](Ideas.md)
 - Living system model: [docs/system-model.dot](docs/system-model.dot)
+- Getting started (new project and Godot demo): [docs/getting-started.md](docs/getting-started.md)
+- CLI reference: [docs/cli.md](docs/cli.md)
+- Managed storage and cleanup: [docs/storage.md](docs/storage.md)
+- Host acceptance status: [docs/acceptance.md](docs/acceptance.md)
+- Configuration example: [cappy.config.example.json](cappy.config.example.json)
 - Adapter protocol reference: [docs/protocol.md](docs/protocol.md)
 - Tickets: [tickets/](tickets/)
+
+## Status
+
+V1 is implemented and accepted on macOS and Windows, including real OBS, FFmpeg, and Godot captures; see [docs/acceptance.md](docs/acceptance.md) for the evidence.
 
 ## Development
 
@@ -63,10 +72,12 @@ Each successful `cappy run` leaves `captures/<capture-id>/` with the master, its
 
 The OBS WebSocket password is never stored in config. Set `obs.passwordEnv` to the name of an environment variable and export the password there.
 
-Opt-in smoke tests against the real FFmpeg/ffprobe and Godot 4.x on PATH:
+Opt-in smoke tests against real tools:
 
 ```bash
-CAPPY_REAL_TOOLS=1 npm test
+CAPPY_REAL_TOOLS=1 npm test                          # FFmpeg/ffprobe and Godot 4.x on PATH
+CAPPY_OBS_SMOKE=1 CAPPY_OBS_SCENE=Capture npm test   # a running OBS with WebSocket enabled
+npm run model:check                                  # validate docs/system-model.dot (Graphviz via WebAssembly)
 ```
 
 ## Godot

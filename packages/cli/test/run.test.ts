@@ -1,13 +1,11 @@
 import { existsSync } from "node:fs";
 import { readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect } from "vitest";
-import { it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ALLOWED_OBS_REQUESTS } from "@cappy/obs";
 import { hashFile } from "@cappy/workspace";
 import { type Harness, configure, createHarness, disposeHarness, runCli } from "./support.js";
 
-const posixIt = process.platform === "win32" ? it.skip : it;
 let harness: Harness;
 
 beforeEach(async () => {
@@ -28,7 +26,7 @@ async function managedCaptures(): Promise<string[]> {
 }
 
 describe("cappy run", () => {
-  posixIt("drives a full fake-OBS capture of a simulator scenario", async () => {
+  it("drives a full fake-OBS capture of a simulator scenario", async () => {
     await configure(harness);
     const { code, result } = await runCli(harness, ["run", "boss_intro", "--param", "difficulty=3", "--preset", "trailer"]);
     expect(code).toBe(0);
@@ -65,21 +63,21 @@ describe("cappy run", () => {
     expect(result["warnings"]).toEqual([]);
   });
 
-  posixIt("applies scenario parameter defaults", async () => {
+  it("applies scenario parameter defaults", async () => {
     await configure(harness);
     const { result } = await runCli(harness, ["run", "boss_intro"]);
     expect(result["data"]["scenario"]["parameters"]).toEqual({ difficulty: 2 });
     expect(result["data"]["preset"]).toBe("default");
   });
 
-  posixIt("requires OBS to be configured", async () => {
+  it("requires OBS to be configured", async () => {
     await configure(harness, {}, { obs: undefined });
     const { code, result } = await runCli(harness, ["run", "boss_intro"]);
     expect(code).toBe(3);
     expect(result["error"]["code"]).toBe("OBS_NOT_CONFIGURED");
   });
 
-  posixIt("fails a missing OBS scene before launching the game", async () => {
+  it("fails a missing OBS scene before launching the game", async () => {
     const marker = path.join(harness.project, "launched");
     await configure(harness, {}, { game: { command: process.execPath, args: ["-e", `require("fs").writeFileSync(${JSON.stringify(marker)}, "x")`] } });
     const config = JSON.parse(await readFile(path.join(harness.project, "cappy.config.json"), "utf8")) as Record<string, any>;
@@ -90,7 +88,7 @@ describe("cappy run", () => {
     expect(existsSync(marker)).toBe(false);
   });
 
-  posixIt("rejects an unknown preset, scenario, or invalid parameters without recording", async () => {
+  it("rejects an unknown preset, scenario, or invalid parameters without recording", async () => {
     await configure(harness);
     expect((await runCli(harness, ["run", "boss_intro", "--preset", "nope"])).result["error"]["code"]).toBe("PRESET_NOT_FOUND");
     expect((await runCli(harness, ["run", "no_such_scenario"])).result["error"]["code"]).toBe("SCENARIO_NOT_FOUND");
@@ -101,33 +99,33 @@ describe("cappy run", () => {
     expect(await managedCaptures()).toEqual([]);
   });
 
-  posixIt("fails when OBS never confirms the recording started, and cancels the scenario", async () => {
+  it("fails when OBS never confirms the recording started, and cancels the scenario", async () => {
     await configure(harness, { recording: { neverActivates: true } });
     const { code, result } = await runCli(harness, ["run", "boss_intro"]);
     expect(code).toBe(1);
     expect(result).toMatchObject({ ok: false, error: { code: "OBS_START_FAILED" }, data: { state: "failed", artifacts: [] } });
   });
 
-  posixIt("fails when OBS refuses to stop, and publishes no master", async () => {
+  it("fails when OBS refuses to stop, and publishes no master", async () => {
     await configure(harness, { failRequests: { StopRecord: { code: 501, comment: "OutputNotRunning" } } });
     const { result } = await runCli(harness, ["run", "boss_intro"]);
     expect(result).toMatchObject({ ok: false, error: { code: "OBS_STOP_FAILED" }, data: { state: "failed", artifacts: [] } });
   });
 
-  posixIt("fails when OBS reports a recording that was never written", async () => {
+  it("fails when OBS reports a recording that was never written", async () => {
     await configure(harness, { recording: { noOutputFile: true } });
     const { result } = await runCli(harness, ["run", "boss_intro"]);
     expect(result).toMatchObject({ ok: false, error: { code: "MASTER_MISSING" }, data: { state: "failed" } });
   });
 
-  posixIt("fails when OBS disconnects during the scenario", async () => {
+  it("fails when OBS disconnects during the scenario", async () => {
     await configure(harness);
     setTimeout(() => harness.obs.disconnectAll(), 400);
     const { result } = await runCli(harness, ["run", "boss_intro"], { sim: { timeScale: 3 } });
     expect(result).toMatchObject({ ok: false, error: { code: "OBS_UNREACHABLE" }, data: { state: "failed" } });
   });
 
-  posixIt("stops OBS and ends cancelled when the developer cancels", async () => {
+  it("stops OBS and ends cancelled when the developer cancels", async () => {
     await configure(harness);
     let cancel!: () => void;
     const cancelled = new Promise<void>((resolve) => (cancel = resolve));
@@ -145,7 +143,7 @@ describe("cappy run", () => {
 });
 
 describe("cappy record --capture", () => {
-  posixIt("records a replayable session and a verified OBS master together", async () => {
+  it("records a replayable session and a verified OBS master together", async () => {
     await configure(harness);
     const { code, result } = await runCli(harness, ["record", "--capture", "--duration", "0.3"]);
     expect(code).toBe(0);
@@ -156,7 +154,7 @@ describe("cappy record --capture", () => {
     expect((await hashFile(path.join(harness.project, ".cappy", master.path))).sha256).toBe(master.sha256);
   });
 
-  posixIt("does not require OBS without --capture", async () => {
+  it("does not require OBS without --capture", async () => {
     await configure(harness, {}, { obs: undefined });
     const { code, result } = await runCli(harness, ["record", "--duration", "0.2"]);
     expect(code).toBe(0);

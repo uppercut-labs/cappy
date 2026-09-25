@@ -8,3 +8,4 @@ coverage/
 cappy.config.local.json
 .godot/
 .godot-demo/
+docs/system-model.svg

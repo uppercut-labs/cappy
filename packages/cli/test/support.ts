@@ -9,11 +9,14 @@ export const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)
 export const simulatorBin = path.join(repoRoot, "fixtures/adapter-simulator/dist/bin.js");
 
 /** Fake ffprobe: valid JSON for any file unless its content contains CORRUPT. */
-const FAKE_FFPROBE = `#!/bin/sh
-if [ "$1" = "-hide_banner" ]; then echo "ffprobe version 9.9.9-fake"; exit 0; fi
-for last; do :; done
-if grep -q CORRUPT "$last" 2>/dev/null; then echo "Invalid data found when processing input" >&2; exit 1; fi
-echo '{"format":{"format_name":"matroska,webm","duration":"2.000"},"streams":[{"codec_type":"video","codec_name":"h264","width":1280,"height":720},{"codec_type":"audio","codec_name":"aac"}]}'
+const FAKE_FFPROBE = `const fs = require("node:fs");
+const args = process.argv.slice(2);
+if (args[0] === "-hide_banner") { console.log("ffprobe version 9.9.9-fake"); process.exit(0); }
+let text = "";
+try { text = fs.readFileSync(args[args.length - 1], "utf8"); } catch {}
+if (text.includes("CORRUPT")) { console.error("Invalid data found when processing input"); process.exit(1); }
+console.log(JSON.stringify({ format: { format_name: "matroska,webm", duration: "2.000" }, streams: [
+  { codec_type: "video", codec_name: "h264", width: 1280, height: 720 }, { codec_type: "audio", codec_name: "aac" } ] }));
 `;
 
 /**
@@ -22,18 +25,37 @@ echo '{"format":{"format_name":"matroska,webm","duration":"2.000"},"streams":[{"
  * fail-* exits 1, empty-* writes an empty file, missing-* writes nothing,
  * corrupt-* writes bytes the fake ffprobe rejects.
  */
-const FAKE_FFMPEG = `#!/bin/sh
-if [ "$1" = "-hide_banner" ]; then echo "ffmpeg version 9.9.9-fake"; exit 0; fi
-for last; do :; done
-case "$(basename "$last")" in
-  .fail-*) echo "Conversion failed!" >&2; exit 1 ;;
-  .empty-*) : > "$last" ;;
-  .missing-*) ;;
-  .corrupt-*) echo CORRUPT > "$last" ;;
-  *) echo "derived from input" > "$last" ;;
-esac
-exit 0
+const FAKE_FFMPEG = `const fs = require("node:fs");
+const path = require("node:path");
+const args = process.argv.slice(2);
+if (args[0] === "-hide_banner") { console.log("ffmpeg version 9.9.9-fake"); process.exit(0); }
+const output = args[args.length - 1];
+const name = path.basename(output);
+if (name.startsWith(".fail-")) { console.error("Conversion failed!"); process.exit(1); }
+if (name.startsWith(".empty-")) fs.writeFileSync(output, "");
+else if (name.startsWith(".missing-")) {}
+else if (name.startsWith(".corrupt-")) fs.writeFileSync(output, "CORRUPT\\n");
+else fs.writeFileSync(output, "derived from input\\n");
 `;
+
+/**
+ * Write a fake media tool as a Node script plus an executable launcher:
+ * a `.cmd` file on Windows (exercising Cappy's cmd.exe path) and a shell
+ * script elsewhere. Returns the launcher path.
+ */
+export async function writeFakeTool(directory: string, tool: "ffmpeg" | "ffprobe"): Promise<string> {
+  const script = path.join(directory, `fake-${tool}.cjs`);
+  await writeFile(script, tool === "ffmpeg" ? FAKE_FFMPEG : FAKE_FFPROBE);
+  if (process.platform === "win32") {
+    const launcher = path.join(directory, `fake-${tool}.cmd`);
+    await writeFile(launcher, `@"${process.execPath}" "${script}" %*\r\n`);
+    return launcher;
+  }
+  const launcher = path.join(directory, `fake-${tool}`);
+  await writeFile(launcher, `#!/bin/sh\nexec "${process.execPath}" "${script}" "$@"\n`);
+  await chmod(launcher, 0o755);
+  return launcher;
+}
 
 export interface Harness {
   readonly project: string;
@@ -46,11 +68,7 @@ export async function createHarness(prefix: string): Promise<Harness> {
   const project = await realpath(await mkdtemp(path.join(tmpdir(), prefix)));
   const obsOutput = path.join(project, "obs-recordings");
   await mkdir(obsOutput);
-  const tools = { ffmpeg: path.join(project, "fake-ffmpeg"), ffprobe: path.join(project, "fake-ffprobe") };
-  await writeFile(tools.ffmpeg, FAKE_FFMPEG);
-  await writeFile(tools.ffprobe, FAKE_FFPROBE);
-  await chmod(tools.ffmpeg, 0o755);
-  await chmod(tools.ffprobe, 0o755);
+  const tools = { ffmpeg: await writeFakeTool(project, "ffmpeg"), ffprobe: await writeFakeTool(project, "ffprobe") };
   return { project, obsOutput, obs: undefined as unknown as FakeObsServer, tools };
 }
 

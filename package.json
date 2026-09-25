@@ -17,10 +17,13 @@
     "typecheck": "tsc -b && tsc -p tsconfig.test.json",
     "lint": "eslint .",
     "test": "vitest run",
-    "godot:demo": "node scripts/assemble-godot-demo.mjs .godot-demo"
+    "godot:demo": "node scripts/assemble-godot-demo.mjs .godot-demo",
+    "model:check": "node scripts/model.mjs check",
+    "model:render": "node scripts/model.mjs render"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@hpcc-js/wasm-graphviz": "^1.29.1",
     "@types/node": "^24.13.6",
     "eslint": "^10.11.0",
     "typescript": "~6.0.3",

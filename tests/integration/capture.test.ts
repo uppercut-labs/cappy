@@ -11,7 +11,6 @@ import { type Harness, configure, createHarness, disposeHarness, runCli } from "
  * stand in for media tools. Covers scenario and replay capture through the
  * same pipeline.
  */
-const posixIt = process.platform === "win32" ? it.skip : it;
 let harness: Harness;
 
 beforeEach(async () => {
@@ -35,7 +34,7 @@ function startRecordCount(): number {
 }
 
 describe("replay capture", () => {
-  posixIt("captures a stored freeform session through the same pipeline as scenarios", async () => {
+  it("captures a stored freeform session through the same pipeline as scenarios", async () => {
     const recorded = await runCli(harness, ["record", "--duration", "0.2"]);
     expect(recorded.code).toBe(0);
     const sessionId = recorded.result["data"]["session"]["id"] as string;
@@ -63,7 +62,7 @@ describe("replay capture", () => {
     expect(again.result["data"]["take"]).toBe(2);
   });
 
-  posixIt("checks replay compatibility before recording", async () => {
+  it("checks replay compatibility before recording", async () => {
     const recorded = await runCli(harness, ["record", "--duration", "0.2"]);
     const sessionId = recorded.result["data"]["session"]["id"] as string;
     const { result } = await runCli(harness, ["replay", sessionId], { sim: { capabilities: ["freeform_recording", "replay"] } });
@@ -71,7 +70,7 @@ describe("replay capture", () => {
     expect(startRecordCount()).toBe(0);
   });
 
-  posixIt("keeps a failed replay capture clearly non-successful", async () => {
+  it("keeps a failed replay capture clearly non-successful", async () => {
     await harness.obs.close();
     await configure(harness, { recording: { neverActivates: true } }, {
       presets: { trailer: { scene: "Capture", derivatives: [{ kind: "mp4", role: "delivery" }] } },
@@ -87,7 +86,7 @@ describe("replay capture", () => {
 });
 
 describe("takes", () => {
-  posixIt("never overwrites an existing successful take", async () => {
+  it("never overwrites an existing successful take", async () => {
     const first = await runCli(harness, ["run", "boss_intro", "--take", "1"]);
     expect(first.code).toBe(0);
     const master = first.result["data"]["artifacts"][0];
@@ -105,7 +104,7 @@ describe("takes", () => {
     expect(next.result["data"]["take"]).toBe(6);
   });
 
-  posixIt("does not let failed jobs consume take numbers", async () => {
+  it("does not let failed jobs consume take numbers", async () => {
     await harness.obs.close();
     await configure(harness, { failRequests: { StopRecord: { code: 501, comment: "OutputNotRunning" } } });
     const failed = await runCli(harness, ["run", "boss_intro"]);
@@ -116,13 +115,13 @@ describe("takes", () => {
     expect(succeeded.result["data"]).toMatchObject({ state: "succeeded", take: 1 });
   });
 
-  posixIt("rejects an invalid take", async () => {
+  it("rejects an invalid take", async () => {
     expect((await runCli(harness, ["run", "boss_intro", "--take", "0"])).code).toBe(2);
   });
 });
 
 describe("cancellation and crash reconciliation", () => {
-  posixIt("leaves a cancelled capture, its session, and its manifest non-successful", async () => {
+  it("leaves a cancelled capture, its session, and its manifest non-successful", async () => {
     let cancel!: () => void;
     const cancelled = new Promise<void>((resolve) => (cancel = resolve));
     const never = new Promise<void>(() => undefined);
@@ -138,7 +137,7 @@ describe("cancellation and crash reconciliation", () => {
     expect(session["status"]).toBe("cancelled");
   });
 
-  posixIt("marks sessions orphaned by a crashed command as failed, never succeeded", async () => {
+  it("marks sessions orphaned by a crashed command as failed, never succeeded", async () => {
     // A command that crashed: its session is still active and its lock names a dead process.
     const recorded = await runCli(harness, ["record", "--duration", "0.2"]);
     const crashedId = recorded.result["data"]["session"]["id"] as string;
@@ -168,7 +167,7 @@ describe("cancellation and crash reconciliation", () => {
 });
 
 describe("correlation and timeline synchronization", () => {
-  posixIt("links the log, session, capture, manifest, and timeline by one correlation ID", async () => {
+  it("links the log, session, capture, manifest, and timeline by one correlation ID", async () => {
     const { result } = await runCli(harness, ["run", "boss_intro"], { sim: { timeScale: 1 } });
     const correlationId = result["correlationId"] as string;
     const data = result["data"];
@@ -187,7 +186,7 @@ describe("correlation and timeline synchronization", () => {
     expect(JSON.stringify(lines)).toContain(data.captureId);
   });
 
-  posixIt("places adapter events on the master's clock", async () => {
+  it("places adapter events on the master's clock", async () => {
     const { result } = await runCli(harness, ["run", "boss_intro"], { sim: { timeScale: 1 } });
     const data = result["data"];
     const manifest = await readJson(data.manifest);

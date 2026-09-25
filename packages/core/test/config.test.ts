@@ -145,3 +145,16 @@ describe("loadConfig", () => {
     expect(result.error.details?.["issues"]).toEqual([expect.objectContaining({ path: "adapter.port" })]);
   });
 });
+
+describe("cappy.config.example.json", () => {
+  it("is a valid configuration whose derivative options are accepted", async () => {
+    const { readFile } = await import("node:fs/promises");
+    const { fileURLToPath } = await import("node:url");
+    const file = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../cappy.config.example.json");
+    const parsed = parseConfig(JSON.parse(await readFile(file, "utf8")), file);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.value.obs?.passwordEnv).toBe("CAPPY_OBS_PASSWORD");
+    expect(Object.keys(parsed.value.presets)).toEqual(["trailer", "master-only"]);
+  });
+});

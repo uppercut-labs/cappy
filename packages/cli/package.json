@@ -5,7 +5,7 @@
   "description": "Cappy command-line interface with human and JSON output.",
   "type": "module",
   "bin": {
-    "cappy": "./dist/bin.js"
+    "cappy": "./bin/cappy.js"
   },
   "exports": {
     ".": {
@@ -14,7 +14,10 @@
       "default": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "bin",
+    "dist"
+  ],
   "dependencies": {
     "@cappy/core": "0.1.0",
     "@cappy/media": "0.1.0",

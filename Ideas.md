@@ -49,3 +49,11 @@ Optionally install/pin FFmpeg or other helper binaries rather than requiring the
 ## Shared timeline interchange
 
 Cappy-produced timelines may eventually be consumable by separate replay/commentary-review tools. Keep the event envelope exportable without coupling Cappy to that future application.
+
+## Cleanup command
+
+V1 enforces safe cleanup as a library primitive (`ManagedWorkspace.remove`) but has no CLI command. A `cappy clean` command could remove selected captures, sessions, or cache entries, with an explicit flag for bulk removal, and report exactly what was removed or refused.
+
+## Timeline-relative clips
+
+Capture timelines are synchronized to the master (`timing.sync`), so a preset could cut clips around semantic events (for example two seconds before `SPELL_CAST` to one second after `IMPACT`) instead of only explicit time ranges.

@@ -720,6 +720,8 @@ Opt-in/local smoke tests cover:
 
 The normal automated suite must not require OBS GUI availability.
 
+V1 switches: `CAPPY_REAL_TOOLS=1` enables the real FFmpeg/ffprobe and headless Godot tests; `CAPPY_OBS_SMOKE=1` with `CAPPY_OBS_SCENE` (and optionally `CAPPY_OBS_URL`, `CAPPY_OBS_PASSWORD`) enables the real OBS capture. `npm run model:check` validates `docs/system-model.dot` with Graphviz and `npm run model:render` writes the derived `docs/system-model.svg`. Both use Graphviz compiled to WebAssembly (`@hpcc-js/wasm-graphviz`, a pinned dev dependency), so no system install is needed on any host; Graphviz is a documentation tool, never a runtime dependency. Per-host results are recorded in `docs/acceptance.md`; `scripts/acceptance/windows-ctrl-c.ps1` checks console Ctrl+C cancellation on Windows from an interactive console.
+
 ## 23. Fixture quality bar
 
 The Godot demo is not decorative. It is an acceptance fixture and must contain at least:

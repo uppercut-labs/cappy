@@ -4,24 +4,32 @@ digraph Cappy {
   edge [fontname="Arial"];
 
   developer [label="Developer / Agent"];
-  cli [label="Cappy CLI\nHuman + JSON modes"];
-  core [label="Cappy Controller"];
-  config [label="Project Config\n(source-controlled)"];
-  workspace [label=".cappy/ Workspace\n(managed artifacts)"];
-  protocol [label="Versioned Local\nWebSocket Protocol"];
-  adapter [label="Game Adapter\n(capability owner)"];
+  cli [label="Cappy CLI\ndoctor / scenarios / run / record / replay\nHuman + JSON modes"];
+  core [label="Cappy Controller\ncapture job state machine"];
+  config [label="Project Config\ncappy.config.json (source-controlled)"];
+  secrets [label="Environment\nOBS password (never stored)"];
+  workspace [label="Managed Workspace\n.cappy/ or external root\nownership registry"];
+  sessions [label="Sessions\nsession.json + replay.bin + timeline.json"];
+  logs [label="Correlated Logs + Run Locks\nlogs/, cache/running/"];
+  protocol [label="Versioned Loopback\nWebSocket Protocol\n(session token)"];
+  adapter [label="Game Adapter\n(capability owner)\ne.g. Godot addon"];
   game [label="Instrumented Game"];
-  replay [label="Opaque Replay Payload\n+ Session Metadata"];
-  timeline [label="Normalized Timeline"];
+  replay [label="Opaque Replay Payload"];
+  timeline [label="Timeline\non the master clock"];
   obs [label="OBS\nRecorder"];
   ffmpeg [label="FFmpeg / ffprobe"];
-  artifacts [label="Master + Derivatives\n+ Manifest"];
+  artifacts [label="Capture\nmaster + derivatives + manifest"];
 
-  developer -> cli [label="run / record / replay"];
+  developer -> cli [label="commands"];
   cli -> core [label="commands"];
   config -> core [label="project + tool config"];
-  core -> workspace [label="managed state"];
+  secrets -> core [label="password by variable name"];
+  core -> workspace [label="managed writes / safe cleanup"];
+  workspace -> sessions [label="sessions/"];
+  workspace -> artifacts [label="captures/"];
+  core -> logs [label="correlation ID"];
 
+  core -> game [label="launch with endpoint + token"];
   core -> protocol [label="commands"];
   protocol -> adapter [label="JSON messages"];
   adapter -> game [label="scenario / replay"];
@@ -29,19 +37,19 @@ digraph Cappy {
   adapter -> protocol [label="capabilities / events"];
   protocol -> core [label="validated messages"];
 
-  core -> replay [label="store / load envelope"];
-  replay -> adapter [label="opaque payload"];
-  core -> timeline [label="normalize lifecycle"];
+  adapter -> replay [label="recorded payload"];
+  replay -> sessions [label="stored byte-for-byte"];
+  sessions -> adapter [label="payload returned for replay"];
+  core -> timeline [label="lifecycle events + sync"];
   adapter -> timeline [label="semantic events"];
 
   core -> obs [label="start / stop / verify"];
-  obs -> artifacts [label="master"];
+  obs -> artifacts [label="master (moved in, hashed)"];
 
-  core -> ffmpeg [label="inspect / derive"];
+  core -> ffmpeg [label="probe / derive"];
   artifacts -> ffmpeg [label="master input"];
   ffmpeg -> artifacts [label="MP4 / clips / stills"];
 
-  replay -> artifacts [label="source identity"];
+  sessions -> artifacts [label="source identity"];
   timeline -> artifacts [label="timing + events"];
-  workspace -> artifacts [label="managed ownership"];
 }

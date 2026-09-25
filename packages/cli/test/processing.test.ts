@@ -7,7 +7,6 @@ import { manifestSchema } from "@cappy/core";
 import { hashFile } from "@cappy/workspace";
 import { type Harness, configure, createHarness, disposeHarness, runCli } from "./support.js";
 
-const posixIt = process.platform === "win32" ? it.skip : it;
 let harness: Harness;
 
 beforeEach(async () => {
@@ -34,7 +33,7 @@ async function captureFiles(captureId: string): Promise<string[]> {
 }
 
 describe("derivatives and manifests", () => {
-  posixIt("publishes every derivative with hashes and writes a successful manifest", async () => {
+  it("publishes every derivative with hashes and writes a successful manifest", async () => {
     await configure(
       harness,
       {},
@@ -87,7 +86,7 @@ describe("derivatives and manifests", () => {
     expect(session).toMatchObject({ origin: "scenario", status: "completed", scenario: { id: "boss_intro" } });
   });
 
-  posixIt.each([
+  it.each([
     ["exits non-zero", "fail-delivery"],
     ["writes an empty file", "empty-delivery"],
     ["writes nothing", "missing-delivery"],
@@ -106,7 +105,7 @@ describe("derivatives and manifests", () => {
     expect(manifest["result"]["checks"]).toContainEqual(expect.objectContaining({ name: `derivative.${role}`, passed: false }));
   });
 
-  posixIt("warns about a failed optional derivative and still succeeds", async () => {
+  it("warns about a failed optional derivative and still succeeds", async () => {
     await configure(harness, {}, presetWith([{ kind: "mp4", role: "delivery" }, { kind: "thumbnail", role: "fail-thumb", required: false }]));
     const { code, result } = await runCli(harness, ["run", "boss_intro"]);
     expect(code).toBe(0);
@@ -116,7 +115,7 @@ describe("derivatives and manifests", () => {
     expect(manifest["artifacts"].map((artifact: { role: string }) => artifact.role)).toEqual(["master", "delivery"]);
   });
 
-  posixIt("fails when ffprobe rejects the master, and keeps it for diagnosis", async () => {
+  it("fails when ffprobe rejects the master, and keeps it for diagnosis", async () => {
     await configure(harness, { masterBytes: Buffer.from("CORRUPT recording") });
     const { result } = await runCli(harness, ["run", "boss_intro"]);
     expect(result).toMatchObject({ ok: false, error: { code: "MEDIA_PROBE_FAILED" }, data: { state: "failed" } });
@@ -124,7 +123,7 @@ describe("derivatives and manifests", () => {
     expect((await manifestOf(result))["status"]).toBe("failed");
   });
 
-  posixIt("rejects invalid derivative options before launching the game", async () => {
+  it("rejects invalid derivative options before launching the game", async () => {
     await configure(harness, {}, presetWith([{ kind: "clip", role: "highlight", options: { start: -1 } }]));
     const { code, result } = await runCli(harness, ["run", "boss_intro"]);
     expect(code).toBe(3);
@@ -132,7 +131,7 @@ describe("derivatives and manifests", () => {
     expect(harness.obs.requests.map((request) => request.requestType)).not.toContain("StartRecord");
   });
 
-  posixIt("numbers takes per scenario and parameters without overwriting earlier takes", async () => {
+  it("numbers takes per scenario and parameters without overwriting earlier takes", async () => {
     await configure(harness);
     const first = await runCli(harness, ["run", "boss_intro"]);
     const second = await runCli(harness, ["run", "boss_intro"]);
@@ -142,7 +141,7 @@ describe("derivatives and manifests", () => {
     expect(existsSync(path.join(harness.project, ".cappy", first.result["data"]["manifest"]))).toBe(true);
   });
 
-  posixIt("keeps secrets out of manifests", async () => {
+  it("keeps secrets out of manifests", async () => {
     await configure(harness, { password: "super-secret-obs-pw" }, { obs: { url: "placeholder", scene: "Capture", passwordEnv: "TEST_OBS_PW" } });
     const config = JSON.parse(await readFile(path.join(harness.project, "cappy.config.json"), "utf8")) as Record<string, any>;
     config["obs"]["url"] = harness.obs.url;
