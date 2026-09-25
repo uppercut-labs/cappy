@@ -163,6 +163,12 @@ Every file Cappy may delete must be provably managed by metadata associated with
 
 Path traversal outside the resolved managed root must be rejected for managed writes and cleanup.
 
+Ownership is recorded in a registry file, `cappy-workspace.json`, at the managed root. It lists each managed file by root-relative path with its SHA-256 and byte size, and each imported/external reference by absolute path. If the registry is unreadable, Cappy refuses to open the workspace rather than guess ownership.
+
+Managed files are published atomically: written to a sibling temp file, then linked into place without overwriting. Replacing an existing managed file requires an explicit replace request; files Cappy did not create are never replaced.
+
+Before deleting a managed file, cleanup verifies that no path component is a symlink or junction, that the file's real location is inside the managed root, and that its current SHA-256 and size still match the registry. A file modified since Cappy wrote it is reported as rejected and left in place.
+
 ### 7.2 Source control
 
 Cappy should warn when the default `.cappy/` path is not ignored by Git. It must not edit `.gitignore` without explicit command/user action.

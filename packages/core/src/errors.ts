@@ -12,6 +12,11 @@ export const ERROR_CODES = {
   CONFIG_UNREADABLE: "configuration",
   CONFIG_PARSE_ERROR: "configuration",
   CONFIG_INVALID: "configuration",
+  WORKSPACE_UNAVAILABLE: "operation",
+  WORKSPACE_REGISTRY_INVALID: "operation",
+  WORKSPACE_PATH_REJECTED: "operation",
+  WORKSPACE_TARGET_EXISTS: "operation",
+  WORKSPACE_WRITE_FAILED: "operation",
   INTERNAL_ERROR: "internal",
 } as const satisfies Record<string, ErrorCategory>;
 

@@ -25,3 +25,4 @@ npm test            # Vitest unit and integration suites
 | Package | Purpose |
 | --- | --- |
 | `@cappy/core` | Engine-neutral domain contracts, configuration schema and loader, structured errors, and the CLI result envelope. |
+| `@cappy/workspace` | Managed `.cappy/` workspace: storage areas, ownership registry, atomic writes, hashing, safe cleanup, and the Git-ignore warning. |
