@@ -55,6 +55,10 @@ export const ERROR_CODES = {
   MASTER_INVALID: "operation",
   PRESET_NOT_FOUND: "usage",
   PARAMETER_INVALID: "usage",
+  MEDIA_PROBE_FAILED: "operation",
+  DERIVATIVE_OPTIONS_INVALID: "configuration",
+  DERIVATIVE_FAILED: "operation",
+  MANIFEST_INVALID: "internal",
   INTERNAL_ERROR: "internal",
 } as const satisfies Record<string, ErrorCategory>;
 

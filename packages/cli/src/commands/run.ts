@@ -1,10 +1,14 @@
 import {
   type Artifact,
+  type ArtifactManifest,
+  CAPPY_VERSION,
   type CappyError,
   type CaptureJobState,
+  type CaptureSource,
   type CommandResult,
   type Result,
   type ScenarioParameters,
+  type Session,
   type TimelineEvent,
   canTransition,
   cappyError,
@@ -15,21 +19,27 @@ import {
   newId,
   resolveScenarioParameters,
 } from "@cappy/core";
+import { type ToolInfo, locateTool, probeMedia, produceDerivative, validateDerivatives } from "@cappy/media";
 import type { ObsRecorder } from "@cappy/obs";
-import type { OperationOutcome } from "@cappy/protocol";
+import type { NegotiatedAdapter, OperationOutcome } from "@cappy/protocol";
 import { ManagedWorkspace } from "@cappy/workspace";
 import { collectMaster, prepareRecorder, selectPreset } from "../capture.js";
 import type { CommandContext } from "../context.js";
 import { launchGame } from "../game.js";
+import { nextTake, presetFingerprint, writeManifest } from "../manifest.js";
+import { SessionStore, newSessionId } from "../sessions.js";
 
 export interface RunReport {
   readonly captureId: string;
-  /** Job state reached. Derivatives and the manifest follow in processing. */
   readonly state: CaptureJobState;
+  readonly sessionId?: string;
+  readonly take?: number;
   readonly scenario: { readonly id: string; readonly parameters: ScenarioParameters };
   readonly preset: string;
   readonly obs: { readonly version: string; readonly scene?: string };
-  readonly master?: Artifact;
+  readonly artifacts: readonly Artifact[];
+  /** Path of the written manifest, relative to the managed root. */
+  readonly manifest?: string;
   readonly events: readonly TimelineEvent[];
 }
 
@@ -47,10 +57,17 @@ class JobState {
   }
 }
 
+interface Check {
+  name: string;
+  passed: boolean;
+  detail?: string;
+}
+
 /**
- * Capture an authored scenario: preflight OBS, launch the game, prepare the
- * scenario, confirm OBS is recording, run the scenario, confirm OBS stopped,
- * and move the verified master into the managed workspace.
+ * Capture an authored scenario: preflight OBS and media tools, launch the
+ * game, prepare the scenario, confirm OBS is recording, run the scenario,
+ * confirm OBS stopped, verify the master, produce derivatives, and write the
+ * manifest. The job succeeds only when every required step passes.
  */
 export async function run(context: CommandContext): Promise<CommandResult<RunReport>> {
   const options = { correlationId: context.correlationId };
@@ -60,6 +77,8 @@ export async function run(context: CommandContext): Promise<CommandResult<RunRep
   }
   const job = new JobState();
   const captureId = newId("cap");
+  const directory = `captures/${captureId}`;
+  const startedAt = new Date().toISOString();
 
   const loaded = await loadConfig({ projectDir: context.projectDir, ...(context.configPath === undefined ? {} : { configPath: context.configPath }) });
   if (!loaded.ok) {
@@ -71,14 +90,28 @@ export async function run(context: CommandContext): Promise<CommandResult<RunRep
     return commandFailure("run", selected.error, options);
   }
   const { name: presetName, preset } = selected.value;
+  const secrets = config.obs?.passwordEnv === undefined ? [] : [context.env[config.obs.passwordEnv] ?? ""];
 
+  // Preflight everything that can fail without the game: derivative options,
+  // media tools, workspace, and OBS.
   job.to("preflighting");
+  const derivativeOptions = validateDerivatives(preset.derivatives);
+  if (!derivativeOptions.ok) {
+    return commandFailure("run", derivativeOptions.error, options);
+  }
+  const tools: { ffmpeg?: ToolInfo; ffprobe?: ToolInfo } = {};
+  for (const tool of preset.derivatives.length > 0 ? (["ffprobe", "ffmpeg"] as const) : (["ffprobe"] as const)) {
+    const located = await locateTool(tool, config.tools, { projectDir, env: context.env });
+    if (!located.ok) {
+      return commandFailure("run", located.error, options);
+    }
+    tools[tool] = located.value;
+  }
   const workspace = await ManagedWorkspace.open({ projectDir, config });
   if (!workspace.ok) {
     return commandFailure("run", workspace.error, options);
   }
-  // OBS is checked before the game launches so a broken recorder never
-  // costs a game start.
+  const sessions = new SessionStore(workspace.value);
   const prepared = await prepareRecorder(config, preset, context.env);
   if (!prepared.ok) {
     return commandFailure("run", prepared.error, options);
@@ -93,23 +126,79 @@ export async function run(context: CommandContext): Promise<CommandResult<RunRep
     return commandFailure("run", game.error, options);
   }
   const { connection } = game.value;
+  const negotiated: NegotiatedAdapter = connection.negotiated;
   const interrupts = context.listenForInterrupts();
+
   let events: readonly TimelineEvent[] = [];
   let parameters: ScenarioParameters = {};
+  let session: Session | undefined;
+  let take: number | undefined;
+  const artifacts: Artifact[] = [];
+  const checks: Check[] = [];
+  const warnings: string[] = [];
+  let manifestPath: string | undefined;
 
-  const report = (master?: Artifact): RunReport => ({
+  const source = (): CaptureSource => ({ kind: "scenario", scenarioId, parameters });
+  const report = (): RunReport => ({
     captureId,
     state: job.state,
+    ...(session === undefined ? {} : { sessionId: session.id }),
+    ...(take === undefined ? {} : { take }),
     scenario: { id: scenarioId, parameters },
     preset: presetName,
     obs: obsInfo,
-    ...(master === undefined ? {} : { master }),
+    artifacts,
+    ...(manifestPath === undefined ? {} : { manifest: manifestPath }),
     events,
   });
+
+  const manifest = (status: ArtifactManifest["status"], error?: CappyError): ArtifactManifest => ({
+    manifestVersion: 1,
+    status,
+    identity: {
+      captureId,
+      sessionId: session?.id ?? "none",
+      take: take ?? 1,
+      project: { id: config.project.id, name: config.project.name },
+      source: source(),
+      correlationId: context.correlationId,
+    },
+    build: {
+      cappyVersion: CAPPY_VERSION,
+      adapter: negotiated.adapter,
+      ...(negotiated.build === undefined ? {} : { gameBuild: negotiated.build }),
+      protocolVersion: String(negotiated.protocolVersion),
+      capabilities: [...negotiated.capabilities],
+    },
+    timing: { startedAt, endedAt: new Date().toISOString(), timeline: [...events] },
+    tooling: {
+      obs: { version: recorder.obsVersion, obsWebSocketVersion: recorder.obsWebSocketVersion, ...(obsInfo.scene === undefined ? {} : { scene: obsInfo.scene }) },
+      ...(tools.ffmpeg === undefined ? {} : { ffmpeg: { version: tools.ffmpeg.version } }),
+      ...(tools.ffprobe === undefined ? {} : { ffprobe: { version: tools.ffprobe.version } }),
+      preset: { name: presetName, fingerprint: presetFingerprint(preset) },
+    },
+    artifacts,
+    result: {
+      warnings,
+      checks,
+      ...(error === undefined ? {} : { error: { code: error.code, message: error.message } }),
+    },
+  });
+
+  /** End the job non-successfully, leaving a diagnostic manifest once a session exists. */
   const fail = async (error: CappyError): Promise<CommandResult<RunReport>> => {
     await recorder.abort(config.timeouts.obsMs);
-    job.to(error.code === "OPERATION_CANCELLED" && job.state !== "finalizing" && job.state !== "processing" ? "cancelled" : "failed");
-    return commandFailure("run", error, { ...options, data: report() });
+    const cancelled = error.code === "OPERATION_CANCELLED" && job.state !== "finalizing" && job.state !== "processing";
+    job.to(cancelled ? "cancelled" : "failed");
+    if (session !== undefined) {
+      session = { ...session, status: cancelled ? "cancelled" : "failed", endedAt: new Date().toISOString() };
+      await sessions.save(session);
+      const written = await writeManifest(workspace.value, directory, manifest(cancelled ? "cancelled" : "failed", error), secrets);
+      if (written.ok) {
+        manifestPath = `${directory}/manifest.json`;
+      }
+    }
+    return commandFailure("run", error, { ...options, warnings, data: report() });
   };
 
   try {
@@ -144,6 +233,25 @@ export async function run(context: CommandContext): Promise<CommandResult<RunRep
       return await fail(resolved.error);
     }
     parameters = resolved.value;
+    take = await nextTake(workspace.value, source());
+
+    const created = await sessions.save({
+      schemaVersion: 1,
+      id: newSessionId(),
+      projectId: config.project.id,
+      origin: "scenario",
+      scenario: { id: scenarioId, parameters },
+      startedAt,
+      adapter: negotiated.adapter,
+      ...(negotiated.build === undefined ? {} : { gameBuild: negotiated.build }),
+      capabilities: [...negotiated.capabilities],
+      status: "active",
+      correlationId: context.correlationId,
+    });
+    if (!created.ok) {
+      return await fail(created.error);
+    }
+    session = created.value;
 
     const preparedScenario = await connection.prepareScenario(scenarioId, parameters, {
       correlationId: context.correlationId,
@@ -162,7 +270,8 @@ export async function run(context: CommandContext): Promise<CommandResult<RunRep
       return await fail(recording.error);
     }
     job.to("recording");
-    context.progress(`Recording ${scenarioId} as ${captureId}. Ctrl+C cancels.\n`);
+    checks.push({ name: "obs.recording.started", passed: true });
+    context.progress(`Recording ${scenarioId} as ${captureId} (take ${take}). Ctrl+C cancels.\n`);
 
     const startedScenario = await operation.start(config.timeouts.readyMs);
     if (!startedScenario.ok) {
@@ -187,21 +296,58 @@ export async function run(context: CommandContext): Promise<CommandResult<RunRep
     if (!outcome.ok) {
       return await fail(outcome.error);
     }
+    checks.push({ name: "scenario.completed", passed: true });
 
     job.to("finalizing");
-    const master = await collectMaster(recorder, recording.value, workspace.value, `captures/${captureId}`, config.timeouts.obsMs);
+    const master = await collectMaster(recorder, recording.value, workspace.value, directory, config.timeouts.obsMs);
     if (!master.ok) {
-      job.to("failed");
-      return commandFailure("run", master.error, { ...options, data: report() });
+      return await fail(master.error);
     }
-    if (events.length > 0) {
-      await workspace.value.writeManaged(`captures/${captureId}/timeline.json`, `${JSON.stringify(events, null, 2)}\n`, { role: "timeline" });
-    }
+    checks.push({ name: "obs.recording.stopped", passed: true }, { name: "master.file", passed: true });
+
     job.to("processing");
-    return commandSuccess("run", report(master.value), {
-      ...options,
-      warnings: ["derivatives and the capture manifest are not produced yet; the master is verified and stored"],
+    const masterHost = workspace.value.managed(master.value.path)?.hostPath ?? "";
+    const probe = await probeMedia(tools.ffprobe?.path ?? "ffprobe", masterHost, { timeoutMs: config.timeouts.processMs });
+    if (!probe.ok) {
+      artifacts.push(master.value);
+      return await fail(probe.error);
+    }
+    artifacts.push({
+      ...master.value,
+      ...(probe.value.durationMs === undefined ? {} : { durationMs: probe.value.durationMs }),
+      ...(probe.value.width === undefined ? {} : { width: probe.value.width }),
+      ...(probe.value.height === undefined ? {} : { height: probe.value.height }),
     });
+    checks.push({ name: "master.probe", passed: true, detail: `${probe.value.formatName}, ${probe.value.videoCodec ?? "unknown codec"}` });
+
+    for (const derivative of preset.derivatives) {
+      const produced = await produceDerivative(derivative, { hostPath: masterHost }, workspace.value, directory, {
+        ffmpeg: { path: tools.ffmpeg?.path ?? "ffmpeg", version: tools.ffmpeg?.version ?? "unknown" },
+        ffprobe: tools.ffprobe?.path ?? "ffprobe",
+        timeoutMs: config.timeouts.processMs,
+      });
+      if (!produced.ok) {
+        if (derivative.required) {
+          checks.push({ name: `derivative.${derivative.role}`, passed: false, detail: produced.error.message });
+          return await fail(produced.error);
+        }
+        warnings.push(`optional derivative "${derivative.role}" was skipped: ${produced.error.message}`);
+        continue;
+      }
+      const { media, ...artifact } = produced.value;
+      artifacts.push(artifact);
+      checks.push({ name: `derivative.${derivative.role}`, passed: true });
+    }
+
+    session = { ...session, status: "completed", endedAt: new Date().toISOString() };
+    await sessions.save(session);
+    const written = await writeManifest(workspace.value, directory, manifest("succeeded"), secrets);
+    if (!written.ok) {
+      return await fail(written.error);
+    }
+    manifestPath = `${directory}/manifest.json`;
+    job.to("succeeded");
+    return commandSuccess("run", report(), { ...options, warnings });
   } finally {
     await game.value.close();
     recorder.close();

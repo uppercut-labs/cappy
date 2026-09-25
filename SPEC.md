@@ -514,6 +514,17 @@ A non-zero process exit, missing output, zero-length output, or invalid required
 
 Do not delete the verified master merely because derivative creation failed.
 
+V1 derivative options (`presets.<name>.derivatives[].options`), validated before the game launches (`DERIVATIVE_OPTIONS_INVALID`):
+
+| Kind | Output | Options |
+| --- | --- | --- |
+| `mp4` | `<role>.mp4` (H.264/AAC, faststart) | `crf` (0-51, default 20), `preset` (x264 preset, default `medium`), `audio` (default true) |
+| `clip` | `<role>.mp4` | `start` and `duration` in seconds from the start of the master (required), plus the `mp4` options |
+| `thumbnail` | `<role>.jpg` | `at` seconds (default 0), `width` pixels (default 640, aspect preserved) |
+| `still` | `<role>.png` (full resolution) | `at` seconds (default 0) |
+
+FFmpeg writes each output to a uniquely named `.<role>.<uuid>.partial.<ext>` file beside its final path. The output is accepted only after a zero exit, a non-empty file, and an ffprobe result with a video stream; it is then published as a managed file. A rejected partial output, which Cappy itself just created, is removed. A failed required derivative fails the job. A failed optional derivative (`required: false`) is reported as a warning and left out of the manifest's checks and artifacts. Clip ranges relative to timeline events depend on timeline/master synchronization and are not part of this derivative set.
+
 ## 14. Capture presets
 
 Source-controlled config can define named presets.
@@ -585,6 +596,8 @@ Secrets must never appear in the manifest.
 
 Failed/cancelled jobs may have diagnostic manifests, but they are explicitly non-successful and cannot be mistaken for successful evidence.
 
+V1 writes `captures/<capture-id>/manifest.json` for every job that reached a game session: `succeeded` only when OBS start and stop were confirmed, the master was verified and probed, and every required derivative passed; otherwise `failed` or `cancelled` with the error, the checks that ran, and the artifacts that exist. The preset fingerprint is the SHA-256 of the preset's canonical JSON. A scenario capture also records a scenario session (`sessions/<session-id>/session.json`), which the manifest references. Before writing, Cappy refuses any manifest whose text contains the configured OBS password.
+
 ## 16. Take numbering and identity
 
 A capture ID is unique.
@@ -592,6 +605,8 @@ A capture ID is unique.
 For repeated captures of the same scenario/replay intent, Cappy assigns a monotonically increasing take number within the relevant project/source grouping unless the caller supplies an unused explicit take.
 
 Existing successful takes are never overwritten implicitly.
+
+Takes are grouped by source: the scenario ID plus its resolved parameters, or the replayed session ID. The next take is one past the highest take among successful manifests in the workspace for that source. Every capture has its own `captures/<capture-id>/` directory.
 
 ## 17. Cleanup and destructive behavior
 

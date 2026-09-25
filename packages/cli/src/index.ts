@@ -7,4 +7,5 @@ export * from "./commands/scenarios.js";
 export * from "./context.js";
 export * from "./game.js";
 export * from "./main.js";
+export * from "./manifest.js";
 export * from "./sessions.js";

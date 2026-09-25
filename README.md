@@ -39,6 +39,24 @@ npx cappy replay <session-id> --no-capture
 
 Exit codes: 0 success, 1 operation failed, 2 invalid usage, 3 configuration, 4 missing dependency, 70 internal error, 130 cancelled.
 
+A capture preset lists the derivatives FFmpeg makes from the verified master:
+
+```json
+"presets": {
+  "trailer": {
+    "scene": "Capture",
+    "derivatives": [
+      { "kind": "mp4", "role": "delivery" },
+      { "kind": "clip", "role": "highlight", "options": { "start": 2, "duration": 5 } },
+      { "kind": "thumbnail", "role": "thumb", "options": { "at": 3 } },
+      { "kind": "still", "role": "poster", "required": false }
+    ]
+  }
+}
+```
+
+Each successful `cappy run` leaves `captures/<capture-id>/` with the master, its derivatives, and `manifest.json`, which records identity, take, tool versions, timing, timeline, and the SHA-256 and size of every artifact.
+
 The OBS WebSocket password is never stored in config. Set `obs.passwordEnv` to the name of an environment variable and export the password there.
 
 Opt-in smoke tests against the real FFmpeg/ffprobe on PATH:
@@ -56,6 +74,6 @@ CAPPY_REAL_TOOLS=1 npm test
 | `@cappy/protocol` | Versioned loopback WebSocket protocol: message schemas, handshake and capability negotiation, operation state, heartbeats. |
 | `@cappy/adapter-simulator` (`fixtures/`) | Deterministic protocol-speaking adapter used as an acceptance fixture. |
 | `@cappy/obs` | OBS WebSocket v5 client and recorder: password authentication, the doctor probe, confirmed start/stop, and master verification. |
-| `@cappy/media` | FFmpeg/ffprobe discovery and version checks. |
+| `@cappy/media` | FFmpeg/ffprobe discovery, ffprobe validation, and atomic derivative production. |
 | `@cappy/cli` | The `cappy` command: argument parsing, human and `--json` output, `doctor`, `scenarios`, and game launch. |
 | `@cappy/fake-obs` (`fixtures/`) | Fake OBS WebSocket v5 server for automated tests. |

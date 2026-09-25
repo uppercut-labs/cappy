@@ -104,12 +104,16 @@ export function renderRun(result: CommandResult<RunReport>): string {
     .map(([name, value]) => `${name}=${String(value)}`)
     .join(" ");
   const lines = [
-    `Capture ${report.captureId}: ${report.scenario.id}${parameters === "" ? "" : ` (${parameters})`}, preset ${report.preset}, state ${report.state}`,
-    `OBS ${report.obs.version}${report.obs.scene === undefined ? "" : `, scene "${report.obs.scene}"`}`,
+    `Capture ${report.captureId}: ${report.scenario.id}${parameters === "" ? "" : ` (${parameters})`}${
+      report.take === undefined ? "" : `, take ${report.take}`
+    }, preset ${report.preset}, ${report.state}`,
+    `OBS ${report.obs.version}${report.obs.scene === undefined ? "" : `, scene "${report.obs.scene}"`}; ${report.events.length} timeline event(s)`,
   ];
-  if (report.master !== undefined) {
-    lines.push(`Master: ${report.master.path} (${report.master.bytes} bytes, sha256 ${report.master.sha256})`);
+  for (const artifact of report.artifacts) {
+    lines.push(`  ${artifact.role.padEnd(10)} ${artifact.path} (${artifact.bytes} bytes, sha256 ${artifact.sha256})`);
   }
-  lines.push(`${report.events.length} timeline event(s)`);
+  if (report.manifest !== undefined) {
+    lines.push(`Manifest: ${report.manifest}`);
+  }
   return `${lines.join("\n")}\n`;
 }
