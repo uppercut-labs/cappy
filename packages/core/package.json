@@ -1,0 +1,20 @@
+{
+  "name": "@cappy/core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Engine-neutral Cappy domain contracts, configuration, and result envelopes.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "zod": "^4.6.5"
+  }
+}

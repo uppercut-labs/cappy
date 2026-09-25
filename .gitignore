@@ -1,0 +1,8 @@
+node_modules/
+dist/
+*.tsbuildinfo
+coverage/
+.cappy/
+.env
+.env.*
+cappy.config.local.json

@@ -246,6 +246,8 @@ Any active state -> failed
 Any user-cancellable active state -> cancelled
 ```
 
+User-cancellable states are `created`, `preflighting`, `preparing_game`, `ready`, and `recording`. Once recording has stopped (`finalizing`, `processing`), the job runs to `succeeded` or `failed` so a verified master is never abandoned half-processed.
+
 A job is not `succeeded` until the master and every required derivative/manifest check passes.
 
 ### Timeline Event
@@ -355,6 +357,20 @@ Structured errors include at minimum:
 - operation/command;
 - relevant bounded details;
 - whether retry is plausibly useful when known.
+
+Every result, success or failure, is wrapped in one envelope carrying a result schema version, the command name, a correlation ID, `ok`, warnings, and either `data` or `error`.
+
+Exit codes are stable:
+
+| Code | Meaning |
+| --- | --- |
+| 0 | success |
+| 1 | operation failed |
+| 2 | invalid usage |
+| 3 | invalid or missing configuration |
+| 4 | missing or unusable external dependency |
+| 70 | internal error |
+| 130 | cancelled |
 
 ### 11.2 `cappy doctor`
 
