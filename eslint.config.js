@@ -6,6 +6,13 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.strict,
   {
+    files: ["**/test/**/*.ts", "tests/**/*.ts"],
+    rules: {
+      // Tests inspect parsed JSON documents.
+      "@typescript-eslint/no-explicit-any": "off",
+    },
+  },
+  {
     rules: {
       "@typescript-eslint/consistent-type-imports": "error",
       "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],

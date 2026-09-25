@@ -1,9 +1,29 @@
 {
   "files": [],
   "references": [
-    { "path": "packages/core" },
-    { "path": "packages/workspace" },
-    { "path": "packages/protocol" },
-    { "path": "fixtures/adapter-simulator" }
+    {
+      "path": "packages/core"
+    },
+    {
+      "path": "packages/workspace"
+    },
+    {
+      "path": "packages/protocol"
+    },
+    {
+      "path": "packages/obs"
+    },
+    {
+      "path": "packages/media"
+    },
+    {
+      "path": "packages/cli"
+    },
+    {
+      "path": "fixtures/adapter-simulator"
+    },
+    {
+      "path": "fixtures/fake-obs"
+    }
   ]
 }

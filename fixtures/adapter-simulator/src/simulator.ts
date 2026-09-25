@@ -172,6 +172,7 @@ export class AdapterSimulator {
   /** Connect, send the hello, and wait for Cappy's welcome. */
   static async connect(options: SimulatorOptions): Promise<AdapterSimulator> {
     const socket = new WebSocket(options.endpoint);
+    socket.on("error", () => undefined);
     // Listen before the socket opens: a rejection can arrive in the same
     // packet as the upgrade response.
     const reply = new Promise<ControllerMessage>((resolve, reject) => {
@@ -190,6 +191,7 @@ export class AdapterSimulator {
       socket.once("open", () => resolve());
       socket.once("error", reject);
     });
+    reply.catch(() => undefined);
     const hello: AdapterMessage = {
       type: "hello",
       protocol: options.protocol ?? SUPPORTED_PROTOCOL,

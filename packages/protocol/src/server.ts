@@ -2,6 +2,7 @@ import { randomBytes, timingSafeEqual } from "node:crypto";
 import type { AddressInfo } from "node:net";
 import {
   type AdapterIdentity,
+  CAPPY_VERSION,
   type CappyError,
   type Result,
   cappyError,
@@ -172,6 +173,8 @@ export class AdapterServer {
   }
 
   private handshake(socket: WebSocket): void {
+    // Errors are always followed by "close"; an unhandled "error" would crash.
+    socket.on("error", () => undefined);
     if (this.outcome !== undefined) {
       send(socket, { type: "reject", code: "OPERATION_BUSY", message: "Cappy already has an adapter connection" });
       socket.close(1013, "busy");
@@ -238,7 +241,7 @@ export class AdapterServer {
       send(socket, {
         type: "welcome",
         protocol: version,
-        controller: this.options.controller ?? { name: "cappy", version: "0.1.0" },
+        controller: this.options.controller ?? { name: "cappy", version: CAPPY_VERSION },
       });
       const connection = new AdapterConnection(
         socket,

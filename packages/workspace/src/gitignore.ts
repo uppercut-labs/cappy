@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { realpath } from "node:fs/promises";
 import path from "node:path";
 import { isWithin } from "./paths.js";
 
@@ -15,8 +16,11 @@ export interface GitIgnoreCheck {
  * warns; it never edits `.gitignore` on its own.
  */
 export async function checkGitIgnore(projectDir: string, root: string): Promise<GitIgnoreCheck> {
-  const project = path.resolve(projectDir);
-  const managedRoot = path.resolve(root);
+  // Compare real paths: a symlinked temp or home directory must not make the
+  // default root look like it lives outside the project.
+  const real = (target: string): Promise<string> => realpath(target).catch(() => path.resolve(target));
+  const project = await real(projectDir);
+  const managedRoot = await real(root);
   if (!isWithin(project, managedRoot) || managedRoot === project) {
     return { status: "outside_project" };
   }

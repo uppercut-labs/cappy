@@ -6,7 +6,8 @@
   "type": "module",
   "workspaces": [
     "packages/*",
-    "fixtures/adapter-simulator"
+    "fixtures/adapter-simulator",
+    "fixtures/fake-obs"
   ],
   "engines": {
     "node": ">=24"

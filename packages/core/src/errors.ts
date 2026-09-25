@@ -31,6 +31,16 @@ export const ERROR_CODES = {
   OPERATION_BUSY: "operation",
   OPERATION_TIMEOUT: "operation",
   OPERATION_CANCELLED: "cancelled",
+  GAME_LAUNCH_FAILED: "dependency",
+  GAME_EXITED: "operation",
+  TOOL_NOT_FOUND: "dependency",
+  TOOL_FAILED: "dependency",
+  OBS_SECRET_MISSING: "configuration",
+  OBS_UNREACHABLE: "dependency",
+  OBS_AUTH_FAILED: "dependency",
+  OBS_REQUEST_FAILED: "operation",
+  OBS_SCENE_MISSING: "dependency",
+  DOCTOR_CHECKS_FAILED: "dependency",
   INTERNAL_ERROR: "internal",
 } as const satisfies Record<string, ErrorCategory>;
 

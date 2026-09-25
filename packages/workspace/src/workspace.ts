@@ -21,6 +21,7 @@ import {
   isWithin,
   normalizeManagedPath,
   toHostPath,
+  unsafeRootReason,
 } from "./paths.js";
 import { type ManagedEntry, type ReferenceEntry, type Registry, emptyRegistry, readRegistry, writeRegistry } from "./registry.js";
 
@@ -112,6 +113,12 @@ export class ManagedWorkspace {
     config?: Pick<CappyConfig, "workspace">;
   }): Promise<Result<ManagedWorkspace>> {
     const { root, isDefault } = resolveWorkspaceRoot(options.projectDir, options.config);
+    const unsafe = unsafeRootReason(options.projectDir, root);
+    if (unsafe !== undefined) {
+      return err(
+        cappyError("WORKSPACE_PATH_REJECTED", unsafe, OPERATION, { details: { root, reason: "unsafe_root" }, retryable: false }),
+      );
+    }
     let realRoot: string;
     try {
       await mkdir(root, { recursive: true });

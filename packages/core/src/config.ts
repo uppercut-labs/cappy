@@ -30,7 +30,8 @@ const adapterSchema = z.strictObject({
       message: `the adapter listener must bind to loopback (${LOOPBACK_HOSTS.join(", ")})`,
     })
     .default("127.0.0.1"),
-  port: z.int().min(1).max(65535),
+  /** Port for the adapter listener; 0 picks a free port for each launch. */
+  port: z.int().min(0).max(65535),
   expectedAdapter: nonEmpty.optional(),
   requiredCapabilities: z.array(capabilityNameSchema).default([]),
 });

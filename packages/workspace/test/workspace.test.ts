@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, readFile, realpath, rm, symlink, unlink, writeFile } fr
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { ManagedWorkspace, REGISTRY_FILENAME, checkGitIgnore, hashFile, resolveWorkspaceRoot } from "@cappy/workspace";
+import { ManagedWorkspace, REGISTRY_FILENAME, checkGitIgnore, hashFile, resolveWorkspaceRoot, unsafeRootReason } from "@cappy/workspace";
 
 let base: string;
 let project: string;
@@ -47,6 +47,22 @@ describe("workspace root", () => {
     const workspace = await open({ workspace: { root: external } });
     expect(workspace.root).toBe(external);
     expect(workspace.isDefault).toBe(false);
+  });
+
+  it.each([
+    ["the project directory", "."],
+    ["an ancestor of the project", ".."],
+    ["a filesystem root", "/"],
+  ])("refuses %s as the managed root", async (_label, root) => {
+    const result = await ManagedWorkspace.open({ projectDir: project, config: { workspace: { root } } });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toMatchObject({ code: "WORKSPACE_PATH_REJECTED", details: { reason: "unsafe_root" } });
+  });
+
+  it("refuses the home directory as the managed root", () => {
+    expect(unsafeRootReason(project, base, base)).toContain("home directory");
+    expect(unsafeRootReason(project, path.join(project, ".cappy"), base)).toBeUndefined();
   });
 
   it("fails clearly when the root is a file", async () => {

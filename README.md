@@ -21,6 +21,27 @@ npm run lint
 npm test            # Vitest unit and integration suites
 ```
 
+## Using the CLI
+
+Build once, then run `npx cappy` from a project directory that contains `cappy.config.json` (or pass `-C <dir>`):
+
+```bash
+npm run build
+npx cappy doctor              # check config, workspace, game command, FFmpeg/ffprobe, and OBS
+npx cappy scenarios           # launch the game and list the scenarios its adapter registers
+npx cappy doctor --json       # one structured JSON result on stdout
+```
+
+Exit codes: 0 success, 1 operation failed, 2 invalid usage, 3 configuration, 4 missing dependency, 70 internal error, 130 cancelled.
+
+The OBS WebSocket password is never stored in config. Set `obs.passwordEnv` to the name of an environment variable and export the password there.
+
+Opt-in smoke tests against the real FFmpeg/ffprobe on PATH:
+
+```bash
+CAPPY_REAL_TOOLS=1 npm test
+```
+
 ## Packages
 
 | Package | Purpose |
@@ -29,3 +50,7 @@ npm test            # Vitest unit and integration suites
 | `@cappy/workspace` | Managed `.cappy/` workspace: storage areas, ownership registry, atomic writes, hashing, safe cleanup, and the Git-ignore warning. |
 | `@cappy/protocol` | Versioned loopback WebSocket protocol: message schemas, handshake and capability negotiation, operation state, heartbeats. |
 | `@cappy/adapter-simulator` (`fixtures/`) | Deterministic protocol-speaking adapter used as an acceptance fixture. |
+| `@cappy/obs` | OBS WebSocket v5 client: connection, password authentication, requests, and the doctor probe. |
+| `@cappy/media` | FFmpeg/ffprobe discovery and version checks. |
+| `@cappy/cli` | The `cappy` command: argument parsing, human and `--json` output, `doctor`, `scenarios`, and game launch. |
+| `@cappy/fake-obs` (`fixtures/`) | Fake OBS WebSocket v5 server for automated tests. |

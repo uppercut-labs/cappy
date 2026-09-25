@@ -1,0 +1,68 @@
+import type { CappyError, CommandResult } from "@cappy/core";
+import type { DoctorReport } from "./commands/doctor.js";
+import type { ScenariosReport } from "./commands/scenarios.js";
+
+/** Plain-text renderers for human mode. No ANSI styling is ever emitted. */
+
+export function renderError(error: CappyError): string {
+  const lines = [`error [${error.code}]: ${error.message}`];
+  for (const [key, value] of Object.entries(error.details ?? {})) {
+    if (key === "issues" && Array.isArray(value)) {
+      for (const issue of value as { path: string; message: string }[]) {
+        lines.push(`  ${issue.path}: ${issue.message}`);
+      }
+    } else if (value !== undefined && value !== "") {
+      lines.push(`  ${key}: ${typeof value === "string" ? value : JSON.stringify(value)}`);
+    }
+  }
+  return `${lines.join("\n")}\n`;
+}
+
+export function renderDoctor(result: CommandResult<DoctorReport>): string {
+  const report = result.data;
+  if (report === undefined) {
+    return "";
+  }
+  const lines: string[] = [];
+  if (report.project !== undefined) {
+    lines.push(`Cappy doctor: ${report.project.name} (${report.project.id})`);
+  }
+  const width = Math.max(...report.checks.map((entry) => entry.id.length));
+  for (const entry of report.checks) {
+    lines.push(`  ${entry.status.toUpperCase().padEnd(4)}  ${entry.id.padEnd(width)}  ${entry.summary}`);
+  }
+  if (result.ok) {
+    const warnings = report.checks.filter((entry) => entry.status === "warn").length;
+    lines.push(warnings === 0 ? "All checks passed." : `All checks passed with ${warnings} warning(s).`);
+  }
+  return `${lines.join("\n")}\n`;
+}
+
+export function renderScenarios(report: ScenariosReport): string {
+  const { adapter } = report;
+  const lines = [
+    `${adapter.game.name ?? adapter.game.id}: ${adapter.adapter.name} ${adapter.adapter.version}, protocol ${adapter.protocolVersion}${
+      adapter.build === undefined ? "" : `, build ${adapter.build}`
+    }`,
+    `Capabilities: ${adapter.capabilities.length === 0 ? "(none)" : adapter.capabilities.join(", ")}`,
+  ];
+  if (report.scenarios.length === 0) {
+    lines.push("No scenarios registered.");
+  } else {
+    lines.push("Scenarios:");
+    for (const scenario of report.scenarios) {
+      lines.push(`  ${scenario.id}  ${scenario.name}`);
+      for (const [name, spec] of Object.entries(scenario.parameters)) {
+        const range =
+          spec.minimum !== undefined || spec.maximum !== undefined ? ` ${spec.minimum ?? ""}..${spec.maximum ?? ""}` : "";
+        const choices = spec.enum === undefined ? "" : ` one of ${spec.enum.join("|")}`;
+        const fallback = spec.default === undefined ? "" : ` (default ${String(spec.default)})`;
+        lines.push(`    ${name}: ${spec.type}${range}${choices}${spec.required ? ", required" : ""}${fallback}`);
+      }
+      if (scenario.requiredCapabilities.length > 0) {
+        lines.push(`    requires: ${scenario.requiredCapabilities.join(", ")}`);
+      }
+    }
+  }
+  return `${lines.join("\n")}\n`;
+}

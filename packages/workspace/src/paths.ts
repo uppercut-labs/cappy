@@ -1,4 +1,5 @@
 import { lstat, realpath } from "node:fs/promises";
+import { homedir } from "node:os";
 import path from "node:path";
 
 /** Semantic storage areas inside a managed root (SPEC section 7). */
@@ -101,4 +102,24 @@ export async function assertRealPathWithin(realRoot: string, directory: string, 
   if (!isWithin(realRoot, real)) {
     throw new PathRejectedError("escapes_root", target);
   }
+}
+
+/**
+ * Why a managed root would be unsafe, or undefined when it is acceptable.
+ * Cleanup is confined to the root, so the root itself must never contain the
+ * project or the user's home directory, or be a filesystem root.
+ */
+export function unsafeRootReason(projectDir: string, root: string, home = homedir()): string | undefined {
+  const project = path.resolve(projectDir);
+  const resolved = path.resolve(root);
+  if (path.parse(resolved).root === resolved) {
+    return "the managed root cannot be a filesystem root";
+  }
+  if (resolved === path.resolve(home) || isWithin(resolved, path.resolve(home))) {
+    return "the managed root cannot be the home directory or one of its ancestors";
+  }
+  if (isWithin(resolved, project)) {
+    return "the managed root cannot be the project directory or one of its ancestors";
+  }
+  return undefined;
 }

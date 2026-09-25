@@ -1,0 +1,24 @@
+{
+  "name": "@cappy/obs",
+  "version": "0.1.0",
+  "private": true,
+  "description": "OBS WebSocket v5 client: connection, authentication, requests, and recorder control.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@cappy/core": "0.1.0",
+    "ws": "^8.21.3"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.1"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "@cappy/fake-obs",
+  "version": "0.1.0",
+  "private": true,
+  "description": "In-process fake OBS WebSocket v5 server used by automated tests.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "dependencies": {
+    "ws": "^8.21.3"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.1"
+  }
+}

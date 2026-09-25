@@ -1,0 +1,25 @@
+{
+  "name": "@cappy/cli",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cappy command-line interface with human and JSON output.",
+  "type": "module",
+  "bin": {
+    "cappy": "./dist/bin.js"
+  },
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "dependencies": {
+    "@cappy/core": "0.1.0",
+    "@cappy/media": "0.1.0",
+    "@cappy/obs": "0.1.0",
+    "@cappy/protocol": "0.1.0",
+    "@cappy/workspace": "0.1.0"
+  }
+}

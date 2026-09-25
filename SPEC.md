@@ -129,7 +129,9 @@ Required conceptual fields:
 - capture presets;
 - timeouts.
 
-Secrets such as an OBS WebSocket password must be supplied through environment variables or an untracked local override mechanism and must never be written into manifests.
+Secrets such as an OBS WebSocket password must be supplied through environment variables or an untracked local override mechanism and must never be written into manifests. In V1, `obs.passwordEnv` names the environment variable that holds the OBS password; a literal `obs.password` is rejected by config validation.
+
+`adapter.port` may be `0` to let each launch pick a free loopback port.
 
 Configuration validation fails before launching capture work when a required field is invalid.
 
@@ -393,13 +395,15 @@ Checks, without performing capture:
 - configured OBS scene existence;
 - Graphviz is not a runtime dependency and is not part of doctor.
 
-Returns per-check status and overall success.
+Returns per-check status and overall success. Each check has a stable ID (`config`, `workspace.root`, `workspace`, `workspace.gitignore`, `game`, `ffmpeg`, `ffprobe`, `obs`, `obs.scenes`) and a status of `pass`, `warn`, `fail`, or `skip`. Warnings, such as an un-ignored `.cappy/`, do not fail doctor. Any failed check makes the command fail (exit 4, or 3 when configuration itself is invalid), and the JSON result still carries every check. Doctor reads OBS state only (`GetVersion`, `GetSceneList`) and never changes it.
+
+A managed root that is a filesystem root, the home directory or one of its ancestors, or the project directory or one of its ancestors is refused by every command.
 
 ### 11.3 `cappy scenarios`
 
 Launches/connects to the configured game if required, performs handshake, and lists registered scenarios plus parameter/capability metadata.
 
-No recording occurs.
+No recording occurs. The game is launched with `CAPPY_ENDPOINT` and `CAPPY_SESSION_TOKEN` in its environment, and its process tree is stopped when the command finishes. A game that exits before connecting fails with `GAME_EXITED`; one that never connects fails with `ADAPTER_CONNECT_TIMEOUT` after `timeouts.connectMs`.
 
 ### 11.4 `cappy run <scenario>`
 

@@ -12,6 +12,9 @@ export function err<E>(error: E): Result<never, E> {
   return { ok: false, error };
 }
 
+/** Cappy controller version, reported by the CLI and recorded in manifests. */
+export const CAPPY_VERSION = "0.1.0";
+
 export const RESULT_SCHEMA_VERSION = 1;
 
 interface CommandResultBase {
@@ -24,7 +27,12 @@ interface CommandResultBase {
 /** The envelope every CLI command returns, rendered for humans or as JSON. */
 export type CommandResult<T> =
   | (CommandResultBase & { readonly ok: true; readonly data: T })
-  | (CommandResultBase & { readonly ok: false; readonly error: CappyError });
+  | (CommandResultBase & {
+      readonly ok: false;
+      readonly error: CappyError;
+      /** Partial results gathered before the failure, such as doctor checks. */
+      readonly data?: T;
+    });
 
 export function newCorrelationId(): string {
   return `op_${randomUUID()}`;
@@ -48,7 +56,7 @@ export function commandSuccess<T>(
 export function commandFailure<T = never>(
   command: string,
   error: CappyError,
-  options: { correlationId?: string; warnings?: readonly string[] } = {},
+  options: { correlationId?: string; warnings?: readonly string[]; data?: T } = {},
 ): CommandResult<T> {
   return {
     schemaVersion: RESULT_SCHEMA_VERSION,
@@ -57,6 +65,7 @@ export function commandFailure<T = never>(
     ok: false,
     error,
     warnings: options.warnings ?? [],
+    ...(options.data === undefined ? {} : { data: options.data }),
   };
 }
 
