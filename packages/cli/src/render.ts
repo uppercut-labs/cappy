@@ -1,5 +1,7 @@
 import type { CappyError, CommandResult } from "@cappy/core";
 import type { DoctorReport } from "./commands/doctor.js";
+import type { RecordReport } from "./commands/record.js";
+import type { ReplayReport } from "./commands/replay.js";
 import type { ScenariosReport } from "./commands/scenarios.js";
 
 /** Plain-text renderers for human mode. No ANSI styling is ever emitted. */
@@ -63,6 +65,28 @@ export function renderScenarios(report: ScenariosReport): string {
         lines.push(`    requires: ${scenario.requiredCapabilities.join(", ")}`);
       }
     }
+  }
+  return `${lines.join("\n")}\n`;
+}
+
+export function renderRecord(result: CommandResult<RecordReport>): string {
+  const report = result.data;
+  if (report === undefined) {
+    return "";
+  }
+  const { session } = report;
+  const lines = [`Session ${session.id}: ${session.status}, ${report.events} event(s)`];
+  if (session.replay !== undefined) {
+    lines.push(`Replay payload: ${session.replay.path} (${session.replay.bytes} bytes, sha256 ${session.replay.sha256})`);
+    lines.push(`Replay it with: cappy replay ${session.id} --no-capture`);
+  }
+  return `${lines.join("\n")}\n`;
+}
+
+export function renderReplay(report: ReplayReport): string {
+  const lines = [`Replayed session ${report.sessionId}: ${report.events.length} event(s)`];
+  for (const event of report.events) {
+    lines.push(`  ${String(event.t).padStart(8)} ms  ${event.type}`);
   }
   return `${lines.join("\n")}\n`;
 }

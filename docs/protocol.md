@@ -36,6 +36,8 @@ Unknown hello fields and unknown capability names are accepted, so newer adapter
 
 After `welcome`, the adapter should send its scenario registry (`scenarios`).
 
+Cappy may send its first request immediately after `welcome`, often in the same network read. Adapters must keep reading and processing messages from the moment the socket opens; a message that arrives right behind the welcome must not be dropped.
+
 ## Operations
 
 At most one operation is active at a time. Cappy creates an operation ID (`op`), and every message about that operation carries it.

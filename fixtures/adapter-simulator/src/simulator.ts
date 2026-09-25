@@ -1,4 +1,6 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
+import { readFileSync, writeFileSync } from "node:fs";
+import path from "node:path";
 import {
   type AdapterMessage,
   type ControllerMessage,
@@ -50,6 +52,31 @@ export interface SimulatorOptions {
   readonly respondToPings?: boolean;
   /** Milliseconds of real delay per scripted millisecond; 0 emits immediately. */
   readonly timeScale?: number;
+  /**
+   * Opaque replay bytes to hand over instead of the simulator's own format.
+   * Replays are accepted only when Cappy returns exactly these bytes.
+   */
+  readonly replayPayload?: Uint8Array;
+  /** How replay payloads travel: inline base64 (default) or a file in `replayDir`. */
+  readonly replayHandoff?: "inline" | "file";
+  readonly replayDir?: string;
+  /** Complete freeform recordings without a replay payload. */
+  readonly omitReplay?: boolean;
+}
+
+/** JSON-serializable subset of options accepted through CAPPY_SIM_OPTIONS. */
+export interface SimulatorProcessOptions {
+  readonly capabilities?: readonly string[];
+  readonly adapter?: { readonly name: string; readonly version: string };
+  readonly game?: { readonly id: string; readonly name?: string };
+  readonly build?: string;
+  readonly replayPayloadBase64?: string;
+  readonly replayHandoff?: "inline" | "file";
+  readonly replayDir?: string;
+  readonly omitReplay?: boolean;
+  readonly timeScale?: number;
+  /** Write every replay payload received from Cappy into this directory. */
+  readonly receivedReplayDir?: string;
 }
 
 export const SIMULATOR_REPLAY_FORMAT = "cappy-sim-replay-v1";
@@ -99,24 +126,23 @@ export class SimulatorRejectedError extends Error {
   }
 }
 
-function encodeReplay(events: readonly ScriptedEvent[]): ReplayHandoff {
-  const bytes = Buffer.from(JSON.stringify({ format: SIMULATOR_REPLAY_FORMAT, events }), "utf8");
-  return {
-    kind: "inline",
-    encoding: "base64",
-    data: bytes.toString("base64"),
-    sha256: createHash("sha256").update(bytes).digest("hex"),
-    format: SIMULATOR_REPLAY_FORMAT,
-  };
+function encodeEvents(events: readonly ScriptedEvent[]): Uint8Array {
+  return Buffer.from(JSON.stringify({ format: SIMULATOR_REPLAY_FORMAT, events }), "utf8");
 }
 
-function decodeReplay(replay: ReplayHandoff): readonly ScriptedEvent[] | undefined {
-  if (replay.kind !== "inline") {
+function decodeEvents(bytes: Uint8Array): readonly ScriptedEvent[] | undefined {
+  try {
+    const decoded = JSON.parse(Buffer.from(bytes).toString("utf8")) as { format?: unknown; events?: unknown };
+    return decoded.format === SIMULATOR_REPLAY_FORMAT && Array.isArray(decoded.events) ? (decoded.events as ScriptedEvent[]) : undefined;
+  } catch {
     return undefined;
   }
+}
+
+/** Bytes of a replay handoff, reading file handoffs from disk. */
+function handoffBytes(replay: ReplayHandoff): Uint8Array | undefined {
   try {
-    const decoded = JSON.parse(Buffer.from(replay.data, "base64").toString("utf8")) as { format?: unknown; events?: unknown };
-    return decoded.format === SIMULATOR_REPLAY_FORMAT && Array.isArray(decoded.events) ? (decoded.events as ScriptedEvent[]) : undefined;
+    return replay.kind === "inline" ? Buffer.from(replay.data, "base64") : readFileSync(replay.path);
   } catch {
     return undefined;
   }
@@ -158,6 +184,8 @@ function invalidParameter(
  */
 export class AdapterSimulator {
   readonly received: ControllerMessage[] = [];
+  /** Replay payload bytes Cappy handed back, in order. */
+  readonly receivedReplays: Uint8Array[] = [];
   private active: ActiveOperation | undefined;
   private recorded: ScriptedEvent[] = [];
 
@@ -165,33 +193,44 @@ export class AdapterSimulator {
     private readonly socket: WebSocket,
     private readonly options: SimulatorOptions,
     readonly protocolVersion: number,
-  ) {
-    socket.on("message", (data) => this.receive(data.toString()));
-  }
+  ) {}
 
   /** Connect, send the hello, and wait for Cappy's welcome. */
   static async connect(options: SimulatorOptions): Promise<AdapterSimulator> {
     const socket = new WebSocket(options.endpoint);
     socket.on("error", () => undefined);
-    // Listen before the socket opens: a rejection can arrive in the same
-    // packet as the upgrade response.
-    const reply = new Promise<ControllerMessage>((resolve, reject) => {
-      socket.once("message", (data) => {
-        const parsed = parseControllerMessage(data.toString());
-        if (parsed.ok) {
-          resolve(parsed.message);
-        } else {
-          reject(new Error(`unexpected reply: ${parsed.reason}`));
+    // One persistent listener from the start: Cappy may send its first request
+    // in the same packet as the welcome, so nothing may be dropped between the
+    // handshake and the simulator taking over.
+    const queue: string[] = [];
+    let wake: (() => void) | undefined;
+    let deliver: ((text: string) => void) | undefined = undefined;
+    socket.on("message", (data) => {
+      const text = data.toString();
+      if (deliver === undefined) {
+        queue.push(text);
+        wake?.();
+      } else {
+        deliver(text);
+      }
+    });
+    const firstMessage = new Promise<string>((resolve, reject) => {
+      const check = (): void => {
+        const text = queue.shift();
+        if (text !== undefined) {
+          // Only the first message belongs to the handshake; later ones stay queued.
+          wake = undefined;
+          resolve(text);
         }
-      });
+      };
+      wake = check;
       socket.once("close", () => reject(new SimulatorRejectedError("CLOSED", "connection closed during handshake")));
     });
-    reply.catch(() => undefined);
+    firstMessage.catch(() => undefined);
     await new Promise<void>((resolve, reject) => {
       socket.once("open", () => resolve());
       socket.once("error", reject);
     });
-    reply.catch(() => undefined);
     const hello: AdapterMessage = {
       type: "hello",
       protocol: options.protocol ?? SUPPORTED_PROTOCOL,
@@ -202,7 +241,12 @@ export class AdapterSimulator {
       capabilities: [...(options.capabilities ?? DEFAULT_CAPABILITIES)],
     };
     socket.send(JSON.stringify(hello));
-    const message = await reply;
+    const parsed = parseControllerMessage(await firstMessage);
+    if (!parsed.ok) {
+      socket.close();
+      throw new Error(`unexpected reply: ${parsed.reason}`);
+    }
+    const message = parsed.message;
     if (message.type === "reject") {
       socket.close();
       throw new SimulatorRejectedError(message.code, message.message);
@@ -212,6 +256,10 @@ export class AdapterSimulator {
       throw new Error(`expected welcome, received ${message.type}`);
     }
     const simulator = new AdapterSimulator(socket, options, message.protocol);
+    deliver = (text) => simulator.receive(text);
+    for (const text of queue.splice(0)) {
+      simulator.receive(text);
+    }
     simulator.registerScenarios();
     return simulator;
   }
@@ -304,7 +352,19 @@ export class AdapterSimulator {
         this.send({ type: "started", op: message.op });
         return this.play(this.active);
       case "prepare_replay": {
-        const events = decodeReplay(message.replay);
+        const bytes = handoffBytes(message.replay);
+        if (bytes !== undefined) {
+          this.receivedReplays.push(bytes);
+        }
+        const opaque = this.options.replayPayload;
+        const events =
+          bytes === undefined
+            ? undefined
+            : opaque === undefined
+              ? decodeEvents(bytes)
+              : Buffer.compare(Buffer.from(bytes), Buffer.from(opaque)) === 0
+                ? (this.options.freeformScript ?? DEFAULT_FREEFORM_SCRIPT)
+                : undefined;
         if (events === undefined) {
           return this.send({ type: "failed", op: message.op, code: "REPLAY_UNSUPPORTED", message: "replay payload is not a simulator replay" });
         }
@@ -375,10 +435,26 @@ export class AdapterSimulator {
       return;
     }
     if (operation.kind === "freeform") {
-      this.send({ type: "completed", op: operation.op, result: { events: this.recorded.length }, replay: encodeReplay(this.recorded) });
+      const result = { events: this.recorded.length };
+      if (this.options.omitReplay === true) {
+        this.send({ type: "completed", op: operation.op, result });
+        return;
+      }
+      this.send({ type: "completed", op: operation.op, result, replay: this.handoff(this.options.replayPayload ?? encodeEvents(this.recorded)) });
       return;
     }
     this.send({ type: "completed", op: operation.op, result: { events: operation.script.length } });
+  }
+
+  private handoff(bytes: Uint8Array): ReplayHandoff {
+    const sha256 = createHash("sha256").update(bytes).digest("hex");
+    const format = this.options.replayPayload === undefined ? SIMULATOR_REPLAY_FORMAT : "opaque-test-bytes";
+    if (this.options.replayHandoff === "file") {
+      const file = path.join(this.options.replayDir ?? ".", `replay-${randomUUID()}.bin`);
+      writeFileSync(file, bytes);
+      return { kind: "file", path: file, sha256, bytes: bytes.byteLength, format };
+    }
+    return { kind: "inline", encoding: "base64", data: Buffer.from(bytes).toString("base64"), sha256, format };
   }
 
   private clearActive(): void {

@@ -41,6 +41,12 @@ export const ERROR_CODES = {
   OBS_REQUEST_FAILED: "operation",
   OBS_SCENE_MISSING: "dependency",
   DOCTOR_CHECKS_FAILED: "dependency",
+  SESSION_NOT_FOUND: "usage",
+  SESSION_INVALID: "operation",
+  SESSION_NOT_REPLAYABLE: "operation",
+  REPLAY_PAYLOAD_MISSING: "operation",
+  REPLAY_PAYLOAD_INVALID: "operation",
+  REPLAY_INCOMPATIBLE: "operation",
   INTERNAL_ERROR: "internal",
 } as const satisfies Record<string, ErrorCategory>;
 

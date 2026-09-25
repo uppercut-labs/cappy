@@ -10,15 +10,23 @@ import {
   serializeCommandResult,
 } from "@cappy/core";
 import { type DoctorReport, doctor } from "./commands/doctor.js";
+import { type RecordReport, record } from "./commands/record.js";
+import { type ReplayReport, replay } from "./commands/replay.js";
 import { type ScenariosReport, scenarios } from "./commands/scenarios.js";
-import type { CliIO, CommandContext } from "./context.js";
-import { renderDoctor, renderError, renderScenarios } from "./render.js";
+import { type CliIO, type CommandContext, noInterrupts } from "./context.js";
+import { renderDoctor, renderError, renderRecord, renderReplay, renderScenarios } from "./render.js";
 
 export const HELP = `Usage: cappy <command> [options]
 
 Commands:
   doctor               Check configuration, workspace, game command, FFmpeg, and OBS without capturing
   scenarios            Launch the game and list the scenarios its adapter registers
+  record               Record a freeform, replayable session (Enter stops, Ctrl+C cancels)
+  replay <session-id>  Play a stored session back through the adapter
+
+Command options:
+  --duration <seconds> record: stop automatically after this many seconds
+  --no-capture         replay: verify playback without recording video
 
 Options:
   --json               Print exactly one structured JSON result on stdout
@@ -45,7 +53,18 @@ const COMMANDS: Record<string, Command<unknown>> = {
     run: scenarios,
     render: (result) => (result.ok ? renderScenarios(result.data as ScenariosReport) : ""),
   } as Command<unknown>,
+  record: {
+    run: record,
+    render: (result) => renderRecord(result as CommandResult<RecordReport>),
+  } as Command<unknown>,
+  replay: {
+    run: replay,
+    render: (result) => (result.ok ? renderReplay(result.data as ReplayReport) : ""),
+  } as Command<unknown>,
 };
+
+/** Commands that take positional arguments after their name. */
+const TAKES_ARGUMENTS = new Set(["replay"]);
 
 /** Run the CLI in-process and return the exit code. */
 export async function main(argv: readonly string[], io: CliIO): Promise<number> {
@@ -79,6 +98,8 @@ export async function main(argv: readonly string[], io: CliIO): Promise<number> 
         config: { type: "string" },
         help: { type: "boolean", short: "h" },
         version: { type: "boolean" },
+        duration: { type: "string" },
+        "no-capture": { type: "boolean" },
       },
     });
   } catch (cause) {
@@ -97,7 +118,7 @@ export async function main(argv: readonly string[], io: CliIO): Promise<number> 
     return name === undefined && values.help !== true ? 2 : 0;
   }
   const command = COMMANDS[name];
-  if (command === undefined || positionals.length > 1) {
+  if (command === undefined || (positionals.length > 1 && !TAKES_ARGUMENTS.has(name))) {
     const message = command === undefined ? `unknown command "${name}"` : `unexpected argument "${positionals[1] ?? ""}"`;
     return emit(commandFailure(name, cappyError("USAGE_INVALID", message, "cli", { details: { hint: "run cappy --help" } })), "");
   }
@@ -107,6 +128,14 @@ export async function main(argv: readonly string[], io: CliIO): Promise<number> 
     ...(values.config === undefined ? {} : { configPath: values.config }),
     env: io.env,
     correlationId: newCorrelationId(),
+    positionals: positionals.slice(1),
+    flags: { duration: values.duration, "no-capture": values["no-capture"] },
+    progress: (text) => {
+      if (!json) {
+        io.writeError(text);
+      }
+    },
+    listenForInterrupts: () => io.listenForInterrupts?.() ?? noInterrupts(),
   };
   let result: CommandResult<unknown>;
   try {

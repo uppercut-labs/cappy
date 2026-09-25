@@ -30,6 +30,9 @@ npm run build
 npx cappy doctor              # check config, workspace, game command, FFmpeg/ffprobe, and OBS
 npx cappy scenarios           # launch the game and list the scenarios its adapter registers
 npx cappy doctor --json       # one structured JSON result on stdout
+npx cappy record              # record a freeform session; Enter stops, Ctrl+C cancels
+npx cappy record --duration 30
+npx cappy replay <session-id> --no-capture
 ```
 
 Exit codes: 0 success, 1 operation failed, 2 invalid usage, 3 configuration, 4 missing dependency, 70 internal error, 130 cancelled.

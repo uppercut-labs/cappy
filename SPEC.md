@@ -437,6 +437,10 @@ The operation ends when the developer requests stop, the adapter reports complet
 
 A successful replayable session requires a valid replay payload when the adapter advertised replay support for the operation.
 
+Operator controls: Enter stops the recording normally; `--duration <seconds>` stops it automatically; Ctrl+C (or SIGTERM) cancels it. A cancelled session is persisted with status `cancelled` and no replay payload, and the command exits 130. An adapter that advertises `replay` but completes without a payload fails the session with `REPLAY_PAYLOAD_MISSING`. An adapter without `replay` produces a completed, non-replayable session and a warning.
+
+Sessions are stored under `sessions/<session-id>/` in the managed workspace: `session.json` (metadata), `replay.bin` (the adapter's payload, byte-for-byte), and `timeline.json` (normalized events). Inline payloads are decoded and verified against their SHA-256. File payloads must be an absolute path to a regular, non-symlink file whose size and SHA-256 match the handoff; Cappy copies them and never moves or deletes the adapter's file.
+
 ### 11.6 `cappy replay <session-id>`
 
 Loads the stored session envelope and replay payload, validates the current adapter's relevant capabilities, launches/connects to the game, and requests replay.
@@ -444,6 +448,17 @@ Loads the stored session envelope and replay payload, validates the current adap
 By default this command performs capture through OBS using the selected/default capture preset. A `--no-capture` mode may be used for replay verification/debugging.
 
 If the current adapter/build cannot satisfy capabilities required by that replay, fail before recording.
+
+Compatibility rules, all checked before the payload reaches the adapter:
+
+- The stored payload must still match its recorded SHA-256 and size (`REPLAY_PAYLOAD_INVALID` otherwise); this is checked before the game is launched.
+- The session must belong to the configured project and have been recorded by the same adapter name (`REPLAY_INCOMPATIBLE`).
+- A replay requires `replay`, plus `deterministic_replay` when the recording adapter advertised it (`CAPABILITY_MISSING`).
+- A different game build is allowed with a warning; replay fidelity across builds is the adapter's responsibility (ADR-008).
+
+Payloads up to 1 MiB are returned inline; larger ones are handed over as a path inside the managed root.
+
+Until the capture path exists, `cappy replay` requires `--no-capture`.
 
 ## 12. OBS integration
 
