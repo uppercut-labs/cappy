@@ -22,13 +22,14 @@ export const HELP = `Usage: cappy <command> [options]
 Commands:
   doctor               Check configuration, workspace, game command, FFmpeg, and OBS without capturing
   scenarios            Launch the game and list the scenarios its adapter registers
-  run <scenario>       Capture an authored scenario with OBS
+  run <scenario>       Capture an authored scenario with OBS, FFmpeg derivatives, and a manifest
   record               Record a freeform, replayable session (Enter stops, Ctrl+C cancels)
-  replay <session-id>  Play a stored session back through the adapter
+  replay <session-id>  Capture a stored session's replay (or --no-capture to only play it)
 
 Command options:
   --param <key=value>  run: scenario parameter (repeatable)
-  --preset <name>      run, record --capture: capture preset (default: defaultPreset)
+  --preset <name>      run, replay, record --capture: capture preset (default: defaultPreset)
+  --take <n>           run, replay: explicit take number; never overwrites an existing take
   --capture            record: also record an OBS master
   --duration <seconds> record: stop automatically after this many seconds
   --no-capture         replay: verify playback without recording video
@@ -112,6 +113,7 @@ export async function main(argv: readonly string[], io: CliIO): Promise<number> 
         capture: { type: "boolean" },
         preset: { type: "string" },
         param: { type: "string", multiple: true },
+        take: { type: "string" },
       },
     });
   } catch (cause) {
@@ -147,6 +149,7 @@ export async function main(argv: readonly string[], io: CliIO): Promise<number> 
       capture: values.capture,
       preset: values.preset,
       param: values.param,
+      take: values.take,
     },
     progress: (text) => {
       if (!json) {

@@ -150,6 +150,27 @@ function invalidPayload(message: string, details?: Record<string, unknown>) {
 }
 
 /**
+ * Sessions left `active` by a command that is no longer running (for example
+ * after a crash) are marked `failed`. Nothing is ever promoted to success.
+ * Returns the IDs that were reconciled.
+ */
+export async function reconcileOrphanedSessions(store: SessionStore, workspace: ManagedWorkspace, live: ReadonlySet<string>): Promise<string[]> {
+  const reconciled: string[] = [];
+  for (const file of workspace.listManaged("sessions/").filter((entry) => entry.path.endsWith("/session.json"))) {
+    const id = file.path.split("/")[1] ?? "";
+    const loaded = await store.load(id);
+    if (!loaded.ok || loaded.value.status !== "active" || live.has(loaded.value.correlationId)) {
+      continue;
+    }
+    const saved = await store.save({ ...loaded.value, status: "failed", endedAt: new Date().toISOString() });
+    if (saved.ok) {
+      reconciled.push(id);
+    }
+  }
+  return reconciled;
+}
+
+/**
  * Capabilities a stored replay needs from the adapter that plays it back:
  * `replay`, plus `deterministic_replay` when the recording adapter offered it.
  */

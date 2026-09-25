@@ -88,6 +88,9 @@ export function renderRecord(result: CommandResult<RecordReport>): string {
 }
 
 export function renderReplay(report: ReplayReport): string {
+  if (report.captured) {
+    return renderCapture(report);
+  }
   const lines = [`Replayed session ${report.sessionId}: ${report.events.length} event(s)`];
   for (const event of report.events) {
     lines.push(`  ${String(event.t).padStart(8)} ms  ${event.type}`);
@@ -96,18 +99,25 @@ export function renderReplay(report: ReplayReport): string {
 }
 
 export function renderRun(result: CommandResult<RunReport>): string {
-  const report = result.data;
-  if (report === undefined) {
-    return "";
-  }
-  const parameters = Object.entries(report.scenario.parameters)
-    .map(([name, value]) => `${name}=${String(value)}`)
-    .join(" ");
+  return result.data === undefined ? "" : renderCapture(result.data);
+}
+
+function renderCapture(report: RunReport): string {
+  const subject =
+    report.scenario !== undefined
+      ? `${report.scenario.id}${
+          Object.keys(report.scenario.parameters).length === 0
+            ? ""
+            : ` (${Object.entries(report.scenario.parameters)
+                .map(([name, value]) => `${name}=${String(value)}`)
+                .join(" ")})`
+        }`
+      : report.source?.kind === "replay"
+        ? `replay of ${report.source.sessionId}`
+        : "capture";
   const lines = [
-    `Capture ${report.captureId}: ${report.scenario.id}${parameters === "" ? "" : ` (${parameters})`}${
-      report.take === undefined ? "" : `, take ${report.take}`
-    }, preset ${report.preset}, ${report.state}`,
-    `OBS ${report.obs.version}${report.obs.scene === undefined ? "" : `, scene "${report.obs.scene}"`}; ${report.events.length} timeline event(s)`,
+    `Capture ${report.captureId}: ${subject}${report.take === undefined ? "" : `, take ${report.take}`}, preset ${report.preset}, ${report.state}`,
+    `OBS ${report.obs.version}${report.obs.scene === undefined ? "" : `, scene "${report.obs.scene}"`}; ${report.events.length} game event(s)`,
   ];
   for (const artifact of report.artifacts) {
     lines.push(`  ${artifact.role.padEnd(10)} ${artifact.path} (${artifact.bytes} bytes, sha256 ${artifact.sha256})`);
@@ -115,5 +125,6 @@ export function renderRun(result: CommandResult<RunReport>): string {
   if (report.manifest !== undefined) {
     lines.push(`Manifest: ${report.manifest}`);
   }
+  lines.push(`Log: ${report.log}`);
   return `${lines.join("\n")}\n`;
 }

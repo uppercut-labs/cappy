@@ -245,11 +245,6 @@ describe("replay compatibility", () => {
       expect(replayed.result["error"]["code"]).toBe("SESSION_NOT_FOUND");
     }
   });
-
-  it("requires --no-capture until captured replay exists", async () => {
-    const replayed = await cli(["replay", "ses_00000000-0000-0000-0000-000000000000"]);
-    expect(replayed).toMatchObject({ code: 2, result: { error: { code: "USAGE_INVALID" } } });
-  });
 });
 
 describe("interactive binary", () => {

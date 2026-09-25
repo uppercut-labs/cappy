@@ -260,6 +260,18 @@ export const manifestSchema = z
       startedAt: isoTimestamp,
       endedAt: isoTimestamp,
       monotonic: z.strictObject({ startMs: z.number(), endMs: z.number() }).optional(),
+      /**
+       * How timeline times map onto the master. Times are milliseconds from
+       * the moment OBS confirmed recording; adapter events are shifted by
+       * `adapterOffsetMs`. The true start lies up to `uncertaintyMs` earlier.
+       */
+      sync: z
+        .strictObject({
+          reference: z.literal("obs_recording_confirmed"),
+          adapterOffsetMs: z.number().nonnegative(),
+          uncertaintyMs: z.number().nonnegative(),
+        })
+        .optional(),
       timeline: z.union([z.array(timelineEventSchema), z.strictObject({ path: nonEmpty, sha256: sha256Schema })]),
     }),
     tooling: z.strictObject({

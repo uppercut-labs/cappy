@@ -34,8 +34,12 @@ npx cappy run boss_intro --param difficulty=3 --preset trailer   # capture a sce
 npx cappy record              # record a freeform session; Enter stops, Ctrl+C cancels
 npx cappy record --capture    # also record an OBS master
 npx cappy record --duration 30
-npx cappy replay <session-id> --no-capture
+npx cappy replay <session-id>              # capture the replay: OBS master, derivatives, manifest
+npx cappy replay <session-id> --no-capture # only play it back
+npx cappy run boss_intro --take 3          # explicit take; never overwrites an existing one
 ```
+
+Every `record`, `run`, and `replay` writes `logs/<correlation-id>.jsonl` in the managed workspace; the same correlation ID appears in the command's JSON result, sessions, manifest, and timeline events.
 
 Exit codes: 0 success, 1 operation failed, 2 invalid usage, 3 configuration, 4 missing dependency, 70 internal error, 130 cancelled.
 

@@ -329,6 +329,8 @@ Large replay payloads should use managed file references rather than unbounded J
 
 Cappy assigns/records receipt order. Adapter events include session-relative monotonic time when available. Wall-clock timestamps alone are insufficient for media synchronization.
 
+Capture timelines are placed on the master's clock, measured on the controller's monotonic clock. `t = 0` is the moment OBS confirmed recording (`RECORDING_STARTED`). The adapter's operation clock starts at its `started` acknowledgement, so adapter events are shifted by `adapterOffsetMs` (confirmed-recording to started). Cappy adds `SCENARIO_STARTED`/`REPLAY_STARTED`, `SCENARIO_COMPLETED`/`REPLAY_COMPLETED`, and `RECORDING_STOPPED` lifecycle events, and renumbers `seq` in receipt order. The manifest's `timing.sync` records the reference, the offset, and `uncertaintyMs`, the gap between requesting and confirming the recording, within which the true first frame lies. Raw adapter times remain recoverable as `t - adapterOffsetMs`.
+
 ### 9.5 Failure
 
 Malformed, schema-invalid, out-of-state, or incompatible messages fail the active operation with a structured protocol error. They must not be silently ignored when doing so could produce a false successful capture.
@@ -462,7 +464,7 @@ Compatibility rules, all checked before the payload reaches the adapter:
 
 Payloads up to 1 MiB are returned inline; larger ones are handed over as a path inside the managed root.
 
-Until the capture path exists, `cappy replay` requires `--no-capture`.
+A captured replay runs through the same pipeline as `cappy run`: preflight (including the session and payload checks above) before the game launches, a confirmed OBS start before playback, a confirmed stop, a verified master, derivatives, and a manifest whose source is `{ "kind": "replay", "sessionId": ... }` and whose `identity.sessionId` is the replayed session. `--no-capture` plays the session back without OBS or media tools.
 
 ## 12. OBS integration
 
@@ -608,6 +610,8 @@ For repeated captures of the same scenario/replay intent, Cappy assigns a monoto
 
 Existing successful takes are never overwritten implicitly.
 
+`--take <n>` requests an explicit take; if a successful capture of the same source already has that take, the job fails with `TAKE_EXISTS` before anything is recorded. Failed and cancelled jobs do not consume take numbers.
+
 Takes are grouped by source: the scenario ID plus its resolved parameters, or the replayed session ID. The next take is one past the highest take among successful manifests in the workspace for that source. Every capture has its own `captures/<capture-id>/` directory.
 
 ## 17. Cleanup and destructive behavior
@@ -629,6 +633,8 @@ Each operation gets a correlation ID.
 
 Human logs should be useful without leaking secrets. JSON mode returns bounded structured results; verbose diagnostic logs may live under the managed logs directory.
 
+V1 writes one structured log per command, `logs/<correlation-id>.jsonl`, for `record`, `run`, and `replay`. Every entry, session, manifest, and timeline event carries the command's correlation ID. Entries hold events, IDs, paths, states, and error codes only.
+
 Do not log:
 
 - OBS passwords;
@@ -646,6 +652,8 @@ Ctrl+C or an explicit cancellation request should:
 5. mark the operation cancelled, not succeeded.
 
 After an unclean controller crash, the next command may detect orphaned in-progress metadata and mark/reconcile it, but must not guess that a capture succeeded.
+
+V1: `record`, `run`, and captured `replay` hold a run lock (`cache/running/<correlation-id>.json`, with PID and host) while they may leave `active` state. Each of those commands first marks as `failed` every session still `active` whose command holds no live lock on this host, and reports the reconciled sessions as a warning. A capture interrupted before its manifest was written has no manifest and is therefore never successful. Locks from other hosts are never treated as dead.
 
 ## 20. Security boundary
 

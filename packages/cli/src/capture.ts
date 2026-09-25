@@ -65,21 +65,17 @@ export async function prepareRecorder(
 }
 
 /**
- * Stop OBS, verify the master it wrote, and move it into the managed
- * workspace as `<directory>/master<ext>`, registered with size and hash.
+ * Verify the master OBS wrote and move it into the managed workspace as
+ * `<directory>/master<ext>`, registered with size and hash.
  */
-export async function collectMaster(
-  recorder: ObsRecorder,
+export async function publishMaster(
+  outputPath: string,
   started: RecordingStarted,
+  obsVersion: string,
   workspace: ManagedWorkspace,
   directory: string,
-  timeoutMs: number,
 ): Promise<Result<Artifact>> {
-  const stopped = await recorder.stop(timeoutMs);
-  if (!stopped.ok) {
-    return stopped;
-  }
-  const verified = await verifyMaster(stopped.value, started.requestedAt);
+  const verified = await verifyMaster(outputPath, started.requestedAt);
   if (!verified.ok) {
     return verified;
   }
@@ -97,6 +93,21 @@ export async function collectMaster(
     mediaType: mediaTypeFor(published.value.path),
     bytes: published.value.entry.bytes,
     sha256: published.value.entry.sha256,
-    source: { tool: "obs", version: recorder.obsVersion },
+    source: { tool: "obs", version: obsVersion },
   });
+}
+
+/** Stop OBS, then verify and publish the master. */
+export async function collectMaster(
+  recorder: ObsRecorder,
+  started: RecordingStarted,
+  workspace: ManagedWorkspace,
+  directory: string,
+  timeoutMs: number,
+): Promise<Result<Artifact>> {
+  const stopped = await recorder.stop(timeoutMs);
+  if (!stopped.ok) {
+    return stopped;
+  }
+  return publishMaster(stopped.value, started, recorder.obsVersion, workspace, directory);
 }

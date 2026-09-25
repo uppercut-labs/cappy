@@ -15,13 +15,15 @@ import type { AdapterOperation, OperationOutcome } from "@cappy/protocol";
 import { ManagedWorkspace } from "@cappy/workspace";
 import { collectMaster, prepareRecorder, selectPreset } from "../capture.js";
 import type { CommandContext } from "../context.js";
+import { CommandLog, acquireRunLock, liveCorrelationIds } from "../log.js";
 import { launchGame } from "../game.js";
-import { SessionStore, newSessionId, replayRequirements } from "../sessions.js";
+import { SessionStore, newSessionId, reconcileOrphanedSessions, replayRequirements } from "../sessions.js";
 
 export interface RecordReport {
   readonly session: Session;
   readonly replayable: boolean;
   readonly events: number;
+  readonly log: string;
   /** The verified OBS master when recorded with --capture. */
   readonly master?: Artifact;
 }
@@ -60,6 +62,11 @@ export async function record(context: CommandContext): Promise<CommandResult<Rec
     return commandFailure("record", workspace.error, options);
   }
   const store = new SessionStore(workspace.value);
+  const log = new CommandLog(context.correlationId);
+  log.record("command.started", { command: "record", capture: context.flags["capture"] === true });
+  const reconciled = await reconcileOrphanedSessions(store, workspace.value, await liveCorrelationIds(workspace.value));
+  const warnings =
+    reconciled.length === 0 ? [] : [`marked ${reconciled.length} session(s) left active by an interrupted command as failed: ${reconciled.join(", ")}`];
 
   // Optional OBS master capture, preflighted before the game launches.
   let recorder: ObsRecorder | undefined;
@@ -81,6 +88,7 @@ export async function record(context: CommandContext): Promise<CommandResult<Rec
     return commandFailure("record", game.error, options);
   }
   const { connection } = game.value;
+  const release = await acquireRunLock(workspace.value, context.correlationId);
   const interrupts = context.listenForInterrupts();
   try {
     const missing = missingCapabilities(connection.capabilities, ["freeform_recording"]);
@@ -112,6 +120,7 @@ export async function record(context: CommandContext): Promise<CommandResult<Rec
     if (!created.ok) {
       return commandFailure("record", created.error, options);
     }
+    log.record("session.started", { session: session.id });
 
     const finish = async (status: "completed" | "failed" | "cancelled", operation?: AdapterOperation, extra: Partial<Session> = {}): Promise<Session> => {
       if (operation !== undefined && operation.events.length > 0) {
@@ -125,9 +134,11 @@ export async function record(context: CommandContext): Promise<CommandResult<Rec
       await recorder?.abort(config.timeouts.obsMs);
       const status = error.code === "OPERATION_CANCELLED" ? "cancelled" : "failed";
       const saved = await finish(status, operation);
+      log.record(`session.${status}`, { session: saved.id, code: error.code });
       return commandFailure("record", error, {
         ...options,
-        data: { session: saved, replayable: false, events: operation?.events.length ?? 0 },
+        warnings,
+        data: { session: saved, replayable: false, events: operation?.events.length ?? 0, log: log.path },
       });
     };
 
@@ -208,8 +219,8 @@ export async function record(context: CommandContext): Promise<CommandResult<Rec
       const saved = await finish("completed", operation);
       return commandSuccess(
         "record",
-        { session: saved, replayable: false, events: operation.events.length, ...withMaster },
-        { ...options, warnings: ["the adapter does not support replay; this session cannot be replayed"] },
+        { session: saved, replayable: false, events: operation.events.length, log: log.path, ...withMaster },
+        { ...options, warnings: [...warnings, "the adapter does not support replay; this session cannot be replayed"] },
       );
     }
     const stored = await store.storeReplay(session.id, handoff, replayRequirements(connection.capabilities));
@@ -217,10 +228,14 @@ export async function record(context: CommandContext): Promise<CommandResult<Rec
       return await fail(stored.error, operation);
     }
     const saved = await finish("completed", operation, { replay: stored.value });
-    return commandSuccess("record", { session: saved, replayable: true, events: operation.events.length, ...withMaster }, options);
+    log.record("session.completed", { session: saved.id, replay: stored.value.path });
+    return commandSuccess("record", { session: saved, replayable: true, events: operation.events.length, log: log.path, ...withMaster }, { ...options, warnings });
   } finally {
     await game.value.close();
     recorder?.close();
     interrupts.dispose();
+    log.record("command.finished", {});
+    await log.flush(workspace.value);
+    await release();
   }
 }

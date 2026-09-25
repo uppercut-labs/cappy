@@ -70,7 +70,15 @@ describe("derivatives and manifests", () => {
       tooling: { obs: { version: "31.0.0" }, ffmpeg: { version: "9.9.9-fake" }, ffprobe: { version: "9.9.9-fake" }, preset: { name: "trailer" } },
       result: { warnings: [], checks: expect.arrayContaining([{ name: "master.probe", passed: true, detail: "matroska,webm, h264" }]) },
     });
-    expect(manifest["timing"]["timeline"].map((event: { type: string }) => event.type)).toEqual(["BOSS_APPEAR", "SPELL_CAST", "IMPACT"]);
+    expect(manifest["timing"]["timeline"].map((event: { type: string }) => event.type)).toEqual([
+      "RECORDING_STARTED",
+      "SCENARIO_STARTED",
+      "BOSS_APPEAR",
+      "SPELL_CAST",
+      "IMPACT",
+      "SCENARIO_COMPLETED",
+      "RECORDING_STOPPED",
+    ]);
     expect(manifest["artifacts"][0]).toMatchObject({ role: "master", durationMs: 2000, width: 1280, height: 720 });
     expect(manifest["result"]["checks"].every((check: { passed: boolean }) => check.passed)).toBe(true);
 

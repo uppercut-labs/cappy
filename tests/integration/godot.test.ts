@@ -97,4 +97,24 @@ describe.runIf(godot !== undefined)("Godot adapter and demo", { timeout: 120_000
     expect(stored[0]?.type).toBe("RUN_START");
     expect(stored.at(-1)?.type).toBe("RUN_END");
   });
+
+  it("captures a stored Godot session's replay through the full capture pipeline", async () => {
+    const recorded = await runCli(harness, ["record", "--duration", "1"]);
+    const sessionId = recorded.result["data"]["session"]["id"] as string;
+    const stored = JSON.parse(await readFile(path.join(harness.project, ".cappy/sessions", sessionId, "timeline.json"), "utf8")) as {
+      type: string;
+      t: number;
+    }[];
+
+    const { code, result } = await runCli(harness, ["replay", sessionId]);
+    expect(code).toBe(0);
+    expect(result["data"]).toMatchObject({ captured: true, state: "succeeded", take: 1, source: { kind: "replay", sessionId } });
+    const manifest = JSON.parse(await readFile(path.join(harness.project, ".cappy", result["data"]["manifest"]), "utf8")) as Record<string, any>;
+    expect(manifest["status"]).toBe("succeeded");
+    // Game events on the master clock, shifted back, match the recording exactly.
+    const offset = manifest["timing"]["sync"]["adapterOffsetMs"] as number;
+    const game = (manifest["timing"]["timeline"] as { source: string; type: string; t: number }[]).filter((event) => event.source === "adapter");
+    expect(game.map((event) => event.type)).toEqual(stored.map((event) => event.type));
+    game.forEach((event, index) => expect(event.t - offset).toBeCloseTo(stored[index]?.t ?? NaN, 2));
+  });
 });
