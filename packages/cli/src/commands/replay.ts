@@ -8,7 +8,6 @@ import {
   commandFailure,
   commandSuccess,
   err,
-  loadConfig,
   missingCapabilities,
   ok,
 } from "@cappy/core";
@@ -19,6 +18,7 @@ import type { CommandContext } from "../context.js";
 import { launchGame } from "../game.js";
 import { CommandLog } from "../log.js";
 import { SessionStore } from "../sessions.js";
+import { loadCommandConfig } from "../project.js";
 
 export interface PlaybackReport {
   readonly sessionId: string;
@@ -149,7 +149,7 @@ async function capture(context: CommandContext, sessionId: string): Promise<Comm
 
 async function playback(context: CommandContext, sessionId: string): Promise<CommandResult<ReplayReport>> {
   const options = { correlationId: context.correlationId };
-  const loaded = await loadConfig({ projectDir: context.projectDir, ...(context.configPath === undefined ? {} : { configPath: context.configPath }) });
+  const loaded = await loadCommandConfig(context);
   if (!loaded.ok) {
     return commandFailure("replay", loaded.error, options);
   }

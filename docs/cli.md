@@ -146,6 +146,40 @@ What `compare` does:
 - `worstFrames` and `timelineDiff`;
 - the artifacts, and the manifest path. A failed FFmpeg run exits 1 with `COMPARISON_FAILED` and leaves only a `failed` manifest.
 
+## Named builds and `--build`
+
+`builds` in `cappy.config.json` names alternative launch commands for the game, for example two exports of it, or the same project with different arguments:
+
+```json
+"game": { "command": "godot", "args": ["--path", "/games/demo"] },
+"builds": {
+  "v1": { "game": { "args": ["--path", "/builds/v1"] } },
+  "v2": { "game": { "command": "/builds/v2/Demo.x86_64", "args": [] } }
+}
+```
+
+- Each field a build gives (`command`, `args`, `cwd`) replaces the base `game`'s field.
+- `-b, --build <name>` on `run`, `replay`, `record`, and `scenarios` launches that build. `base` means the plain `game`, and no build may be named `base`.
+- An unknown build fails with `BUILD_NOT_FOUND` (exit 2) before anything launches.
+- A capture's manifest records the build as `build.name`, next to the `gameBuild` the adapter reports.
+- `doctor` checks every build's command (`game.<name>`).
+
+## `cappy compare-builds <session | scenario> <build-a> <build-b>`
+
+Captures the same moment with two builds, then compares them:
+
+```bash
+cappy compare-builds ses_… v1 v2 --min-ssim 0.97 --require-same-events
+cappy compare-builds boss_intro base v2 -pa difficulty=3
+```
+
+- A session ID (`ses_…`) is replay-captured with each build. Anything else is a scenario, run with each build and the given `--param` values.
+- `--preset` applies to both captures, and the comparison gates (`-ms`, `-mfs`, `-mdm`, `-rse`) apply to the comparison.
+- Each step is the ordinary command, so the result is two captures and a comparison, each with its own manifest.
+- `data` holds `builds`, `a`, `b`, and `comparison`. The exit code is the comparison's (0, or 1 when it regresses).
+- The first failed capture stops the command, with that capture's error and exit code.
+- The two build names must differ, and `--build` and `--no-capture` do not apply.
+
 ## `cappy clean [<id>...]`
 
 Deletes captures, sessions, comparisons, and logs that Cappy created, at once. See [storage.md](storage.md#cappy-clean) for exactly what each item covers and what is protected.

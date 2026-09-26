@@ -54,6 +54,7 @@ export const ERROR_CODES = {
   MASTER_MISSING: "operation",
   MASTER_INVALID: "operation",
   PRESET_NOT_FOUND: "usage",
+  BUILD_NOT_FOUND: "usage",
   PARAMETER_INVALID: "usage",
   MEDIA_PROBE_FAILED: "operation",
   DERIVATIVE_OPTIONS_INVALID: "configuration",

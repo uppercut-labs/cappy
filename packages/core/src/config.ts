@@ -23,6 +23,16 @@ const gameSchema = z.strictObject({
   cwd: nonEmpty.optional(),
 });
 
+/** A named build overrides these fields of the base `game` (SPEC 6, ADR-019). */
+const gameOverrideSchema = z.strictObject({
+  command: nonEmpty.optional(),
+  args: z.array(z.string()).optional(),
+  cwd: nonEmpty.optional(),
+});
+
+/** The build name that always means the base `game`. */
+export const BASE_BUILD = "base";
+
 const adapterSchema = z.strictObject({
   host: z
     .string()
@@ -110,12 +120,17 @@ export const configSchema = z
     obs: obsSchema.optional(),
     tools: toolsSchema.default({}),
     presets: z.record(idSchema, presetSchema).default({}),
+    /** Named game launch overrides, selected with `--build <name>`. */
+    builds: z.record(idSchema, z.strictObject({ game: gameOverrideSchema })).default({}),
     defaultPreset: idSchema.optional(),
     timeouts: timeoutsSchema.prefault({}),
   })
   .superRefine((config, ctx) => {
     if (config.defaultPreset !== undefined && !(config.defaultPreset in config.presets)) {
       ctx.addIssue({ code: "custom", path: ["defaultPreset"], message: `preset "${config.defaultPreset}" is not defined` });
+    }
+    if (BASE_BUILD in config.builds) {
+      ctx.addIssue({ code: "custom", path: ["builds", BASE_BUILD], message: `"${BASE_BUILD}" is reserved for the base game and cannot name a build` });
     }
   });
 
@@ -143,6 +158,27 @@ function formatPath(segments: readonly PropertyKey[]): string {
   return segments
     .map((segment, index) => (typeof segment === "number" ? `[${segment}]` : `${index === 0 ? "" : "."}${String(segment)}`))
     .join("");
+}
+
+/**
+ * The configuration to launch a named build with: the base `game`, with each
+ * field the build gives replacing the base's. No name, or `base`, is the base
+ * game unchanged.
+ */
+export function selectBuild(config: CappyConfig, name: string | undefined): Result<CappyConfig> {
+  if (name === undefined || name === BASE_BUILD) {
+    return ok(config);
+  }
+  const build = config.builds[name];
+  if (build === undefined) {
+    return err(
+      cappyError("BUILD_NOT_FOUND", `build "${name}" is not defined in builds`, "config.build", {
+        details: { build: name, available: [BASE_BUILD, ...Object.keys(config.builds)] },
+        retryable: false,
+      }),
+    );
+  }
+  return ok({ ...config, game: { ...config.game, ...build.game } });
 }
 
 /** Validate an already-parsed configuration object. */

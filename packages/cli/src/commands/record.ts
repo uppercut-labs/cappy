@@ -7,7 +7,6 @@ import {
   cappyError,
   commandFailure,
   commandSuccess,
-  loadConfig,
   missingCapabilities,
 } from "@cappy/core";
 import type { ObsRecorder, RecordingStarted } from "@cappy/obs";
@@ -18,6 +17,7 @@ import type { CommandContext } from "../context.js";
 import { CommandLog, acquireRunLock, liveCorrelationIds } from "../log.js";
 import { launchGame } from "../game.js";
 import { SessionStore, newSessionId, reconcileOrphanedSessions, replayRequirements } from "../sessions.js";
+import { loadCommandConfig } from "../project.js";
 
 export interface RecordReport {
   readonly session: Session;
@@ -52,7 +52,7 @@ export async function record(context: CommandContext): Promise<CommandResult<Rec
   if (!duration.ok) {
     return commandFailure("record", duration.error, options);
   }
-  const loaded = await loadConfig({ projectDir: context.projectDir, ...(context.configPath === undefined ? {} : { configPath: context.configPath }) });
+  const loaded = await loadCommandConfig(context);
   if (!loaded.ok) {
     return commandFailure("record", loaded.error, options);
   }

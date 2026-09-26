@@ -16,7 +16,6 @@ import {
   cappyError,
   commandFailure,
   commandSuccess,
-  loadConfig,
   newId,
 } from "@cappy/core";
 import { type ToolInfo, expandDerivative, locateTool, probeMedia, produceDerivative, validateDerivatives } from "@cappy/media";
@@ -29,6 +28,7 @@ import { type GameSession, launchGame } from "./game.js";
 import { CommandLog, acquireRunLock, liveCorrelationIds } from "./log.js";
 import { nextTake, presetFingerprint, sourceKey, successfulManifests, writeManifest } from "./manifest.js";
 import { SessionStore, reconcileOrphanedSessions } from "./sessions.js";
+import { loadCommandConfig, requestedBuild } from "./project.js";
 
 export interface CaptureSync {
   readonly reference: "obs_recording_confirmed";
@@ -98,7 +98,7 @@ export async function preflightCapture(
   job: JobState,
   before?: (config: CappyConfig, workspace: ManagedWorkspace, sessions: SessionStore) => Promise<Result<unknown>>,
 ): Promise<Result<CaptureSetup>> {
-  const loaded = await loadConfig({ projectDir: context.projectDir, ...(context.configPath === undefined ? {} : { configPath: context.configPath }) });
+  const loaded = await loadCommandConfig(context);
   if (!loaded.ok) {
     return loaded;
   }
@@ -253,6 +253,7 @@ export async function executeCapture(
     },
     build: {
       cappyVersion: CAPPY_VERSION,
+      ...(requestedBuild(context) === undefined ? {} : { name: requestedBuild(context) }),
       adapter: adapter.adapter,
       ...(adapter.build === undefined ? {} : { gameBuild: adapter.build }),
       protocolVersion: String(adapter.protocolVersion),

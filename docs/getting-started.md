@@ -95,4 +95,20 @@ npx cappy replay <session-id> -C /path/to/project
 
 Each capture leaves `.cappy/captures/<capture-id>/` with `master.<ext>` (OBS 32 records Hybrid MOV by default, so `master.mov`), the preset's derivatives, and `manifest.json`. Run the same command again for take 2; use `--take <n>` to choose a take explicitly.
 
+## 8. Compare two builds
+
+Name builds in the config, then capture the same moment with each and compare. The demo has a variant for this: the user argument `--variant=b` reports build `0.1.0+b` and draws a larger green orb.
+
+```json
+"builds": {
+  "b": { "game": { "args": ["--path", "/absolute/path/to/cappy/.godot-demo", "--", "--variant=b"] } }
+}
+```
+
+```bash
+npx cappy compare-builds orb_launch base b -pa power=4 -C /path/to/project
+```
+
+The result holds both captures and a comparison with its triptych, scores, and timeline diff. Add gates such as `--min-ssim 0.99` to fail on a visual difference (the variant's orb is one), or `--require-same-events` to fail on a logic difference. The OBS scene must show the game window for the visual difference to register.
+
 Use `--json` on any command for machine-readable output. See [cli.md](cli.md) for every command and [storage.md](storage.md) for the workspace layout and cleanup rules.

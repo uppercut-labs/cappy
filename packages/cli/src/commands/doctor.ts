@@ -2,6 +2,7 @@ import { constants } from "node:fs";
 import { access, stat } from "node:fs/promises";
 import {
   type CappyError,
+  type CappyConfig,
   type CommandResult,
   type LoadedConfig,
   cappyError,
@@ -9,6 +10,7 @@ import {
   commandSuccess,
   loadConfig,
   resolveExecutable,
+  selectBuild,
 } from "@cappy/core";
 import { locateTool } from "@cappy/media";
 import { expectedScenes, probeObs } from "@cappy/obs";
@@ -81,20 +83,27 @@ export async function doctor(context: CommandContext): Promise<CommandResult<Doc
     }
   }
 
-  // Game launch command.
-  const cwd = gameWorkingDirectory(config, projectDir);
-  const cwdOk = await stat(cwd).then(
-    (stats) => stats.isDirectory(),
-    () => false,
-  );
-  const executable = cwdOk ? await resolveExecutable(config.game.command, { cwd, env: context.env }) : undefined;
-  checks.push(
-    !cwdOk
-      ? check("game", "fail", `game working directory ${cwd} does not exist`, { cwd })
+  // Game launch command: the base game, then every named build (SPEC 6).
+  const gameCheck = async (id: string, launched: CappyConfig): Promise<DoctorCheck> => {
+    const cwd = gameWorkingDirectory(launched, projectDir);
+    const cwdOk = await stat(cwd).then(
+      (stats) => stats.isDirectory(),
+      () => false,
+    );
+    const executable = cwdOk ? await resolveExecutable(launched.game.command, { cwd, env: context.env }) : undefined;
+    return !cwdOk
+      ? check(id, "fail", `game working directory ${cwd} does not exist`, { cwd })
       : executable === undefined
-        ? check("game", "fail", `game command "${config.game.command}" was not found`, { command: config.game.command, cwd })
-        : check("game", "pass", `game command resolves to ${executable}`, { path: executable }),
-  );
+        ? check(id, "fail", `game command "${launched.game.command}" was not found`, { command: launched.game.command, cwd })
+        : check(id, "pass", `game command resolves to ${executable}`, { path: executable });
+  };
+  checks.push(await gameCheck("game", config));
+  for (const name of Object.keys(config.builds)) {
+    const selected = selectBuild(config, name);
+    if (selected.ok) {
+      checks.push(await gameCheck(`game.${name}`, selected.value));
+    }
+  }
 
   // FFmpeg and ffprobe.
   for (const tool of ["ffmpeg", "ffprobe"] as const) {

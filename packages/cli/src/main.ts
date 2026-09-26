@@ -10,6 +10,7 @@ import {
   serializeCommandResult,
 } from "@cappy/core";
 import { type CleanReport, clean } from "./commands/clean.js";
+import { type CompareBuildsReport, compareBuilds } from "./commands/compare-builds.js";
 import { type CompareReport, compare } from "./commands/compare.js";
 import { type DoctorReport, doctor } from "./commands/doctor.js";
 import { type RecordReport, record } from "./commands/record.js";
@@ -18,7 +19,7 @@ import { type RunReport, run } from "./commands/run.js";
 import { type ScenariosReport, scenarios } from "./commands/scenarios.js";
 import { type CliIO, type CommandContext, noInterrupts } from "./context.js";
 import { parseOptions, translateShorthands } from "./flags.js";
-import { renderClean, renderCompare, renderDoctor, renderError, renderRecord, renderReplay, renderRun, renderScenarios } from "./render.js";
+import { renderClean, renderCompare, renderCompareBuilds, renderDoctor, renderError, renderRecord, renderReplay, renderRun, renderScenarios } from "./render.js";
 
 export const HELP = `Usage: cappy <command> [options]
 
@@ -29,9 +30,12 @@ Commands:
   record               Record a freeform, replayable session (Enter stops, Ctrl+C cancels)
   replay <session-id>  Capture a stored session's replay (or --no-capture to only play it)
   compare <a> <b>      Compare two captures of the same source: triptych video and SSIM/PSNR
+  compare-builds <session|scenario> <build-a> <build-b>
+                       Capture one session or scenario with two named builds, then compare them
   clean [<id>...]      Delete captures, sessions, comparisons, or logs Cappy created (--dry-run previews)
 
 Command options:
+  -b,  --build <name>        run, replay, record, scenarios: launch a named build from builds (base = game)
   -pa, --param <key=value>   run: scenario parameter (repeatable)
   -p,  --preset <name>       run, replay, record --capture: capture preset (default: defaultPreset)
   -t,  --take <n>            run, replay: explicit take number; never overwrites an existing take
@@ -95,10 +99,14 @@ const COMMANDS: Record<string, Command<unknown>> = {
     run: compare,
     render: (result) => renderCompare(result as CommandResult<CompareReport>),
   } as Command<unknown>,
+  "compare-builds": {
+    run: compareBuilds,
+    render: (result) => renderCompareBuilds(result as CommandResult<CompareBuildsReport>),
+  } as Command<unknown>,
 };
 
 /** Commands that take positional arguments after their name. */
-const TAKES_ARGUMENTS = new Set(["replay", "run", "clean", "compare"]);
+const TAKES_ARGUMENTS = new Set(["replay", "run", "clean", "compare", "compare-builds"]);
 
 /** Run the CLI in-process and return the exit code. */
 export async function main(argv: readonly string[], io: CliIO): Promise<number> {

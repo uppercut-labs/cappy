@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /*
  * Run the simulator as a game process. Cappy supplies CAPPY_ENDPOINT and
- * CAPPY_SESSION_TOKEN; tests may pass CAPPY_SIM_OPTIONS as JSON. The process
+ * CAPPY_SESSION_TOKEN; tests may pass CAPPY_SIM_OPTIONS as JSON, or `--options <json>`. The process
  * exits when the controller disconnects.
  */
 import { writeFileSync } from "node:fs";
@@ -15,7 +15,13 @@ if (endpoint === undefined || token === undefined) {
   process.stderr.write(`adapter simulator: ${ENDPOINT_ENV} and ${TOKEN_ENV} must be set\n`);
   process.exit(2);
 }
-const extra = JSON.parse(process.env["CAPPY_SIM_OPTIONS"] ?? "{}") as SimulatorProcessOptions;
+// Options come from CAPPY_SIM_OPTIONS, overridden by `--options <json>` on the command line, so
+// two named builds can launch the simulator with different arguments.
+const flagIndex = process.argv.indexOf("--options");
+const extra = {
+  ...(JSON.parse(process.env["CAPPY_SIM_OPTIONS"] ?? "{}") as SimulatorProcessOptions),
+  ...(flagIndex === -1 ? {} : (JSON.parse(process.argv[flagIndex + 1] ?? "{}") as SimulatorProcessOptions)),
+};
 
 try {
   const simulator = await AdapterSimulator.connect({

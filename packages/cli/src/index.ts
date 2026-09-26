@@ -1,6 +1,7 @@
 export * from "./capture-job.js";
 export * from "./capture.js";
 export * from "./commands/clean.js";
+export * from "./commands/compare-builds.js";
 export * from "./commands/compare.js";
 export * from "./commands/doctor.js";
 export * from "./commands/record.js";

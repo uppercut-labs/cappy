@@ -117,4 +117,23 @@ describe.runIf(godot !== undefined)("Godot adapter and demo", { timeout: 120_000
     expect(game.map((event) => event.type)).toEqual(stored.map((event) => event.type));
     game.forEach((event, index) => expect(event.t - offset).toBeCloseTo(stored[index]?.t ?? NaN, 2));
   });
+
+  it("runs the demo's variant as a second named build and compares the two builds", async () => {
+    const configPath = path.join(harness.project, "cappy.config.json");
+    const config = JSON.parse(await readFile(configPath, "utf8")) as Record<string, any>;
+    config["builds"] = { b: { game: { args: ["--headless", "--path", demo, "--", "--variant=b"] } } };
+    await import("node:fs/promises").then(({ writeFile }) => writeFile(configPath, JSON.stringify(config)));
+
+    const listed = await runCli(harness, ["scenarios", "--build", "b"]);
+    expect(listed.result["data"]["adapter"]["build"]).toBe("0.1.0+b");
+    const { code, result } = await runCli(harness, ["compare-builds", "orb_launch", "base", "b", "-pa", "power=4", "--require-same-events"]);
+    expect(code, JSON.stringify(result["error"])).toBe(0);
+    const { a, b, comparison } = result["data"];
+    expect([a.state, b.state, comparison.status]).toEqual(["succeeded", "succeeded", "succeeded"]);
+    expect([comparison.a.gameBuild, comparison.b.gameBuild]).toEqual(["0.1.0", "0.1.0+b"]);
+    const manifestB = JSON.parse(await readFile(path.join(harness.project, ".cappy", b.manifest), "utf8")) as Record<string, any>;
+    expect(manifestB["build"]).toMatchObject({ name: "b", gameBuild: "0.1.0+b" });
+    // Same simulation, different look: the variant only marks itself in the launch event.
+    expect(manifestB["timing"]["timeline"].find((event: { type: string }) => event.type === "LAUNCH")["payload"]).toEqual({ power: 4, variant: "b" });
+  });
 });

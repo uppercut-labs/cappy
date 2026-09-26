@@ -43,6 +43,9 @@
     "master-only": {}
   },
   "defaultPreset": "trailer",
+  "builds": {
+    "nightly": { "game": { "args": ["--path", "/absolute/path/to/my-game-nightly"] } }
+  },
   "timeouts": {
     "connectMs": 30000,
     "readyMs": 60000,

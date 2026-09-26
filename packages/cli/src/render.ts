@@ -1,5 +1,6 @@
 import type { CappyError, CommandResult } from "@cappy/core";
 import type { CleanReport } from "./commands/clean.js";
+import type { CompareBuildsReport } from "./commands/compare-builds.js";
 import type { CompareReport } from "./commands/compare.js";
 import type { DoctorReport } from "./commands/doctor.js";
 import type { RecordReport } from "./commands/record.js";
@@ -220,4 +221,25 @@ export function renderCompare(result: CommandResult<CompareReport>): string {
     lines.push(`Manifest: ${report.manifest}`);
   }
   return `${lines.join("\n")}\n`;
+}
+
+export function renderCompareBuilds(result: CommandResult<CompareBuildsReport>): string {
+  const report = result.data;
+  if (report === undefined) {
+    return "";
+  }
+  const lines = [`Builds ${report.builds.a} vs ${report.builds.b}`];
+  for (const [label, capture] of [
+    ["A", report.a],
+    ["B", report.b],
+  ] as const) {
+    if (capture !== undefined && "captureId" in capture) {
+      lines.push(`  ${label} (${label === "A" ? report.builds.a : report.builds.b}): capture ${capture.captureId}, take ${String(capture.take ?? "?")}, ${capture.state}`);
+    }
+  }
+  const header = `${lines.join("\n")}\n`;
+  if (report.comparison === undefined) {
+    return header;
+  }
+  return header + renderCompare({ ...result, data: report.comparison } as CommandResult<CompareReport>);
 }

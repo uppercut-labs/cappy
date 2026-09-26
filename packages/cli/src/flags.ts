@@ -24,6 +24,7 @@ export const FLAGS = {
   "min-frame-ssim": { type: "string", short: "mfs" },
   "max-drift-ms": { type: "string", short: "mdm" },
   "require-same-events": { type: "boolean", short: "rse" },
+  build: { type: "string", short: "b" },
 } as const satisfies Record<string, FlagSpec>;
 
 export interface FlagSpec {

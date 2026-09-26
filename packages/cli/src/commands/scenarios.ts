@@ -1,7 +1,8 @@
-import { type CommandResult, type Scenario, commandFailure, commandSuccess, loadConfig } from "@cappy/core";
+import { type CommandResult, type Scenario, commandFailure, commandSuccess } from "@cappy/core";
 import type { NegotiatedAdapter } from "@cappy/protocol";
 import type { CommandContext } from "../context.js";
 import { launchGame } from "../game.js";
+import { loadCommandConfig } from "../project.js";
 
 export interface ScenariosReport {
   readonly adapter: NegotiatedAdapter;
@@ -11,7 +12,7 @@ export interface ScenariosReport {
 /** Launch the game, negotiate with its adapter, and list registered scenarios. Records nothing. */
 export async function scenarios(context: CommandContext): Promise<CommandResult<ScenariosReport>> {
   const options = { correlationId: context.correlationId };
-  const loaded = await loadConfig({ projectDir: context.projectDir, ...(context.configPath === undefined ? {} : { configPath: context.configPath }) });
+  const loaded = await loadCommandConfig(context);
   if (!loaded.ok) {
     return commandFailure("scenarios", loaded.error, options);
   }

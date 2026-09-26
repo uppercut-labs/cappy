@@ -263,6 +263,8 @@ export const manifestSchema = z
     }),
     build: z.strictObject({
       cappyVersion: nonEmpty,
+      /** The configured build launched with `--build`, when one was named. */
+      name: nonEmpty.optional(),
       adapter: adapterIdentitySchema,
       gameBuild: nonEmpty.optional(),
       protocolVersion: nonEmpty,

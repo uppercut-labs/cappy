@@ -9,6 +9,10 @@ extends Node2D
 ##   same events at the same simulation times.
 ##
 ## All timeline times come from the fixed 60 Hz physics tick, never the wall clock.
+##
+## Run with the user argument `--variant=b` (after `--`) to act as a second
+## build: it reports build "<version>+b" and draws a larger green orb, so two
+## named builds can be captured and compared.
 
 const CappyOperation := preload("res://addons/cappy/cappy_operation.gd")
 
@@ -37,9 +41,16 @@ var _replay_jumps := {}
 var _replay_ticks := 0
 var _autopilot := RandomNumberGenerator.new()
 var _status := "Idle"
+var _variant := ""
 
 
 func _ready() -> void:
+	for argument in OS.get_cmdline_user_args():
+		if argument.begins_with("--variant="):
+			_variant = argument.trim_prefix("--variant=")
+	if not _variant.is_empty():
+		# The adapter sends its hello once connected, after this runs, so the build is reported as the variant.
+		Cappy.build = "%s+%s" % [str(ProjectSettings.get_setting("application/config/version", "")), _variant]
 	Cappy.register_scenario(
 		"orb_launch",
 		"Orb launch",
@@ -89,7 +100,10 @@ func _prepare_orb(operation: CappyOperation) -> void:
 func _start_orb(operation: CappyOperation) -> void:
 	operation.set_meta("waiting", false)
 	_status = "Orb launched"
-	operation.event("LAUNCH", 0.0, {"power": operation.parameters["power"]})
+	var launch := {"power": operation.parameters["power"]}
+	if not _variant.is_empty():
+		launch["variant"] = _variant
+	operation.event("LAUNCH", 0.0, launch)
 
 
 func _step_orb() -> void:
@@ -206,7 +220,10 @@ func _step_runner() -> void:
 
 func _draw() -> void:
 	draw_rect(Rect2(0.0, GROUND_Y + 12.0, 960.0, 8.0), Color(0.3, 0.3, 0.35))
-	draw_circle(_orb_position, 12.0, Color(0.95, 0.55, 0.2))
+	if _variant.is_empty():
+		draw_circle(_orb_position, 12.0, Color(0.95, 0.55, 0.2))
+	else:
+		draw_circle(_orb_position, 20.0, Color(0.3, 0.85, 0.35))
 	var runner_x := 60.0 + float(_runner_tick * 2 % 840)
 	draw_rect(Rect2(runner_x, GROUND_Y - 24.0 + _runner_height, 18.0, 36.0), Color(0.3, 0.7, 0.95))
 	draw_string(ThemeDB.fallback_font, Vector2(24.0, 40.0), "Cappy demo: %s" % _status, HORIZONTAL_ALIGNMENT_LEFT, -1, 22)
