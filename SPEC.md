@@ -1,7 +1,7 @@
 # Cappy Implementation Specification
 
 **Status:** Build-ready  
-**Version:** 0.2 (V1 plus the post-V1 increments in section 25)\
+**Version:** 0.3 (V1 plus the post-V1 increments in section 25)\
 **Date:** 2026-09-25  
 **Context:** [Context.md](Context.md)  
 **Decisions:** [ADR.md](ADR.md)  
@@ -47,7 +47,7 @@ V1 is successful when all of the following are true:
 - OBS scene/profile authoring.
 - Direct FFmpeg/window capture as a recorder.
 - Cloud account, remote worker, or distributed capture.
-- Linux acceptance.
+- Linux acceptance. (Post-V1, Linux is a supported host with real OBS capture unverified; see section 21.)
 - Unity/Unreal/native/emulator production adapters.
 - Cross-build visual regression comparison. (Post-V1, `cappy compare` compares two existing captures, section 11.8; Cappy still does not switch builds itself.)
 - Universal replay encoding.
@@ -133,6 +133,8 @@ Secrets such as an OBS WebSocket password must be supplied through environment v
 
 `adapter.port` may be `0` to let each launch pick a free loopback port.
 
+Named builds (post-V1). `builds` maps a build name (same syntax as a preset name) to a `game` override: `{ "builds": { "v1": { "game": { "args": [...] } }, "v2": { "game": { "command": "...", "args": [...] } } } }`. Each field a build gives (`command`, `args`, `cwd`) replaces that field of the base `game`; the others come from the base. `run`, `replay`, `record`, and `scenarios` accept `--build <name>` (`-b`) to launch that build instead of the base game; an unknown name fails with `BUILD_NOT_FOUND` (exit 2) before anything launches. `doctor` checks the base game command and every build's command (check IDs `game` and `game.<name>`). Without `--build`, the base `game` is used, exactly as in V1.
+
 Configuration validation fails before launching capture work when a required field is invalid.
 
 ## 7. Managed workspace and ownership
@@ -203,6 +205,7 @@ Initial capability vocabulary:
 - `seek`
 - `snapshots`
 - `alternate_cameras`
+- `time_scale` (post-V1: presentation slower or faster than real time)
 - `telemetry`
 
 Unknown future capabilities must not crash an older controller; unsupported required capabilities block the requested operation.
@@ -328,7 +331,7 @@ The protocol must support:
 - scenario registration/listing;
 - scenario prepare/start/cancel;
 - freeform record start/stop;
-- replay prepare/start/stop;
+- replay prepare/start/stop, optionally with presentation parameters (post-V1);
 - timeline/event emission;
 - completion/failure reporting;
 - replay payload handoff by bounded file reference or bounded encoded payload;
@@ -341,6 +344,8 @@ Large replay payloads should use managed file references rather than unbounded J
 Cappy assigns/records receipt order. Adapter events include session-relative monotonic time when available. Wall-clock timestamps alone are insufficient for media synchronization.
 
 Capture timelines are placed on the master's clock, measured on the controller's monotonic clock. `t = 0` is the moment OBS confirmed recording (`RECORDING_STARTED`). The adapter's operation clock starts at its `started` acknowledgement, so adapter events are shifted by `adapterOffsetMs` (confirmed-recording to started). Cappy adds `SCENARIO_STARTED`/`REPLAY_STARTED`, `SCENARIO_COMPLETED`/`REPLAY_COMPLETED`, and `RECORDING_STOPPED` lifecycle events, and renumbers `seq` in receipt order. The manifest's `timing.sync` records the reference, the offset, and `uncertaintyMs`, the gap between requesting and confirming the recording, within which the true first frame lies. Raw adapter times remain recoverable as `t - adapterOffsetMs`.
+
+Presented time (post-V1). Adapter event times are presented time: milliseconds of what is shown on screen since the operation started, which is the recorder's clock. When presentation runs at a time scale other than 1 (slow motion), an adapter still reports presented time, so anchors, clips, and comparisons line up with the master at any speed. An adapter may add the simulation time to the event payload (for example `simT`). Before this rule, presented and simulated time were the same.
 
 ### 9.5 Failure
 
@@ -416,7 +421,10 @@ Every long flag has a whole-token shorthand:
 | `--preset <name>` | `-p` | `--older-than <age>` | `-ot` |
 | `--param <key=value>` | `-pa` | `--logs` | `-l` |
 | `--take <n>` | `-t` | `--all` | `-a` |
-| `--min-ssim <score>` | `-ms` | | |
+| `--min-ssim <score>` | `-ms` | `--build <name>` | `-b` |
+| `--min-frame-ssim <score>` | `-mfs` | `--max-drift-ms <ms>` | `-mdm` |
+| `--require-same-events` | `-rse` | `--format <format>` | `-fo` |
+| `--out <path>` | `-o` | | |
 
 ### 11.2 `cappy doctor`
 
@@ -570,24 +578,65 @@ Scores: mean and minimum SSIM, with the time of the minimum, and mean and minimu
 
 Timeline diff: the adapter events (`source: "adapter"`) of the two captures, with times measured from each capture's aligned start. Events are matched by type and occurrence order, so the n-th `SPELL_CAST` in A is matched with the n-th in B. For each type the diff reports the counts in A and B, the occurrences missing from B and extra in B, and the mean and maximum drift of matched occurrences (B's time minus A's). A count difference adds a warning. The timeline diff never changes the status or exit code.
 
-Gate: without `--min-ssim`, a completed comparison is `succeeded` and exits 0. With `--min-ssim <score>` (0 to 1), a comparison whose mean SSIM is below the score is recorded as `regressed`, keeps every output, and exits 1 with `COMPARISON_REGRESSED`. Its details carry the scores and the manifest path.
+Gates: without a gate, a completed comparison is `succeeded` and exits 0. Each gate that is given is checked once the comparison completes:
+
+- `--min-ssim <score>` (0 to 1): the mean SSIM must be at least the score.
+- `--min-frame-ssim <score>` (0 to 1, post-V1): every frame's SSIM must be at least the score, which catches a glitch confined to a few frames.
+- `--max-drift-ms <ms>` (post-V1): no matched adapter event may drift by more than `ms` in either direction (the largest `maxDriftMs` magnitude across event types).
+- `--require-same-events` (post-V1): every adapter event type must occur the same number of times in A and B.
+
+A comparison that fails any gate is recorded as `regressed`, keeps every output, and exits 1 with `COMPARISON_REGRESSED`, whose details list the failed gates, the scores, and the manifest path. With gates given, the timeline diff can change the outcome; without timeline gates it stays informational. When the two captures were made with different presentation parameters (section 14), the result warns, because their frames and timings are not expected to match.
 
 Failure: once media work starts, a failed ffprobe of a master (`MEDIA_PROBE_FAILED`) or a failed FFmpeg run, missing or unprobeable triptych, or unreadable statistics (`COMPARISON_FAILED`) writes a `failed` comparison manifest with the error and the checks that ran, and exits 1. No partial output is published. Partial files, which Cappy itself just created, are removed. FFmpeg runs inside the comparison directory and writes its statistics there under unique partial names.
 
-The comparison manifest (`comparisonVersion: 1`) records:
+The comparison manifest (`comparisonVersion: 2` post-V1; version 1 had a single `threshold`) records:
 
 - the comparison ID, status, `createdAt`, and correlation ID;
 - the project, and the shared source;
 - for A and B: the capture ID, take, `gameBuild` when reported, the master's SHA-256, and the aligned start on that master;
 - the alignment event and the span;
 - the normalization;
-- the scores, and the `minSsim` threshold when one was given;
+- the scores, the `gates` that were given (`minSsim`, `minFrameSsim`, `maxDriftMs`, `requireSameEvents`), and `failedGates`;
 - the worst frames (time, SSIM, and paths), and the timeline diff;
 - artifacts with SHA-256 and size;
 - FFmpeg and ffprobe versions;
 - warnings, checks, and, when not `succeeded`, the error.
 
 `compare` holds a run lock while it runs and writes a command log, like `run`.
+
+### 11.9 `cappy compare-builds` (post-V1)
+
+```text
+cappy compare-builds <session-id | scenario> <build-a> <build-b> [--param key=value]... [--preset <name>] [gates]
+```
+
+Captures the same moment with two named builds (section 6) and compares them, in one command:
+
+1. Capture A: when the first argument is a session ID (`ses_…`), a replay capture of that session with build A, exactly as `cappy replay <session> --build <build-a>`; otherwise a scenario capture, exactly as `cappy run <scenario> --build <build-a>` with the given `--param` values.
+2. Capture B: the same with build B.
+3. `cappy compare <capture-a> <capture-b>` with the given gates (section 11.8).
+
+- The name `base` means the base `game`; a `builds` entry may not be named `base`. The two builds must differ, and both must exist (`BUILD_NOT_FOUND`), or the command fails before anything launches (exit 2).
+- Each step is the standalone command, so the captures and the comparison are ordinary items with their own takes, manifests, logs, and run locks.
+- It stops at the first failed step. A failed or cancelled capture ends the command with that capture's error and exit code, and nothing after it runs. Ctrl+C cancels the step in progress (exit 130).
+- The result data holds `a` and `b` (the two capture reports) and `comparison` (the compare report). The exit code is the comparison's: 0 when `succeeded`, 1 when `regressed` or `failed`.
+- The same-build warning from `compare` still applies: two named builds whose adapters report the same `gameBuild` may not differ.
+
+### 11.10 `cappy timeline export` (post-V1)
+
+```text
+cappy timeline export <capture-id | session-id> [--format json|csv|vtt] [--out <path>]
+```
+
+Exports a timeline for other tools, without Cappy depending on them.
+
+- A capture's timeline is the one in its manifest, on the master's clock, so it lines up with the capture's video. A session's timeline is its `timeline.json`, on the session's clock. An unknown ID fails with `CAPTURE_NOT_FOUND` or `SESSION_NOT_FOUND` (exit 2). An item with no readable timeline fails with `TIMELINE_UNAVAILABLE` (exit 1).
+- `json` (the default) writes `{ "timelineExportVersion": 1, "source": { "kind", "id" }, "clock": "master" | "session", "sync"?, "events": [...] }`. The events use the normalized envelope (section 8, Timeline Event).
+- `csv` writes the header `seq,t_ms,type,source,duration_ms,id,payload`, one row per event, with RFC 4180 quoting and the payload as compact JSON.
+- `vtt` writes WebVTT: one cue per event, from `t` to `t` plus `durationMs` or one second, whichever is longer. The cue identifier is the event ID, and the cue text is the event type followed by its payload as `key=value` pairs. Players can show it over the capture's video.
+- Without `--out`, the export goes to standard output. With `--json`, the result's `data` carries the format, the source, the event count, and the content.
+- With `--out <path>` (relative to the project directory), Cappy writes a new file there. It never overwrites (`EXPORT_TARGET_EXISTS`, exit 1). The file is the user's, not managed, and Cappy never deletes it.
+- The published JSON Schemas, `docs/schemas/timeline-event.schema.json` and `docs/schemas/timeline-export.schema.json`, are generated from the runtime schemas. A test fails if the committed files differ from the generated ones.
 
 ## 12. OBS integration
 
@@ -662,7 +711,7 @@ An event anchor places a derivative time relative to a timeline event instead of
 
 - `event` (required) is a timeline event type, using the timeline event type syntax. Any event on the capture's timeline qualifies, including Cappy lifecycle events such as `SCENARIO_STARTED`.
 - `offset` is in seconds and may be negative (default 0).
-- `occurrence` is a 1-based index or `"last"` (default 1).
+- `occurrence` is a 1-based index, `"last"`, or `"every"` (default 1). `"every"` is post-V1 and allowed only on a clip's `start` and a still's or thumbnail's `at`.
 - In `where`, each key is a dot-separated path into the event's payload object (`"target.kind"`), and each value is a JSON string, number, boolean, or `null`. An event matches only when every path exists and equals its value strictly. `where` is optional.
 
 Anchors resolve during processing, against the capture's timeline on the master clock (section 15). The candidates are the events whose type matches and whose payload satisfies `where`, ordered by `t` and then `seq`. `occurrence` picks one of them. For a clip's `end` anchor, candidates are limited to events at or after the start event, or at or after the numeric `start`. The resolved time is the event's `t` plus `offset`. Cappy does not pad for `timing.sync.uncertaintyMs`; use `offset`.
@@ -675,7 +724,7 @@ Resolution rules:
 - A still or thumbnail shows the last frame at or before its time. FFmpeg reads the second of video that ends at that time and keeps the last frame it decodes. Recorders often end their video a frame or two before the duration they report, so seeking to the time itself can find nothing near the end. An anchored time past the master is clamped to the master's duration, with a warning, which yields the last frame.
 - Clamping applies only to times that involve an anchor. Times given only in seconds are used exactly as written, as in V1, so a numeric still past the end of the master still fails.
 - These failures follow the required/optional rule above: they fail the job for a required derivative and become a warning for an optional one.
-- Each preset derivative produces at most one output. A later option may produce one clip per match; it is not part of this set.
+- Each preset derivative produces at most one output, except with `occurrence: "every"` (post-V1): one output per matching event, in timeline order, named `<role>-1`, `<role>-2`, and so on. Each clip's `end` anchor pairs with the first qualifying event at or after that clip's own start event. At most 100 outputs are made; further matches are skipped with a warning. Each output is resolved, clamped, produced, and recorded on its own. For a required derivative, no match fails the job (`DERIVATIVE_ANCHOR_UNRESOLVED`), and any failed output fails it; for an optional one, each failed output is a warning. Config validation rejects a preset in which another role would collide with a generated name (`<role>-<digits>`).
 
 Anchor syntax is validated with the other options before the game launches (`DERIVATIVE_OPTIONS_INVALID`): the event type syntax, `occurrence`, `where` values, and exactly one of `duration` or `end`.
 
@@ -696,6 +745,13 @@ Example conceptual fields:
 
 A preset cannot require a capability the current adapter does not advertise.
 
+Presentation parameters (post-V1). `presentation` is passed to the adapter for scenarios and, post-V1, for replay captures. Two keys are defined by Cappy; the rest are adapter-defined:
+
+- `timeScale`: a number from 0.1 to 4 (0.5 is half speed). It requires the `time_scale` capability.
+- `camera`: an adapter-defined camera name. It requires `alternate_cameras`. An adapter that does not know the name fails the operation.
+
+Cappy adds the capabilities these keys require to the preset's required capabilities and checks them after the handshake, before anything is recorded (`CAPABILITY_MISSING`). The manifest records the presentation that was requested (`identity.presentation`). A replay played with a presentation reproduces the same simulation; only what is shown, and when, changes.
+
 ## 15. Artifact manifest
 
 Each successful capture writes a versioned JSON manifest.
@@ -714,6 +770,7 @@ Required categories:
 ### Source/build
 
 - Cappy version;
+- the configured build name when `--build` was used (`build.name`, post-V1);
 - adapter name/version;
 - game build identity when supplied;
 - protocol version;
@@ -827,12 +884,13 @@ Required host acceptance:
 
 - Windows.
 - macOS.
+- Linux (post-V1, ADR-021): supported for every command and verified in a Debian bookworm (arm64) container with Node.js 24, FFmpeg, and headless Godot. Real OBS capture on Linux is unverified; `scripts/acceptance/linux-container.sh` reruns the container acceptance.
 
 Path manipulation uses platform-safe APIs rather than string concatenation.
 
 Process termination, signal behavior, executable discovery, and OBS/FFmpeg paths must be tested or abstracted separately by platform.
 
-No V1 behavior may require PowerShell-only or macOS-only semantics in the shared core.
+No V1 behavior may require PowerShell-only, macOS-only, or Linux-only semantics in the shared core.
 
 ## 22. Testing strategy
 
@@ -915,3 +973,12 @@ After V1 was accepted, these ideas were promoted from `Ideas.md` on 2026-09-25 (
 - `cappy compare` for two captures of the same source, with a triptych video, SSIM/PSNR scores, worst-frame stills, and a timeline diff (section 11.8).
 
 They keep the V1 host platforms (Windows and macOS) and every V1 rule on ownership and safety. Their tickets are CAP-011 to CAP-016.
+
+A second batch was promoted the same day (ADR-017 to ADR-022; tickets CAP-017 to CAP-023):
+
+- `occurrence: "every"` for event-anchored derivatives (section 13);
+- comparison gates on single frames and on the timeline diff (section 11.8);
+- named builds and `cappy compare-builds` (sections 6 and 11.9);
+- `cappy timeline export` with published JSON Schemas (section 11.10);
+- presentation parameters for replays, with slow motion and alternate cameras in the Godot adapter and demo (sections 9.4 and 14);
+- Linux as a supported host, with OBS capture unverified (section 21).

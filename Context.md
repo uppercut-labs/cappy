@@ -28,7 +28,7 @@ A developer should be able to:
 - Replay is a first-class V1 subsystem, not a later add-on.
 - V1 supports both authored deterministic scenarios and spontaneous developer sessions.
 - Windows and macOS are supported Cappy host platforms from the first release.
-- Linux compatibility should not be intentionally blocked, but Linux acceptance is outside V1.
+- Linux compatibility should not be intentionally blocked, but Linux acceptance is outside V1. (Post-V1, Linux became a supported host with OBS capture unverified; ADR-021.)
 - OBS controlled through OBS WebSocket is the primary recording backend.
 - FFmpeg owns post-processing such as transcodes, clips, thumbnails, stills, and media inspection.
 - Cappy orchestrates external tools rather than reimplementing a recorder or video editor.
@@ -51,6 +51,15 @@ V1 was accepted on 2026-09-25. These ideas were then promoted from `Ideas.md` (A
 - **Event-anchored derivatives.** Clip start and end, and still and thumbnail times, can be tied to timeline events by type, occurrence, and payload conditions, plus an offset. Each preset derivative still produces one output.
 - **Capture comparison.** `cappy compare` compares two successful captures of the same source, usually replays of one session made with two builds. It produces a triptych video, SSIM/PSNR scores, worst-frame stills, and a timeline diff, and can gate on mean SSIM.
 - **CLI shorthands.** Every flag has a whole-token shorthand made of initials, such as `-dr` for `--dry-run`.
+
+A second batch was promoted the same day (ADR-017 to ADR-022):
+
+- **Every-match derivatives.** `occurrence: "every"` makes one clip or still per matching event (`highlight-1`, `highlight-2`, …).
+- **Comparison gates.** Beyond mean SSIM, a comparison can require a per-frame minimum, a maximum event drift, and equal event counts.
+- **Named builds.** `builds` in the config names game launch overrides. `--build` picks one, and `cappy compare-builds` captures one moment with two builds and compares them.
+- **Timeline export.** `cappy timeline export` writes JSON (with published schemas), CSV, or WebVTT for other tools.
+- **Presentation for replays.** Replay captures can run in slow motion (`timeScale`) or through another camera (`camera`). Event times are what is on screen.
+- **Linux.** Linux is a supported host, verified in a container; real OBS capture on Linux is unverified.
 
 ## Working System Model
 
@@ -234,6 +243,16 @@ A project may configure an external managed artifact root. The manifest records 
 
 **Cleanup Item** — The unit `cappy clean` selects: a capture, session, comparison, or command log.
 
+**Build** (named build) — A named game launch override in the project configuration, such as `v1` or `v2`. `base` is the plain `game`. Distinct from the adapter-reported `gameBuild` string.
+
+**Presentation** — How an operation is shown rather than simulated: time scale, camera, and adapter-defined options. It changes what the master looks like, never the replayed simulation.
+
+**Presented Time** — Event time as shown on screen, the recorder's clock, which adapters report even in slow motion.
+
+**Gate** — A pass/fail condition on a comparison (mean SSIM, per-frame SSIM, event drift, event counts). A failed gate makes the comparison `regressed`.
+
+**Timeline Export** — A copy of a timeline in JSON, CSV, or WebVTT for other tools. It belongs to the user and is never managed.
+
 ## Workflow Preferences
 
 - Preferred living-model format: Graphviz DOT.
@@ -245,6 +264,7 @@ A project may configure an external managed artifact root. The manifest records 
 
 - V1 discovery: 2 rounds, 8 product questions. Diagram setup question answered separately. Closed.
 - Post-V1 promotion discovery (2026-09-25): 4 rounds, 12 product questions (which ideas to promote; cleanup confirmation, bulk selectors, cascade, and take reuse; shorthand scope, anchor matching, multiple matches, and still anchors; comparison eligibility, outputs, and gate). Closed.
+- Second post-V1 promotion (2026-09-25): 2 rounds, 7 product questions (which ideas to promote, in three groups; build naming; viewer scope, then the viewer was deferred; Linux support level; slow-motion clock). Closed.
 - Remaining uncertainty is implementation-level, inexpensive, and reversible.
 
 ## Build-Pack Status

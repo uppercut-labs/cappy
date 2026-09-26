@@ -24,7 +24,7 @@
 
 **Status:** Accepted
 
-**Decision:** Cappy's controller/capture host supports Windows and macOS from the first release. Linux acceptance is deferred.
+**Decision:** Cappy's controller/capture host supports Windows and macOS from the first release. Linux acceptance is deferred. (Amended by ADR-021: Linux is supported post-V1, with OBS capture unverified.)
 
 **Rationale:** Intended projects already span Windows and macOS.
 
@@ -138,7 +138,7 @@
 
 **Rationale:** Cappy's value is capturing semantic moments, and the synchronized timeline already exists by processing time. Payload conditions make an anchor precise without Cappy interpreting game semantics. Keeping one output per role keeps manifest roles one-to-one with preset derivatives.
 
-**Consequences:** An unresolved anchor follows the existing required/optional derivative semantics. Resolved windows and event IDs are recorded in the manifest. Producing one clip per match is deferred to `Ideas.md`.
+**Consequences:** An unresolved anchor follows the existing required/optional derivative semantics. Resolved windows and event IDs are recorded in the manifest. Producing one clip per match was deferred, then promoted as ADR-017.
 
 ## ADR-015 - Comparison works on existing captures of the same source
 
@@ -159,3 +159,63 @@
 **Rationale:** The owner prefers memorable initials-style shorthands (`--full-command` as `-fc`) across the whole CLI. Node's `parseArgs` supports only single-letter shorts, so an alias layer that translates whole tokens keeps parsing strict and predictable.
 
 **Consequences:** One alias table, checked by tests for collisions and for following the rule, is translated before argument parsing. Every new flag must fit the rule.
+
+## ADR-017 - One output per matching event, on request
+
+**Status:** Accepted (2026-09-25, post-V1). Amends the "one output per role" part of ADR-014.
+
+**Decision:** `occurrence: "every"` on a clip's `start`, or on a still's or thumbnail's `at`, produces one output per matching event, named `<role>-1`, `<role>-2`, and so on in timeline order, capped at 100. Each clip's `end` pairs with the first qualifying event after its own start. Config validation rejects role names that would collide with generated names.
+
+**Rationale:** Montages and per-event evidence (every coin, every hit) are common, and writing one derivative per occurrence by hand does not scale when the count varies. Numbering outputs keeps each one a separate, hashed artifact, and the cap bounds the work.
+
+**Consequences:** Manifest roles are no longer one-to-one with preset derivatives when `"every"` is used, but each generated role is predictable. Required/optional semantics apply per output.
+
+## ADR-018 - Comparisons can gate on frames and on the timeline
+
+**Status:** Accepted (2026-09-25, post-V1). Extends ADR-015.
+
+**Decision:** Besides `--min-ssim` (mean), `cappy compare` accepts `--min-frame-ssim`, `--max-drift-ms`, and `--require-same-events`. Failing any gate records `regressed` and exits 1, and the manifest (`comparisonVersion: 2`) lists the `gates` given and the `failedGates`.
+
+**Rationale:** The mean hides a glitch that lasts a few frames, and pixels miss logic regressions such as an event that no longer fires. Explicit, opt-in gates let CI choose its strictness. The defaults stay informational, which keeps the one-frame capture jitter from producing false failures.
+
+**Consequences:** Comparison manifests move to version 2, replacing `threshold` with `gates`. Timeline gates look only at adapter events.
+
+## ADR-019 - Named builds in configuration
+
+**Status:** Accepted (2026-09-25, post-V1)
+
+**Decision:** `builds` in `cappy.config.json` names game overrides (`command`, `args`, `cwd`, each replacing the base `game` field). `run`, `replay`, `record`, and `scenarios` take `--build <name>`. `cappy compare-builds` captures one session or scenario with two builds and compares them, as the sequence of the standalone commands. `base` names the base game. Manifests record `build.name`.
+
+**Rationale:** Comparing builds is the main use of `compare`, and one configuration that names each build is simpler than juggling config files. It keeps build switching declarative and source-controlled. Composing the existing commands, rather than a new pipeline, keeps every artifact ordinary and every safety rule in force.
+
+**Consequences:** Cappy still never builds games. A build is just another launch command. `compare-builds` stops at the first failed step.
+
+## ADR-020 - Timelines are exported, not consumed
+
+**Status:** Accepted (2026-09-25, post-V1)
+
+**Decision:** `cappy timeline export` writes a capture's or session's timeline as JSON (with published JSON Schemas generated from the runtime schemas), CSV, or WebVTT, to standard output or to a new, unmanaged file.
+
+**Rationale:** Other tools, such as review or commentary tools, can read Cappy timelines without Cappy depending on them, which is what `Ideas.md` asked for: an exportable envelope with no coupling. WebVTT makes events visible over the video in any player. Generating the schemas from the runtime schemas keeps them honest.
+
+**Consequences:** The exported JSON is versioned (`timelineExportVersion`). Export files belong to the user, and Cappy never overwrites or deletes them.
+
+## ADR-021 - Linux is a supported host, with OBS unverified
+
+**Status:** Accepted (2026-09-25, post-V1). Amends ADR-003.
+
+**Decision:** Linux is a supported Cappy host. Acceptance runs in a Debian bookworm (arm64) container on the owner's Mac (OrbStack), with Node.js 24, FFmpeg, and headless Godot 4.7.2, through `scripts/acceptance/linux-container.sh`. Real OBS capture on Linux is recorded as unverified.
+
+**Rationale:** The shared core already avoids platform-specific semantics and uses POSIX process groups. A container gives repeatable evidence without a separate Linux machine. Linux hosts are also where CI and headless capture run.
+
+**Consequences:** Linux results are recorded separately in `docs/acceptance.md` and never inferred from macOS. Verifying real OBS on Linux (for example with a virtual display) stays in `Ideas.md`.
+
+## ADR-022 - Presentation for replays; event times are presented time
+
+**Status:** Accepted (2026-09-25, post-V1)
+
+**Decision:** Replay captures carry presentation parameters, as scenarios already did. Cappy defines two keys: `timeScale` (0.1 to 4), which needs the new `time_scale` capability, and `camera`, which needs `alternate_cameras`. Cappy adds those capabilities to the preset's requirements. Adapter event times are presented time, meaning what is on screen. Simulation time may be added to the payload. The Godot adapter and demo implement slow motion and a close camera.
+
+**Rationale:** Re-capturing a moment at another speed or from another camera is the first step toward cinematic replay. Presented time keeps anchors, clips, and comparisons aligned with the master at any speed. The alternative, simulation time plus a declared scale, would push conversion into every consumer.
+
+**Consequences:** The protocol gains an optional `presentation` on replay requests, an additive change within protocol version 1. Comparisons warn when presentations differ. Camera rails, free camera, shot lists, and multi-angle passes remain in `Ideas.md`.
