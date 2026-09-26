@@ -50,6 +50,7 @@ npx cappy run boss_intro --take 3          # explicit take; never overwrites an 
 npx cappy run boss_intro -pa difficulty=3 -p trailer -j   # every flag has a whole-token shorthand
 npx cappy compare <capture-a> <capture-b> --min-ssim 0.97  # triptych video + SSIM/PSNR; exit 1 if regressed
 npx cappy compare-builds <session-id> v1 v2 -rse           # replay one session on two named builds and compare
+npx cappy timeline export <capture-id> -fo vtt -o events.vtt  # event captions for the capture's video (also json, csv)
 npx cappy clean --failed --dry-run         # preview removing failed and interrupted leftovers
 npx cappy clean cap_…                      # remove a capture; its take number is never reissued
 ```

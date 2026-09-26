@@ -12,6 +12,7 @@ import {
 import { type CleanReport, clean } from "./commands/clean.js";
 import { type CompareBuildsReport, compareBuilds } from "./commands/compare-builds.js";
 import { type CompareReport, compare } from "./commands/compare.js";
+import { type TimelineExportReport, timeline } from "./commands/timeline.js";
 import { type DoctorReport, doctor } from "./commands/doctor.js";
 import { type RecordReport, record } from "./commands/record.js";
 import { type ReplayReport, replay } from "./commands/replay.js";
@@ -32,6 +33,7 @@ Commands:
   compare <a> <b>      Compare two captures of the same source: triptych video and SSIM/PSNR
   compare-builds <session|scenario> <build-a> <build-b>
                        Capture one session or scenario with two named builds, then compare them
+  timeline export <id> Export a capture's or session's timeline as JSON, CSV, or WebVTT
   clean [<id>...]      Delete captures, sessions, comparisons, or logs Cappy created (--dry-run previews)
 
 Command options:
@@ -50,6 +52,8 @@ Command options:
   -mfs, --min-frame-ssim <score>  compare: regress when any single frame's SSIM is below the score
   -mdm, --max-drift-ms <ms>  compare: regress when a matched game event drifts more than ms
   -rse, --require-same-events  compare: regress when any game event type occurs a different number of times
+  -fo, --format <format>     timeline export: json (default), csv, or vtt
+  -o,  --out <path>          timeline export: write a new file instead of standard output
   -dr, --dry-run             clean: report what would be removed without deleting anything
 
 Options:
@@ -99,6 +103,10 @@ const COMMANDS: Record<string, Command<unknown>> = {
     run: compare,
     render: (result) => renderCompare(result as CommandResult<CompareReport>),
   } as Command<unknown>,
+  timeline: {
+    run: timeline,
+    render: (result) => (result.ok ? ((result.data as TimelineExportReport).content ?? `Wrote ${(result.data as TimelineExportReport).events} event(s) to ${(result.data as TimelineExportReport).path ?? ""}\n`) : ""),
+  } as Command<unknown>,
   "compare-builds": {
     run: compareBuilds,
     render: (result) => renderCompareBuilds(result as CommandResult<CompareBuildsReport>),
@@ -106,7 +114,7 @@ const COMMANDS: Record<string, Command<unknown>> = {
 };
 
 /** Commands that take positional arguments after their name. */
-const TAKES_ARGUMENTS = new Set(["replay", "run", "clean", "compare", "compare-builds"]);
+const TAKES_ARGUMENTS = new Set(["replay", "run", "clean", "compare", "compare-builds", "timeline"]);
 
 /** Run the CLI in-process and return the exit code. */
 export async function main(argv: readonly string[], io: CliIO): Promise<number> {

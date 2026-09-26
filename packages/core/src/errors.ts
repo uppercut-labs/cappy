@@ -69,6 +69,8 @@ export const ERROR_CODES = {
   COMPARE_INPUT_INVALID: "operation",
   COMPARISON_FAILED: "operation",
   COMPARISON_REGRESSED: "operation",
+  TIMELINE_UNAVAILABLE: "operation",
+  EXPORT_TARGET_EXISTS: "operation",
   INTERNAL_ERROR: "internal",
 } as const satisfies Record<string, ErrorCategory>;
 

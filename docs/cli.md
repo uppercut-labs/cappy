@@ -180,6 +180,30 @@ cappy compare-builds boss_intro base v2 -pa difficulty=3
 - The first failed capture stops the command, with that capture's error and exit code.
 - The two build names must differ, and `--build` and `--no-capture` do not apply.
 
+## `cappy timeline export <capture-id | session-id>`
+
+Exports a timeline for other tools:
+
+```bash
+cappy timeline export cap_… -fo vtt -o events.vtt   # captions over the capture's video
+cappy timeline export cap_… -fo csv > events.csv
+cappy timeline export ses_…                          # JSON on standard output
+```
+
+| Option | Meaning |
+| --- | --- |
+| `-fo, --format <format>` | `json` (the default), `csv`, or `vtt`. |
+| `-o, --out <path>` | Write a new file (relative to the project) instead of standard output. An existing file is never overwritten (`EXPORT_TARGET_EXISTS`). |
+
+The formats:
+
+- A capture's timeline is on the master clock, so it lines up with its video. A session's timeline is on the session's clock.
+- **JSON**: `{ timelineExportVersion, source, clock, sync?, events }`. It is described by [schemas/timeline-export.schema.json](schemas/timeline-export.schema.json), and each event by [schemas/timeline-event.schema.json](schemas/timeline-event.schema.json). Both are generated from Cappy's runtime schemas by `npm run schemas`.
+- **CSV**: `seq,t_ms,type,source,duration_ms,id,payload`, RFC 4180 quoting, and the payload as compact JSON.
+- **WebVTT**: one cue per event, lasting its `durationMs` or one second, whichever is longer. The cue is identified by the event ID, and its text is the event type followed by its payload as `key=value` pairs. Load it as subtitles in a player, or pass it to FFmpeg.
+
+Export files belong to you: Cappy never registers, overwrites, or deletes them. With `--json`, `data` carries the format, source, event count, and either the `content` or the `path`.
+
 ## `cappy clean [<id>...]`
 
 Deletes captures, sessions, comparisons, and logs that Cappy created, at once. See [storage.md](storage.md#cappy-clean) for exactly what each item covers and what is protected.

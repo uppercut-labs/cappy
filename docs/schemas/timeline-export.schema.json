@@ -1,0 +1,119 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/devin-thomas/cappy/blob/main/docs/schemas/timeline-export.schema.json",
+  "title": "Cappy timeline export",
+  "type": "object",
+  "properties": {
+    "timelineExportVersion": {
+      "type": "number",
+      "const": 1
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "capture",
+            "session"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "kind",
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    "clock": {
+      "type": "string",
+      "enum": [
+        "master",
+        "session"
+      ]
+    },
+    "sync": {
+      "type": "object",
+      "properties": {
+        "reference": {
+          "type": "string",
+          "const": "obs_recording_confirmed"
+        },
+        "adapterOffsetMs": {
+          "type": "number",
+          "minimum": 0
+        },
+        "uncertaintyMs": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "reference",
+        "adapterOffsetMs",
+        "uncertaintyMs"
+      ],
+      "additionalProperties": false
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "cappy",
+              "adapter"
+            ]
+          },
+          "seq": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "t": {
+            "type": "number",
+            "minimum": 0
+          },
+          "type": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_.:-]{0,127}$"
+          },
+          "durationMs": {
+            "type": "number",
+            "minimum": 0
+          },
+          "payload": {},
+          "correlationId": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id",
+          "source",
+          "seq",
+          "t",
+          "type"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "timelineExportVersion",
+    "source",
+    "clock",
+    "events"
+  ],
+  "additionalProperties": false
+}

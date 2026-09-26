@@ -241,6 +241,17 @@ export type Artifact = z.output<typeof artifactSchema>;
 
 export const MANIFEST_SCHEMA_VERSION = 1;
 
+/**
+ * How timeline times map onto the master. Times are milliseconds from the
+ * moment OBS confirmed recording; adapter events are shifted by
+ * `adapterOffsetMs`. The true start lies up to `uncertaintyMs` earlier.
+ */
+export const captureSyncSchema = z.strictObject({
+  reference: z.literal("obs_recording_confirmed"),
+  adapterOffsetMs: z.number().nonnegative(),
+  uncertaintyMs: z.number().nonnegative(),
+});
+
 const toolVersionSchema = z.strictObject({ version: nonEmpty }).catchall(z.unknown());
 
 export const verificationCheckSchema = z.strictObject({
@@ -274,18 +285,7 @@ export const manifestSchema = z
       startedAt: isoTimestamp,
       endedAt: isoTimestamp,
       monotonic: z.strictObject({ startMs: z.number(), endMs: z.number() }).optional(),
-      /**
-       * How timeline times map onto the master. Times are milliseconds from
-       * the moment OBS confirmed recording; adapter events are shifted by
-       * `adapterOffsetMs`. The true start lies up to `uncertaintyMs` earlier.
-       */
-      sync: z
-        .strictObject({
-          reference: z.literal("obs_recording_confirmed"),
-          adapterOffsetMs: z.number().nonnegative(),
-          uncertaintyMs: z.number().nonnegative(),
-        })
-        .optional(),
+      sync: captureSyncSchema.optional(),
       timeline: z.union([z.array(timelineEventSchema), z.strictObject({ path: nonEmpty, sha256: sha256Schema })]),
     }),
     tooling: z.strictObject({
@@ -453,3 +453,18 @@ export const comparisonManifestSchema = z
     }
   });
 export type ComparisonManifest = z.output<typeof comparisonManifestSchema>;
+
+// ---------------------------------------------------------------------------
+// Timeline Export (SPEC 11.10)
+
+export const TIMELINE_EXPORT_VERSION = 1;
+
+export const timelineExportSchema = z.strictObject({
+  timelineExportVersion: z.literal(TIMELINE_EXPORT_VERSION),
+  source: z.strictObject({ kind: z.enum(["capture", "session"]), id: nonEmpty }),
+  /** `master`: milliseconds on the capture's video; `session`: milliseconds since the session's operation started. */
+  clock: z.enum(["master", "session"]),
+  sync: captureSyncSchema.optional(),
+  events: z.array(timelineEventSchema),
+});
+export type TimelineExport = z.output<typeof timelineExportSchema>;
