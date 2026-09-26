@@ -19,7 +19,7 @@ import {
   loadConfig,
   newId,
 } from "@cappy/core";
-import { type ToolInfo, locateTool, probeMedia, produceDerivative, validateDerivatives } from "@cappy/media";
+import { type ToolInfo, expandDerivative, locateTool, probeMedia, produceDerivative, validateDerivatives } from "@cappy/media";
 import type { ObsRecorder } from "@cappy/obs";
 import type { AdapterConnection, AdapterOperation, OperationOutcome } from "@cappy/protocol";
 import { ManagedWorkspace } from "@cappy/workspace";
@@ -438,30 +438,45 @@ export async function executeCapture(
     });
     checks.push({ name: "master.probe", passed: true, detail: `${probe.value.formatName}, ${probe.value.videoCodec ?? "unknown codec"}` });
 
-    for (const derivative of setup.preset.derivatives) {
-      const produced = await produceDerivative(derivative, { hostPath: masterHost }, workspace, directory, {
-        ffmpeg: { path: setup.tools.ffmpeg?.path ?? "ffmpeg", version: setup.tools.ffmpeg?.version ?? "unknown" },
-        ffprobe: setup.tools.ffprobe?.path ?? "ffprobe",
-        timeoutMs: config.timeouts.processMs,
-        timing: {
-          timeline,
-          ...(probe.value.durationMs === undefined ? {} : { masterDurationMs: probe.value.durationMs }),
-        },
-      });
-      if (!produced.ok) {
-        log.record("derivative.failed", { role: derivative.role, required: derivative.required, code: produced.error.code });
-        if (derivative.required) {
-          checks.push({ name: `derivative.${derivative.role}`, passed: false, detail: produced.error.message });
-          return await fail(produced.error);
+    const timing = {
+      timeline,
+      ...(probe.value.durationMs === undefined ? {} : { masterDurationMs: probe.value.durationMs }),
+    };
+    for (const planned of setup.preset.derivatives) {
+      // `occurrence: "every"` turns one preset derivative into one output per matching event.
+      const expanded = expandDerivative(planned, timing);
+      if (!expanded.ok) {
+        log.record("derivative.failed", { role: planned.role, required: planned.required, code: expanded.error.code });
+        if (planned.required) {
+          checks.push({ name: `derivative.${planned.role}`, passed: false, detail: expanded.error.message });
+          return await fail(expanded.error);
         }
-        warnings.push(`optional derivative "${derivative.role}" was skipped: ${produced.error.message}`);
+        warnings.push(`optional derivative "${planned.role}" was skipped: ${expanded.error.message}`);
         continue;
       }
-      const { media, warnings: timingWarnings, ...artifact } = produced.value;
-      warnings.push(...timingWarnings);
-      artifacts.push(artifact);
-      checks.push({ name: `derivative.${derivative.role}`, passed: true });
-      log.record("derivative.published", { role: derivative.role, path: artifact.path, format: media.formatName });
+      warnings.push(...expanded.value.warnings);
+      for (const derivative of expanded.value.derivatives) {
+        const produced = await produceDerivative(derivative, { hostPath: masterHost }, workspace, directory, {
+          ffmpeg: { path: setup.tools.ffmpeg?.path ?? "ffmpeg", version: setup.tools.ffmpeg?.version ?? "unknown" },
+          ffprobe: setup.tools.ffprobe?.path ?? "ffprobe",
+          timeoutMs: config.timeouts.processMs,
+          timing,
+        });
+        if (!produced.ok) {
+          log.record("derivative.failed", { role: derivative.role, required: derivative.required, code: produced.error.code });
+          if (derivative.required) {
+            checks.push({ name: `derivative.${derivative.role}`, passed: false, detail: produced.error.message });
+            return await fail(produced.error);
+          }
+          warnings.push(`optional derivative "${derivative.role}" was skipped: ${produced.error.message}`);
+          continue;
+        }
+        const { media, warnings: timingWarnings, ...artifact } = produced.value;
+        warnings.push(...timingWarnings);
+        artifacts.push(artifact);
+        checks.push({ name: `derivative.${derivative.role}`, passed: true });
+        log.record("derivative.published", { role: derivative.role, path: artifact.path, format: media.formatName });
+      }
     }
 
     await captured.finish?.("completed");

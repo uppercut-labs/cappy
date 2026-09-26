@@ -17,6 +17,17 @@ afterEach(async () => {
   await disposeHarness(harness);
 });
 
+/** A simulator scenario with three hits, the second critical. */
+const HITS = {
+  id: "brawl",
+  name: "Brawl",
+  events: [
+    { event: "HIT", t: 200, payload: { crit: false } },
+    { event: "HIT", t: 600, payload: { crit: true } },
+    { event: "HIT", t: 1200, payload: { crit: false } },
+  ],
+};
+
 function presetWith(derivatives: Record<string, unknown>[]): Record<string, unknown> {
   return { presets: { trailer: { scene: "Capture", derivatives } }, defaultPreset: "trailer" };
 }
@@ -210,6 +221,37 @@ describe("derivatives and manifests", () => {
     expect(harness.obs.requests.map((request) => request.requestType)).not.toContain("StartRecord");
   });
 
+  it("produces one output per matching event with occurrence every", async () => {
+    await configure(
+      harness,
+      {},
+      presetWith([
+        { kind: "clip", role: "hit", options: { start: { event: "HIT", occurrence: "every", offset: -0.05 }, duration: 0.1 } },
+        { kind: "still", role: "crit", options: { at: { event: "HIT", occurrence: "every", where: { crit: true } } } },
+        { kind: "still", role: "miss", required: false, options: { at: { event: "MISS", occurrence: "every" } } },
+      ]),
+    );
+    const { code, result } = await runCli(harness, ["run", "brawl"], { sim: { scenarios: [HITS] } });
+    expect(code, JSON.stringify(result["error"])).toBe(0);
+    const manifest = await manifestOf(result);
+    const hits = manifest["timing"]["timeline"].filter((event: { type: string }) => event.type === "HIT");
+    const roles = manifest["artifacts"].map((artifact: { role: string }) => artifact.role);
+    expect(roles).toEqual(["master", "hit-1", "hit-2", "hit-3", "crit-1"]);
+    hits.forEach((hit: { id: string; t: number }, index: number) => {
+      const artifact = manifest["artifacts"].find((entry: { role: string }) => entry.role === `hit-${index + 1}`);
+      expect(artifact["window"]).toMatchObject({ startEventId: hit.id, startMs: Math.round((hit.t - 50) * 1000) / 1000 });
+    });
+    expect(manifest["artifacts"][4]["at"]).toEqual({ ms: hits[1].t, eventId: hits[1].id });
+    expect(result["warnings"]).toEqual([expect.stringContaining('optional derivative "miss" was skipped')]);
+  });
+
+  it("fails a required every-derivative that matches nothing", async () => {
+    await configure(harness, {}, presetWith([{ kind: "still", role: "miss", options: { at: { event: "MISS", occurrence: "every" } } }]));
+    const { code, result } = await runCli(harness, ["run", "brawl"], { sim: { scenarios: [HITS] } });
+    expect(code).toBe(1);
+    expect(result["error"]).toMatchObject({ code: "DERIVATIVE_ANCHOR_UNRESOLVED", details: { role: "miss" } });
+  });
+
   it("numbers takes per scenario and parameters without overwriting earlier takes", async () => {
     await configure(harness);
     const first = await runCli(harness, ["run", "boss_intro"]);
@@ -306,6 +348,34 @@ describe.runIf(process.env["CAPPY_REAL_TOOLS"] === "1")("real FFmpeg media", () 
     expect(master["durationMs"]).toBeGreaterThan(2300);
     expect(manifest["artifacts"][1]).toMatchObject({ role: "last", mediaType: "image/png", width: 320, height: 240, at: { ms: master["durationMs"] } });
     expect(result["warnings"]).toEqual([expect.stringContaining('still "last" time')]);
+  });
+
+  it("cuts a real clip and still for every matching event", async () => {
+    await configure(
+      harness,
+      { writeMaster: writeRealMaster },
+      {
+        tools: {},
+        ...presetWith([
+          { kind: "clip", role: "hit", options: { start: { event: "HIT", occurrence: "every", offset: -0.1 }, duration: 0.3, preset: "ultrafast" } },
+          { kind: "still", role: "impact", options: { at: { event: "HIT", occurrence: "every" } } },
+        ]),
+      },
+    );
+    const { code, result } = await runCli(harness, ["run", "brawl"], { sim: { scenarios: [HITS] } });
+    expect(code, JSON.stringify(result["error"])).toBe(0);
+    const manifest = await manifestOf(result);
+    const clips = manifest["artifacts"].filter((artifact: { role: string }) => artifact.role.startsWith("hit-"));
+    expect(clips).toHaveLength(3);
+    for (const clip of clips) {
+      expect(Math.abs(clip["durationMs"] - (clip["window"]["endMs"] - clip["window"]["startMs"]))).toBeLessThanOrEqual(100);
+    }
+    const stills = manifest["artifacts"].filter((artifact: { role: string }) => artifact.role.startsWith("impact-"));
+    expect(stills.map((still: { mediaType: string; width: number }) => [still.mediaType, still.width])).toEqual([
+      ["image/png", 320],
+      ["image/png", 320],
+      ["image/png", 320],
+    ]);
   });
 
   it("fails a real required derivative that yields no frames, keeping the master", async () => {

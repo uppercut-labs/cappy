@@ -14,7 +14,7 @@ import {
 } from "@cappy/core";
 import type { ManagedWorkspace } from "@cappy/workspace";
 import { z } from "zod";
-import { type DerivativeTime, type EventAnchor, derivativeTimeSchema, describeAnchor, findAnchorEvent } from "./anchors.js";
+import { type DerivativeTime, type EventAnchor, derivativeTimeSchema, describeAnchor, findAnchorEvent, findAnchorEvents } from "./anchors.js";
 import { type MediaInfo, probeMedia } from "./probe.js";
 
 const X264_PRESETS = ["ultrafast", "superfast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow"] as const;
@@ -45,6 +45,14 @@ const OPTION_SCHEMAS = {
     .refine((options) => typeof options.start !== "number" || typeof options.end !== "number" || options.end > options.start, {
       message: "must be after start",
       path: ["end"],
+    })
+    .refine((options) => typeof options.end !== "object" || options.end.occurrence !== "every", {
+      message: 'occurrence "every" is allowed only on start; each clip ends at the first qualifying event after its own start',
+      path: ["end"],
+    })
+    .refine((options) => !isEvery(options.start) || typeof options.end !== "number", {
+      message: 'a clip with occurrence "every" needs an end anchor or a duration, not a fixed end time',
+      path: ["end"],
     }),
   thumbnail: z.strictObject({ at: derivativeTimeSchema.default(0), width: z.int().positive().max(7680).default(640) }),
   still: z.strictObject({ at: derivativeTimeSchema.default(0) }),
@@ -54,6 +62,25 @@ const EXTENSIONS = { mp4: ".mp4", clip: ".mp4", thumbnail: ".jpg", still: ".png"
 const MEDIA_TYPES = { mp4: "video/mp4", clip: "video/mp4", thumbnail: "image/jpeg", still: "image/png" } as const;
 
 type Options<K extends keyof typeof OPTION_SCHEMAS> = z.output<(typeof OPTION_SCHEMAS)[K]>;
+
+/** At most this many outputs come from one `occurrence: "every"` derivative. */
+export const MAX_EVERY_OUTPUTS = 100;
+
+function isEvery(time: unknown): boolean {
+  return typeof time === "object" && time !== null && (time as { occurrence?: unknown }).occurrence === "every";
+}
+
+/** The anchored time an `occurrence: "every"` derivative repeats over, if it has one. */
+function everyKey(derivative: DerivativeSpec): "start" | "at" | undefined {
+  const options = derivative.options as Record<string, unknown>;
+  if (derivative.kind === "clip" && isEvery(options["start"])) {
+    return "start";
+  }
+  if ((derivative.kind === "still" || derivative.kind === "thumbnail") && isEvery(options["at"])) {
+    return "at";
+  }
+  return undefined;
+}
 
 /** Validate every derivative's options; reports all problems at once. */
 export function validateDerivatives(derivatives: readonly DerivativeSpec[]): Result<true> {
@@ -65,6 +92,12 @@ export function validateDerivatives(derivatives: readonly DerivativeSpec[]): Res
         problems.push(`${derivative.role}: ${issue.path.length === 0 ? "" : `${issue.path.join(".")}: `}${issue.message}`);
       }
     }
+    if (everyKey(derivative) !== undefined) {
+      const generated = new RegExp(`^${derivative.role.replace(/[-]/g, "\\-")}-[0-9]+$`);
+      for (const other of derivatives.filter((entry) => entry !== derivative && generated.test(entry.role))) {
+        problems.push(`${other.role}: collides with the outputs of "${derivative.role}", which uses occurrence "every"`);
+      }
+    }
   }
   return problems.length === 0
     ? ok(true)
@@ -74,6 +107,40 @@ export function validateDerivatives(derivatives: readonly DerivativeSpec[]): Res
           retryable: false,
         }),
       );
+}
+
+/**
+ * Turn a preset derivative into the concrete derivatives it produces: itself,
+ * or for `occurrence: "every"` one per matching event (`<role>-1`, `<role>-2`,
+ * ...), each pinned to its occurrence. At most MAX_EVERY_OUTPUTS are made.
+ */
+export function expandDerivative(derivative: DerivativeSpec, context: TimingContext): Result<{ derivatives: DerivativeSpec[]; warnings: string[] }> {
+  const key = everyKey(derivative);
+  if (key === undefined) {
+    return ok({ derivatives: [derivative], warnings: [] });
+  }
+  const options = derivative.options as Record<string, unknown>;
+  const anchor = eventAnchorOf(options[key]);
+  const matches = findAnchorEvents(context.timeline, anchor);
+  if (matches.length === 0) {
+    return err(anchorError(derivative, key, anchor));
+  }
+  const count = Math.min(matches.length, MAX_EVERY_OUTPUTS);
+  const warnings =
+    matches.length > MAX_EVERY_OUTPUTS
+      ? [`derivative "${derivative.role}" matched ${matches.length} events; only the first ${MAX_EVERY_OUTPUTS} were produced (${matches.length - MAX_EVERY_OUTPUTS} skipped)`]
+      : [];
+  const derivatives = Array.from({ length: count }, (_, index) => ({
+    ...derivative,
+    role: `${derivative.role}-${index + 1}`,
+    options: { ...options, [key]: { ...(options[key] as object), occurrence: index + 1 } },
+  }));
+  return ok({ derivatives, warnings });
+}
+
+function eventAnchorOf(value: unknown): EventAnchor {
+  const anchor = value as Partial<EventAnchor> & { event: string };
+  return { offset: 0, occurrence: 1, ...anchor } as EventAnchor;
 }
 
 /** Where on the master a derivative comes from, once any anchors are resolved. */

@@ -45,7 +45,7 @@ An anchor places a time relative to an event on the capture's timeline, instead 
 | --- | --- |
 | `event` | Event type (required). Any timeline event works, including Cappy's `SCENARIO_STARTED`, `REPLAY_STARTED`, and `*_COMPLETED`. |
 | `offset` | Seconds after the event. Negative means before it. Default 0. |
-| `occurrence` | Which match to use: `1` for the first (the default), `2` for the second, and so on, or `"last"`. |
+| `occurrence` | Which match to use: `1` for the first (the default), `2` for the second, and so on, `"last"`, or `"every"` (see below). |
 | `where` | Payload conditions. Each key is a dot-separated path into the event's payload (`"target.kind"`), and each value is a string, number, boolean, or `null`. Every condition must match exactly, so `3` does not match `"3"`. |
 
 How anchors resolve:
@@ -57,6 +57,26 @@ How anchors resolve:
 - An anchored window that runs past either end of the master is clamped to the master, with a warning. If nothing is left, it fails with `DERIVATIVE_WINDOW_EMPTY`.
 - A still or thumbnail shows the frame at or before its time. An anchored time past the end is moved to the end, with a warning, and so shows the master's last frame. That frame can be a frame or two earlier than the reported duration, as OBS masters often are.
 - Times given only in seconds are used exactly as written, as before anchors existed.
-- Each derivative produces one output. To cut clips around several matches, add one derivative per `occurrence`.
+- Each derivative produces one output, unless it uses `occurrence: "every"`.
+
+## One output per event
+
+`occurrence: "every"` on a clip's `start`, or on a still's or thumbnail's `at`, makes one output per matching event, numbered in timeline order:
+
+```json
+{ "kind": "clip", "role": "hit", "options": {
+  "start": { "event": "HIT", "occurrence": "every", "offset": -0.5 },
+  "end": { "event": "HIT", "offset": 1 } } }
+```
+
+This produces `hit-1.mp4`, `hit-2.mp4`, and so on.
+
+- Each clip's `end` is the first qualifying event at or after that clip's own start event. Here that is the same `HIT` plus 1 s.
+- `where` narrows the matches as usual.
+- Each output is recorded in the manifest with its own window or time and event IDs.
+- At most 100 outputs are made. Any further matches are skipped, with a warning saying how many.
+- A required derivative that matches nothing fails the capture (`DERIVATIVE_ANCHOR_UNRESOLVED`). So does any of its outputs that fails. For an optional one, each problem is a warning.
+- `"every"` is not allowed on a clip's `end`, and a clip that uses it needs an `end` anchor or a `duration`, not a fixed `end` time.
+- Another derivative in the same preset may not be named like a generated output (`hit-2`).
 
 Event times carry the recorder synchronization uncertainty recorded in the manifest (`timing.sync.uncertaintyMs`). Cappy does not pad for it; widen `offset` if you need margin.

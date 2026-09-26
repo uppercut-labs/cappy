@@ -36,6 +36,7 @@
         },
         { "kind": "thumbnail", "role": "thumb", "options": { "at": 2, "width": 640 } },
         { "kind": "still", "role": "impact", "required": false, "options": { "at": { "event": "IMPACT", "occurrence": "last" } } },
+        { "kind": "thumbnail", "role": "hit", "required": false, "options": { "at": { "event": "HIT", "occurrence": "every" }, "width": 320 } },
         { "kind": "still", "role": "poster", "required": false, "options": { "at": 2 } }
       ]
     },

@@ -12,8 +12,8 @@ export const eventAnchorSchema = z.strictObject({
   event: timelineEventSchema.shape.type,
   /** Seconds after the event; negative is before it. */
   offset: z.number().default(0),
-  /** 1-based, or the last matching event. */
-  occurrence: z.union([z.int().positive(), z.literal("last")]).default(1),
+  /** 1-based, the last matching event, or every matching event (one output each). */
+  occurrence: z.union([z.int().positive(), z.literal("last"), z.literal("every")]).default(1),
   /** Dot-separated payload paths, each compared with strict equality. */
   where: z.record(z.string().regex(/^[^.]+(\.[^.]+)*$/, "use a dot-separated payload path"), scalar).optional(),
 });
@@ -47,10 +47,19 @@ export function matchesWhere(payload: unknown, where: EventAnchor["where"]): boo
  * payload matches `where`, at or after `notBeforeMs`, in timeline order.
  */
 export function findAnchorEvent(timeline: readonly TimelineEvent[], anchor: EventAnchor, notBeforeMs = 0): TimelineEvent | undefined {
-  const candidates = timeline
+  const candidates = findAnchorEvents(timeline, anchor, notBeforeMs);
+  if (anchor.occurrence === "every") {
+    // "every" names many events; derivatives are expanded to one occurrence each before resolving.
+    return undefined;
+  }
+  return anchor.occurrence === "last" ? candidates.at(-1) : candidates[anchor.occurrence - 1];
+}
+
+/** Every event an anchor's type and `where` match, at or after `notBeforeMs`, in timeline order. */
+export function findAnchorEvents(timeline: readonly TimelineEvent[], anchor: EventAnchor, notBeforeMs = 0): TimelineEvent[] {
+  return timeline
     .filter((event) => event.type === anchor.event && event.t >= notBeforeMs && matchesWhere(event.payload, anchor.where))
     .sort((a, b) => a.t - b.t || a.seq - b.seq);
-  return anchor.occurrence === "last" ? candidates.at(-1) : candidates[anchor.occurrence - 1];
 }
 
 /** A human description of an anchor, for errors and warnings. */
@@ -58,6 +67,6 @@ export function describeAnchor(anchor: EventAnchor): string {
   const where = Object.entries(anchor.where ?? {})
     .map(([key, value]) => `${key}=${JSON.stringify(value)}`)
     .join(", ");
-  const occurrence = anchor.occurrence === "last" ? "last" : `#${anchor.occurrence}`;
+  const occurrence = typeof anchor.occurrence === "number" ? `#${anchor.occurrence}` : anchor.occurrence;
   return `${anchor.event} ${occurrence}${where === "" ? "" : ` where ${where}`}`;
 }

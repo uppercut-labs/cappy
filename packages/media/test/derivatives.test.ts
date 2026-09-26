@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { type DerivativeSpec, type TimelineEvent, parseConfig } from "@cappy/core";
-import { ffmpegArguments, resolveTiming, validateDerivatives } from "@cappy/media";
+import { MAX_EVERY_OUTPUTS, expandDerivative, ffmpegArguments, resolveTiming, validateDerivatives } from "@cappy/media";
 
 describe("derivative options", () => {
   it("accepts every preset in the example configuration", async () => {
@@ -141,5 +141,76 @@ describe("event anchors", () => {
 
   it("refuses to build FFmpeg arguments for anchors that were never resolved", () => {
     expect(() => ffmpegArguments(spec("still", { at: { event: "IMPACT" } }), "/in.mkv", "/out.png")).toThrow(/resolve its timing/);
+  });
+});
+
+describe("every-match derivatives", () => {
+  const bounces: TimelineEvent[] = [
+    event(0, "SCENARIO_STARTED", 10),
+    event(1, "BOUNCE", 400, { bounce: 1 }),
+    event(2, "BOUNCE", 900, { bounce: 2 }),
+    event(3, "SETTLED", 1000),
+    event(4, "BOUNCE", 1200, { bounce: 3 }),
+  ];
+
+  it("expands one derivative into a numbered output per matching event, each paired with its own end", () => {
+    const clip = spec("clip", { start: { event: "BOUNCE", occurrence: "every", offset: -0.2 }, end: { event: "BOUNCE", offset: 0.2 } }, "hop");
+    const expanded = expandDerivative(clip, { timeline: bounces });
+    expect(expanded.ok).toBe(true);
+    if (!expanded.ok) return;
+    expect(expanded.value.warnings).toEqual([]);
+    expect(expanded.value.derivatives.map((entry) => entry.role)).toEqual(["hop-1", "hop-2", "hop-3"]);
+    const windows = expanded.value.derivatives.map((entry) => {
+      const resolved = resolveTiming(entry, { timeline: bounces, masterDurationMs: 5000 });
+      return resolved.ok ? resolved.value.window : undefined;
+    });
+    expect(windows).toEqual([
+      { startMs: 200, endMs: 600, startEventId: "evt_1", endEventId: "evt_1" },
+      { startMs: 700, endMs: 1100, startEventId: "evt_2", endEventId: "evt_2" },
+      { startMs: 1000, endMs: 1400, startEventId: "evt_4", endEventId: "evt_4" },
+    ]);
+    // Each clip ends at the first qualifying event after its own start, not at a shared end.
+    const toSettle = expandDerivative(spec("clip", { start: { event: "BOUNCE", occurrence: "every" }, end: { event: "SETTLED" } }, "fall"), { timeline: bounces });
+    const ends = toSettle.ok ? toSettle.value.derivatives.map((entry) => resolveTiming(entry, { timeline: bounces })) : [];
+    expect(ends.map((entry) => (entry.ok ? entry.value.window?.endEventId : entry.error.code))).toEqual(["evt_3", "evt_3", "DERIVATIVE_ANCHOR_UNRESOLVED"]);
+  });
+
+  it("filters with where, leaves ordinary derivatives alone, and fails when nothing matches", () => {
+    const still = spec("still", { at: { event: "BOUNCE", occurrence: "every", where: { bounce: 2 } } }, "peak");
+    const expanded = expandDerivative(still, { timeline: bounces });
+    expect(expanded.ok && expanded.value.derivatives.map((entry) => [entry.role, (entry.options["at"] as { occurrence: number }).occurrence])).toEqual([["peak-1", 1]]);
+    const resolved = expanded.ok ? resolveTiming(expanded.value.derivatives[0] as DerivativeSpec, { timeline: bounces }) : undefined;
+    expect(resolved?.ok && resolved.value.at).toEqual({ ms: 900, eventId: "evt_2" });
+
+    const plain = spec("thumbnail", { at: { event: "BOUNCE" } }, "thumb");
+    expect(expandDerivative(plain, { timeline: bounces })).toEqual({ ok: true, value: { derivatives: [plain], warnings: [] } });
+    expect(expandDerivative(spec("still", { at: { event: "BOSS", occurrence: "every" } }), { timeline: bounces })).toMatchObject({
+      ok: false,
+      error: { code: "DERIVATIVE_ANCHOR_UNRESOLVED", message: expect.stringContaining("BOSS every") },
+    });
+  });
+
+  it(`caps the outputs at ${MAX_EVERY_OUTPUTS} and says how many matches were skipped`, () => {
+    const many = Array.from({ length: 130 }, (_, index) => event(index, "COIN", index * 10));
+    const expanded = expandDerivative(spec("still", { at: { event: "COIN", occurrence: "every" } }, "coin"), { timeline: many });
+    expect(expanded.ok && expanded.value.derivatives).toHaveLength(MAX_EVERY_OUTPUTS);
+    expect(expanded.ok && expanded.value.warnings).toEqual([expect.stringContaining("30 skipped")]);
+  });
+
+  it("allows every only on a clip's start and a still's or thumbnail's time, and rejects colliding roles", () => {
+    const problems = (derivatives: DerivativeSpec[]) => {
+      const result = validateDerivatives(derivatives);
+      return result.ok ? [] : (result.error.details?.["problems"] as string[]);
+    };
+    expect(problems([spec("clip", { start: { event: "HIT", occurrence: "every" }, duration: 1 }, "hit")])).toEqual([]);
+    expect(problems([spec("thumbnail", { at: { event: "HIT", occurrence: "every" } }, "hit")])).toEqual([]);
+    expect(problems([spec("clip", { start: { event: "HIT" }, end: { event: "HIT", occurrence: "every" } }, "hit")])).toEqual([
+      expect.stringContaining('occurrence "every" is allowed only on start'),
+    ]);
+    expect(problems([spec("clip", { start: { event: "HIT", occurrence: "every" }, end: 5 }, "hit")])).toEqual([expect.stringContaining("needs an end anchor or a duration")]);
+    expect(problems([spec("still", { at: { event: "HIT", occurrence: "every" } }, "hit"), spec("still", { at: 1 }, "hit-2")])).toEqual([
+      expect.stringContaining('hit-2: collides with the outputs of "hit"'),
+    ]);
+    expect(problems([spec("still", { at: { event: "HIT", occurrence: "every" } }, "hit"), spec("still", { at: 1 }, "hit-x")])).toEqual([]);
   });
 });
