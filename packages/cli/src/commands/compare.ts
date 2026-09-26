@@ -5,8 +5,10 @@ import {
   type CappyError,
   type CaptureSource,
   type CommandResult,
+  type ComparisonGates,
   type ComparisonManifest,
   type ComparisonStatus,
+  type GateName,
   type Result,
   type TimelineDiffEntry,
   type TimelineEvent,
@@ -17,6 +19,7 @@ import {
   comparisonManifestSchema,
   diffTimelines,
   err,
+  evaluateGates,
   loadConfig,
   manifestSchema,
   newId,
@@ -56,7 +59,8 @@ export interface CompareReport {
   readonly alignment: { readonly event: string; readonly spanMs: number };
   readonly normalization?: Normalization & { readonly scaledB: boolean };
   readonly scores?: ComparisonScores;
-  readonly threshold?: { readonly minSsim: number };
+  readonly gates: ComparisonGates;
+  readonly failedGates?: readonly GateName[];
   readonly worstFrames?: readonly (WorstFrame & { readonly a: string; readonly b: string; readonly diff: string })[];
   readonly timelineDiff: readonly TimelineDiffEntry[];
   readonly artifacts: readonly Artifact[];
@@ -70,6 +74,39 @@ function usage(message: string, correlationId: string): CommandResult<CompareRep
     cappyError("USAGE_INVALID", message, COMMAND, { details: { usage: "cappy compare <capture-a> <capture-b> [--min-ssim <score>]" }, retryable: false }),
     { correlationId },
   );
+}
+
+/** Read the gate flags (SPEC 11.8); each must be a valid number where one is expected. */
+export function parseGates(flags: CommandContext["flags"]): { ok: true; value: ComparisonGates } | { ok: false; error: string } {
+  const score = (flag: string): number | undefined | string => {
+    const raw = flags[flag];
+    if (typeof raw !== "string") {
+      return undefined;
+    }
+    const value = Number(raw);
+    return raw.trim() !== "" && Number.isFinite(value) && value >= 0 && value <= 1 ? value : `--${flag} needs a score from 0 to 1, not "${raw}"`;
+  };
+  const minSsim = score("min-ssim");
+  const minFrameSsim = score("min-frame-ssim");
+  const rawDrift = flags["max-drift-ms"];
+  const drift = typeof rawDrift === "string" ? Number(rawDrift) : undefined;
+  for (const problem of [minSsim, minFrameSsim]) {
+    if (typeof problem === "string") {
+      return { ok: false, error: problem };
+    }
+  }
+  if (typeof rawDrift === "string" && (rawDrift.trim() === "" || drift === undefined || !Number.isFinite(drift) || drift < 0)) {
+    return { ok: false, error: `--max-drift-ms needs a non-negative number of milliseconds, not "${rawDrift}"` };
+  }
+  return {
+    ok: true,
+    value: {
+      ...(typeof minSsim === "number" ? { minSsim } : {}),
+      ...(typeof minFrameSsim === "number" ? { minFrameSsim } : {}),
+      ...(drift === undefined ? {} : { maxDriftMs: drift }),
+      ...(flags["require-same-events"] === true ? { requireSameEvents: true as const } : {}),
+    },
+  };
 }
 
 /** Read a capture's manifest; only a successful capture of this workspace can be compared. */
@@ -142,15 +179,11 @@ export async function compare(context: CommandContext): Promise<CommandResult<Co
   if (idA === idB) {
     return usage("compare needs two different captures", correlationId);
   }
-  let threshold: { minSsim: number } | undefined;
-  const minSsim = context.flags["min-ssim"];
-  if (typeof minSsim === "string") {
-    const value = Number(minSsim);
-    if (minSsim.trim() === "" || !Number.isFinite(value) || value < 0 || value > 1) {
-      return usage(`--min-ssim needs a score from 0 to 1, not "${minSsim}"`, correlationId);
-    }
-    threshold = { minSsim: value };
+  const parsedGates = parseGates(context.flags);
+  if (!parsedGates.ok) {
+    return usage(parsedGates.error, correlationId);
   }
+  const gates = parsedGates.value;
 
   const loaded = await loadConfig({ projectDir: context.projectDir, ...(context.configPath === undefined ? {} : { configPath: context.configPath }) });
   if (!loaded.ok) {
@@ -227,7 +260,7 @@ export async function compare(context: CommandContext): Promise<CommandResult<Co
   const source = manifestA.identity.source;
   const [alignedA, alignedB] = aligned as [Aligned, Aligned];
   const timelineDiff = diffTimelines(alignedA.timeline, alignedA.startMs, alignedB.timeline, alignedB.startMs);
-  const report = (extra: Partial<CompareReport> = {}): CompareReport => ({ source, a, b, alignment, timelineDiff, artifacts: [], ...extra });
+  const report = (extra: Partial<CompareReport> = {}): CompareReport => ({ source, a, b, alignment, gates, timelineDiff, artifacts: [], ...extra });
   if (!(spanMs > 0)) {
     return commandFailure(
       COMMAND,
@@ -273,6 +306,7 @@ export async function compare(context: CommandContext): Promise<CommandResult<Co
   let normalization: (Normalization & { scaledB: boolean }) | undefined;
   let scores: ComparisonScores | undefined;
   let worstFrames: CompareReport["worstFrames"];
+  let failedGates: GateName[] | undefined;
 
   const finish = async (status: ComparisonStatus, error?: CappyError): Promise<CommandResult<CompareReport>> => {
     const manifest: ComparisonManifest = {
@@ -285,7 +319,8 @@ export async function compare(context: CommandContext): Promise<CommandResult<Co
       alignment,
       ...(normalization === undefined ? {} : { normalization }),
       ...(scores === undefined ? {} : { scores }),
-      ...(threshold === undefined ? {} : { threshold }),
+      gates,
+      ...(failedGates === undefined ? {} : { failedGates: [...failedGates] }),
       ...(worstFrames === undefined ? {} : { worstFrames: [...worstFrames] }),
       timelineDiff,
       artifacts,
@@ -311,7 +346,7 @@ export async function compare(context: CommandContext): Promise<CommandResult<Co
       status,
       ...(normalization === undefined ? {} : { normalization }),
       ...(scores === undefined ? {} : { scores }),
-      ...(threshold === undefined ? {} : { threshold }),
+      ...(failedGates === undefined ? {} : { failedGates }),
       ...(worstFrames === undefined ? {} : { worstFrames }),
       artifacts,
       ...(manifestPath === undefined ? {} : { manifest: manifestPath }),
@@ -330,8 +365,8 @@ export async function compare(context: CommandContext): Promise<CommandResult<Co
     if (status === "regressed") {
       return commandFailure(
         COMMAND,
-        cappyError("COMPARISON_REGRESSED", `mean SSIM ${scores?.ssim.mean ?? 0} is below --min-ssim ${threshold?.minSsim ?? 0}`, COMMAND, {
-          details: { ssim: scores?.ssim, minSsim: threshold?.minSsim, manifest: manifestPath },
+        cappyError("COMPARISON_REGRESSED", `the comparison failed ${failedGates?.length ?? 0} gate(s): ${(failedGates ?? []).join(", ")}`, COMMAND, {
+          details: { failedGates, gates, ssim: scores?.ssim, manifest: manifestPath },
           retryable: false,
         }),
         { correlationId, warnings, data },
@@ -380,8 +415,8 @@ export async function compare(context: CommandContext): Promise<CommandResult<Co
     scores = produced.value.scores;
     worstFrames = produced.value.worstFrames;
     checks.push({ name: "comparison.media", passed: true, detail: `${scores.frames} frame(s)` });
-    const regressed = threshold !== undefined && scores.ssim.mean < threshold.minSsim;
-    return await finish(regressed ? "regressed" : "succeeded");
+    failedGates = evaluateGates(gates, scores, timelineDiff);
+    return await finish(failedGates.length > 0 ? "regressed" : "succeeded");
   } catch (cause) {
     await log.flush(workspace).catch(() => undefined);
     await release();

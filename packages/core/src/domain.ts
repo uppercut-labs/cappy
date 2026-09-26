@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { capabilitySetSchema } from "./capabilities.js";
-import { timelineDiffEntrySchema } from "./timeline.js";
+import { type TimelineDiffEntry, timelineDiffEntrySchema } from "./timeline.js";
 
 /*
  * Engine-neutral domain contracts. Vocabulary follows Context.md: Project,
@@ -322,9 +322,42 @@ export type ArtifactManifest = z.output<typeof manifestSchema>;
 // ---------------------------------------------------------------------------
 // Comparison Manifest
 
-export const COMPARISON_MANIFEST_VERSION = 1;
+/** Version 2 (post-V1) replaced the single `threshold` with `gates` and `failedGates`. */
+export const COMPARISON_MANIFEST_VERSION = 2;
 export const COMPARISON_STATUSES = ["succeeded", "regressed", "failed"] as const;
 export type ComparisonStatus = (typeof COMPARISON_STATUSES)[number];
+
+/** Pass/fail conditions a comparison can be asked to meet (SPEC 11.8), in evaluation order. */
+export const GATE_NAMES = ["minSsim", "minFrameSsim", "maxDriftMs", "requireSameEvents"] as const;
+export type GateName = (typeof GATE_NAMES)[number];
+
+export const comparisonGatesSchema = z.strictObject({
+  /** The mean SSIM must be at least this. */
+  minSsim: z.number().min(0).max(1).optional(),
+  /** Every frame's SSIM must be at least this. */
+  minFrameSsim: z.number().min(0).max(1).optional(),
+  /** No matched adapter event may drift more than this many milliseconds either way. */
+  maxDriftMs: z.number().nonnegative().optional(),
+  /** Every adapter event type must occur equally often in A and B. */
+  requireSameEvents: z.literal(true).optional(),
+});
+export type ComparisonGates = z.output<typeof comparisonGatesSchema>;
+
+/** The gates a completed comparison fails, in GATE_NAMES order. */
+export function evaluateGates(
+  gates: ComparisonGates,
+  scores: { readonly ssim: { readonly mean: number; readonly min: number } },
+  timelineDiff: readonly TimelineDiffEntry[],
+): GateName[] {
+  const largestDrift = Math.max(0, ...timelineDiff.map((entry) => Math.abs(entry.maxDriftMs ?? 0)));
+  const failed: Record<GateName, boolean> = {
+    minSsim: gates.minSsim !== undefined && scores.ssim.mean < gates.minSsim,
+    minFrameSsim: gates.minFrameSsim !== undefined && scores.ssim.min < gates.minFrameSsim,
+    maxDriftMs: gates.maxDriftMs !== undefined && largestDrift > gates.maxDriftMs,
+    requireSameEvents: gates.requireSameEvents === true && timelineDiff.some((entry) => entry.countA !== entry.countB),
+  };
+  return GATE_NAMES.filter((name) => failed[name]);
+}
 
 const comparedCaptureSchema = z.strictObject({
   captureId: nonEmpty,
@@ -363,7 +396,10 @@ export const comparisonManifestSchema = z
         psnr: z.strictObject({ mean: z.number().nullable(), min: z.number().nullable() }),
       })
       .optional(),
-    threshold: z.strictObject({ minSsim: z.number().min(0).max(1) }).optional(),
+    /** The gates that were given; empty when the comparison is informational. */
+    gates: comparisonGatesSchema.default({}),
+    /** The gates a completed comparison failed; any makes it `regressed`. */
+    failedGates: z.array(z.enum(GATE_NAMES)).optional(),
     /** The lowest-SSIM frames, at least a second apart, lowest first. */
     worstFrames: z
       .array(
@@ -405,9 +441,13 @@ export const comparisonManifestSchema = z
     if (manifest.result.checks.length === 0 || manifest.result.checks.some((check) => !check.passed)) {
       ctx.addIssue({ code: "custom", path: ["result", "checks"], message: "completed comparisons require every check to pass" });
     }
-    const below = manifest.threshold !== undefined && manifest.scores.ssim.mean < manifest.threshold.minSsim;
-    if (below !== (manifest.status === "regressed")) {
-      ctx.addIssue({ code: "custom", path: ["status"], message: "a comparison is regressed exactly when its mean SSIM is below its threshold" });
+    // The verdict must follow from the recorded gates, scores, and timeline diff.
+    const failed = evaluateGates(manifest.gates, manifest.scores, manifest.timelineDiff);
+    if (JSON.stringify(failed) !== JSON.stringify(manifest.failedGates ?? [])) {
+      ctx.addIssue({ code: "custom", path: ["failedGates"], message: `the failed gates must be exactly those the recorded results fail (${failed.join(", ") || "none"})` });
+    }
+    if ((failed.length > 0) !== (manifest.status === "regressed")) {
+      ctx.addIssue({ code: "custom", path: ["status"], message: "a comparison is regressed exactly when it fails a gate" });
     }
   });
 export type ComparisonManifest = z.output<typeof comparisonManifestSchema>;

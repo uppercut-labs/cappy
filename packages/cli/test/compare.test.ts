@@ -91,7 +91,7 @@ describe("cappy compare", { timeout: 30_000 }, () => {
     expect(data["worstFrames"].length).toBeGreaterThanOrEqual(1);
     expect((await readdir(path.join(root(), directory))).sort()).toEqual(outputsFor(data["worstFrames"]));
     const manifest = await manifestAt(data["manifest"]);
-    expect(manifest).toMatchObject({ comparisonVersion: 1, status: "succeeded", identity: { comparisonId: data["comparisonId"] }, tooling: { ffmpeg: { version: "9.9.9-fake" } } });
+    expect(manifest).toMatchObject({ comparisonVersion: 2, status: "succeeded", gates: {}, failedGates: [], identity: { comparisonId: data["comparisonId"] }, tooling: { ffmpeg: { version: "9.9.9-fake" } } });
     for (const artifact of manifest["artifacts"]) {
       expect((await hashFile(path.join(root(), artifact.path))).sha256).toBe(artifact.sha256);
     }
@@ -140,14 +140,68 @@ describe("cappy compare", { timeout: 30_000 }, () => {
 
     const passing = await compare([first["captureId"], second["captureId"], "--min-ssim", "0.5"]);
     expect(passing.code).toBe(0);
-    expect(passing.result["data"]).toMatchObject({ status: "succeeded", threshold: { minSsim: 0.5 } });
+    expect(passing.result["data"]).toMatchObject({ status: "succeeded", gates: { minSsim: 0.5 }, failedGates: [] });
 
     const gated = await compare([first["captureId"], second["captureId"], "-ms", "0.99"]);
     expect(gated.code).toBe(1);
-    expect(gated.result).toMatchObject({ ok: false, error: { code: "COMPARISON_REGRESSED", details: { minSsim: 0.99 } }, data: { status: "regressed" } });
+    expect(gated.result).toMatchObject({ ok: false, error: { code: "COMPARISON_REGRESSED", details: { failedGates: ["minSsim"] } }, data: { status: "regressed" } });
     const manifest = await manifestAt(gated.result["data"]["manifest"]);
-    expect(manifest).toMatchObject({ status: "regressed", threshold: { minSsim: 0.99 } });
+    expect(manifest).toMatchObject({ comparisonVersion: 2, status: "regressed", gates: { minSsim: 0.99 }, failedGates: ["minSsim"] });
     expect((await readdir(path.join(root(), "comparisons", gated.result["data"]["comparisonId"]))).sort()).toEqual(outputsFor(gated.result["data"]["worstFrames"]));
+  });
+
+  it("gates on the worst single frame", async () => {
+    masters = ["m".repeat(2048), "n".repeat(2048)];
+    const first = await capture();
+    const second = await capture(["run", "boss_intro"], "1.1.0");
+    // The fake scores frame 2 at 0.5 and every other frame at 0.99, so the mean stays high.
+    const tight = await compare([first["captureId"], second["captureId"], "-mfs", "0.6", "--min-ssim", "0.5"]);
+    expect(tight.code).toBe(1);
+    expect(tight.result["data"]).toMatchObject({ status: "regressed", gates: { minFrameSsim: 0.6, minSsim: 0.5 }, failedGates: ["minFrameSsim"] });
+    const loose = await compare([first["captureId"], second["captureId"], "--min-frame-ssim", "0.4"]);
+    expect(loose.code).toBe(0);
+    expect(loose.result["data"]).toMatchObject({ status: "succeeded", failedGates: [] });
+  });
+
+  it("gates on event drift and event counts, and lists every failed gate", async () => {
+    const first = await capture();
+    const shifted = [
+      {
+        id: "boss_intro",
+        name: "Boss intro",
+        parameters: { difficulty: { type: "integer", minimum: 1, maximum: 3, default: 2 } },
+        requiredCapabilities: ["scenarios"],
+        events: [
+          { event: "BOSS_APPEAR", t: 100 },
+          { event: "SPELL_CAST", t: 390, payload: { spell: "fireball" } },
+          { event: "SPELL_CAST", t: 420, payload: { spell: "frost" } },
+          { event: "IMPACT", t: 500, durationMs: 120 },
+        ],
+      },
+    ];
+    const { result: run } = await runCli(harness, ["run", "boss_intro"], { sim: { build: "1.1.0", timeScale: 0.2, scenarios: shifted } });
+    const second = run["data"]["captureId"] as string;
+    // SPELL_CAST moved 40 ms later, and a second SPELL_CAST appeared.
+    const drift = await compare([first["captureId"], second, "--max-drift-ms", "20"]);
+    expect(drift.code).toBe(1);
+    expect(drift.result["data"]["failedGates"]).toEqual(["maxDriftMs"]);
+    expect((await compare([first["captureId"], second, "-mdm", "100"])).code).toBe(0);
+    const counts = await compare([first["captureId"], second, "-rse"]);
+    expect(counts.result["data"]).toMatchObject({ status: "regressed", failedGates: ["requireSameEvents"] });
+    const both = await compare([first["captureId"], second, "-rse", "-mdm", "20", "-ms", "0.5"]);
+    expect(both.result["error"]).toMatchObject({ code: "COMPARISON_REGRESSED", details: { failedGates: ["maxDriftMs", "requireSameEvents"] } });
+    // Without timeline gates the diff stays informational.
+    expect((await compare([first["captureId"], second])).code).toBe(0);
+  });
+
+  it("rejects invalid gate values before any media work", async () => {
+    const first = await capture();
+    const second = await capture();
+    for (const args of [["-mfs", "2"], ["--min-frame-ssim", "x"], ["--max-drift-ms", "-5"], ["-mdm", "soon"], ["-ms", ""]]) {
+      const { code, result } = await compare([first["captureId"], second["captureId"], ...args]);
+      expect([code, result["error"]["code"]], args.join(" ")).toEqual([2, "USAGE_INVALID"]);
+    }
+    expect(await readdir(path.join(root(), "comparisons"))).toEqual([]);
   });
 
   it("normalizes a different resolution to A's and records it", async () => {
@@ -275,8 +329,13 @@ describe("cappy compare", { timeout: 30_000 }, () => {
     masters = ["m".repeat(2048), "FAILCMP"];
     const third = await capture();
     const broken = (await compare([first["captureId"], third["captureId"]])).result["data"]["comparisonId"] as string;
+    // A comparison written before gates existed (version 1) is still a cleanup item.
+    const legacy = `cmp_${"3".repeat(8)}-0000-0000-0000-000000000000`;
+    const ws = await (await import("@cappy/workspace")).ManagedWorkspace.open({ projectDir: harness.project });
+    if (!ws.ok) throw new Error(ws.error.message);
+    await ws.value.writeManaged(`comparisons/${legacy}/manifest.json`, JSON.stringify({ comparisonVersion: 1, status: "failed", createdAt: new Date().toISOString() }));
     const failed = await runCli(harness, ["clean", "--failed"]);
-    expect(failed.result["data"]["items"].map((item: { id: string }) => item.id)).toEqual([broken]);
+    expect(failed.result["data"]["items"].map((item: { id: string }) => item.id).sort()).toEqual([broken, legacy].sort());
 
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(Date.now() + 2 * 86_400_000);

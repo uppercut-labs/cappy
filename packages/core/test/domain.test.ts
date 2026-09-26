@@ -7,6 +7,7 @@ import {
   capabilitySetSchema,
   captureJobSchema,
   comparisonManifestSchema,
+  evaluateGates,
   isKnownCapability,
   manifestSchema,
   missingCapabilities,
@@ -212,7 +213,7 @@ describe("comparison manifest", () => {
   const sha = "a".repeat(64);
   const side = (captureId: string) => ({ captureId, take: 1, master: { path: `captures/${captureId}/master.mkv`, sha256: sha }, alignedStartMs: 12 });
   const completed = {
-    comparisonVersion: 1,
+    comparisonVersion: 2,
     status: "succeeded",
     identity: { comparisonId: "cmp_1", project: { id: "p", name: "P" }, source: { kind: "replay", sessionId: "ses_1" }, correlationId: "op_1" },
     createdAt: "2026-09-25T20:00:00.000Z",
@@ -222,18 +223,37 @@ describe("comparison manifest", () => {
     normalization: { width: 320, height: 240, frameRate: 30, scaledB: false },
     scores: { frames: 30, ssim: { mean: 0.95, min: 0.8, minAtMs: 400 }, psnr: { mean: 35, min: 20 } },
     worstFrames: [{ rank: 1, tMs: 400, ssim: 0.8, a: "a.png", b: "b.png", diff: "d.png" }],
+    gates: {},
+    failedGates: [],
     timelineDiff: [],
     artifacts: [],
     tooling: { ffmpeg: { version: "9" }, ffprobe: { version: "9" } },
     result: { warnings: [], checks: [{ name: "comparison.media", passed: true }] },
   };
 
-  it("is regressed exactly when mean SSIM is below the threshold", () => {
-    expect(comparisonManifestSchema.safeParse(completed).success).toBe(true);
-    expect(comparisonManifestSchema.safeParse({ ...completed, threshold: { minSsim: 0.9 } }).success).toBe(true);
-    expect(comparisonManifestSchema.safeParse({ ...completed, threshold: { minSsim: 0.97 } }).success).toBe(false);
-    expect(comparisonManifestSchema.safeParse({ ...completed, status: "regressed", threshold: { minSsim: 0.97 } }).success).toBe(true);
-    expect(comparisonManifestSchema.safeParse({ ...completed, status: "regressed" }).success).toBe(false);
+  it("is regressed exactly when it fails a gate, and records exactly the failed gates", () => {
+    const valid = (manifest: object) => comparisonManifestSchema.safeParse(manifest).success;
+    expect(valid(completed)).toBe(true);
+    expect(valid({ ...completed, gates: { minSsim: 0.9, minFrameSsim: 0.7 } })).toBe(true);
+    expect(valid({ ...completed, gates: { minSsim: 0.97 } })).toBe(false);
+    expect(valid({ ...completed, status: "regressed", gates: { minSsim: 0.97 }, failedGates: ["minSsim"] })).toBe(true);
+    expect(valid({ ...completed, status: "regressed", gates: { minSsim: 0.97, minFrameSsim: 0.9 }, failedGates: ["minSsim"] })).toBe(false);
+    expect(valid({ ...completed, status: "regressed", gates: { minSsim: 0.97, minFrameSsim: 0.9 }, failedGates: ["minSsim", "minFrameSsim"] })).toBe(true);
+    expect(valid({ ...completed, status: "regressed" })).toBe(false);
+    expect(valid({ ...completed, comparisonVersion: 1 })).toBe(false);
+  });
+
+  it("evaluates timeline gates from the timeline diff", () => {
+    const diff = [
+      { type: "HIT", countA: 3, countB: 3, matched: 3, missingAtMs: [], extraAtMs: [], meanDriftMs: -4, maxDriftMs: -25 },
+      { type: "COIN", countA: 2, countB: 1, matched: 1, missingAtMs: [500], extraAtMs: [], meanDriftMs: 1, maxDriftMs: 1 },
+    ];
+    const scores = { ssim: { mean: 0.99, min: 0.8 } };
+    expect(evaluateGates({ maxDriftMs: 30 }, scores, diff)).toEqual([]);
+    expect(evaluateGates({ maxDriftMs: 20 }, scores, diff)).toEqual(["maxDriftMs"]);
+    expect(evaluateGates({ requireSameEvents: true }, scores, diff)).toEqual(["requireSameEvents"]);
+    expect(evaluateGates({ minFrameSsim: 0.9, minSsim: 0.95 }, scores, diff)).toEqual(["minFrameSsim"]);
+    expect(evaluateGates({}, scores, diff)).toEqual([]);
   });
 
   it("requires every diagnostic for a completed comparison and an error for a failed one", () => {

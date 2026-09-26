@@ -21,6 +21,9 @@ export const FLAGS = {
   logs: { type: "boolean", short: "l" },
   all: { type: "boolean", short: "a" },
   "min-ssim": { type: "string", short: "ms" },
+  "min-frame-ssim": { type: "string", short: "mfs" },
+  "max-drift-ms": { type: "string", short: "mdm" },
+  "require-same-events": { type: "boolean", short: "rse" },
 } as const satisfies Record<string, FlagSpec>;
 
 export interface FlagSpec {

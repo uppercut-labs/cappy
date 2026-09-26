@@ -1,5 +1,7 @@
 # CAP-018 - Gate comparisons on frames and on the timeline
 
+**Status:** Complete
+
 ## Goal
 
 CI can fail a comparison on a glitch confined to a few frames or on a logic regression visible in the events (SPEC section 11.8; ADR-018).
@@ -25,3 +27,27 @@ CI can fail a comparison on a glitch confined to a few frames or on a logic regr
 ## Dependencies
 
 None.
+
+## Completion
+
+Completed 2026-09-25 (America/Chicago).
+
+- Each gate, given alone, regresses exactly when its condition fails (`packages/cli/test/compare.test.ts`):
+  - `-mfs 0.6` regresses on a single-frame dip to 0.5 while `--min-ssim 0.5` passes; `--min-frame-ssim 0.4` succeeds.
+  - `--max-drift-ms 20` regresses on a 40 ms `SPELL_CAST` drift; `-mdm 100` succeeds.
+  - `-rse` regresses on an extra `SPELL_CAST`.
+  - The existing `--min-ssim` behavior is kept.
+- Gates combine: `-rse -mdm 20 -ms 0.5` gives `COMPARISON_REGRESSED` with `failedGates: ["maxDriftMs", "requireSameEvents"]`, in `GATE_NAMES` order.
+- Without gates, the same differing timeline exits 0 (CAP-015 behavior kept).
+- `-mfs 2`, `--min-frame-ssim x`, `--max-drift-ms -5`, `-mdm soon`, and an empty `-ms` fail with `USAGE_INVALID` (exit 2), and no comparison directory is created.
+- Manifests validate as `comparisonVersion: 2`, with `gates` and `failedGates`. The schema recomputes the failed gates with `evaluateGates` and requires `failedGates` and `regressed` to match (`packages/core/test/domain.test.ts`). `clean --failed` selects both a version 1 comparison and a version 2 one.
+- `docs/cli.md` documents the four gates. `cappy --help` lists `-mfs`, `-mdm`, and `-rse`, which the shorthand-rule test covers.
+- The comparison warning for differing presentations named in this ticket's scope is delivered with CAP-021, which introduces the recorded presentation it compares.
+
+Validation (macOS):
+
+- `npm run typecheck`: passed.
+- `npm run lint`: passed.
+- `npm test`: 263 passed, 15 skipped.
+- `CAPPY_REAL_TOOLS=1 npx vitest run`: 276 passed, 2 skipped (the OBS smoke tests).
+- `git diff --check`: passed.

@@ -197,8 +197,10 @@ export function renderCompare(result: CommandResult<CompareReport>): string {
     const psnr = scores.psnr.mean === null ? "identical frames" : `mean ${scores.psnr.mean.toFixed(2)} dB, min ${String(scores.psnr.min?.toFixed(2))} dB`;
     lines.push(`SSIM mean ${scores.ssim.mean.toFixed(4)}, min ${scores.ssim.min.toFixed(4)} at ${scores.ssim.minAtMs} ms; PSNR ${psnr} over ${scores.frames} frame(s)`);
   }
-  if (report.threshold !== undefined) {
-    lines.push(`Threshold: mean SSIM >= ${report.threshold.minSsim}`);
+  const gates = Object.entries(report.gates).map(([name, value]) => (value === true ? name : `${name} ${String(value)}`));
+  if (gates.length > 0) {
+    const failed = report.failedGates ?? [];
+    lines.push(`Gates: ${gates.join(", ")}; ${failed.length === 0 ? "all passed" : `failed: ${failed.join(", ")}`}`);
   }
   for (const frame of report.worstFrames ?? []) {
     lines.push(`  worst #${frame.rank}  ${frame.tMs} ms, SSIM ${frame.ssim.toFixed(4)}: ${frame.diff}`);

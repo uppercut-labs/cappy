@@ -42,7 +42,10 @@ Command options:
   -ot, --older-than <age>    clean: only items older than an age such as 90m, 12h, 7d, 2w
   -l,  --logs                clean: command logs
   -a,  --all                 clean: every capture, session, comparison, and log
-  -ms, --min-ssim <score>    compare: record "regressed" and exit 1 when mean SSIM is below 0..1
+  -ms, --min-ssim <score>    compare: regress (exit 1) when the mean SSIM is below a score from 0 to 1
+  -mfs, --min-frame-ssim <score>  compare: regress when any single frame's SSIM is below the score
+  -mdm, --max-drift-ms <ms>  compare: regress when a matched game event drifts more than ms
+  -rse, --require-same-events  compare: regress when any game event type occurs a different number of times
   -dr, --dry-run             clean: report what would be removed without deleting anything
 
 Options:

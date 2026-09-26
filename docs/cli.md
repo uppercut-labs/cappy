@@ -115,7 +115,12 @@ cappy compare cap_A cap_B --min-ssim 0.97
 
 | Option | Meaning |
 | --- | --- |
-| `-ms, --min-ssim <score>` | Record the comparison as `regressed`, and exit 1 with `COMPARISON_REGRESSED`, when mean SSIM is below this score (0 to 1). Without it, scores are informational. |
+| `-ms, --min-ssim <score>` | Gate: the mean SSIM must be at least this score (0 to 1). |
+| `-mfs, --min-frame-ssim <score>` | Gate: every frame's SSIM must be at least this score, which catches a glitch lasting a few frames. |
+| `-mdm, --max-drift-ms <ms>` | Gate: no matched game event may drift more than `ms` either way. |
+| `-rse, --require-same-events` | Gate: every game event type must occur equally often in A and B. |
+
+Without gates, scores and the timeline diff are informational, and a completed comparison exits 0. If any gate fails, the comparison is recorded as `regressed` and exits 1 with `COMPARISON_REGRESSED`, whose details list the failed gates. The manifest (`comparisonVersion: 2`) records the `gates` given and the `failedGates`. A value out of range fails with `USAGE_INVALID` (exit 2) before any media work.
 
 What `compare` does:
 
