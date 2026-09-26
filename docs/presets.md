@@ -59,6 +59,20 @@ How anchors resolve:
 - Times given only in seconds are used exactly as written, as before anchors existed.
 - Each derivative produces one output, unless it uses `occurrence: "every"`.
 
+## Presentation
+
+`presentation` asks the game to show a capture differently, without changing what happens. It applies to scenario captures and replay captures:
+
+```json
+"slowmo": { "presentation": { "timeScale": 0.5, "camera": "close" } }
+```
+
+- `timeScale` is a number from 0.1 to 4 (0.5 is half speed). It requires the adapter's `time_scale` capability.
+- `camera` is a camera name the adapter defines. It requires `alternate_cameras`.
+- Other keys are passed to the adapter as they are.
+
+Cappy checks those capabilities after connecting and before recording (`CAPABILITY_MISSING`). The manifest records the presentation as `identity.presentation`. Event times are what is on screen, so anchors and clips line up with the slowed-down video. The simulation time rides along in each event's payload as `simT`. `cappy compare` warns when two captures were presented differently.
+
 ## One output per event
 
 `occurrence: "every"` on a clip's `start`, or on a still's or thumbnail's `at`, makes one output per matching event, numbered in timeline order:

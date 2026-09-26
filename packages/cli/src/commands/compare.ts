@@ -37,7 +37,7 @@ import {
 import { ManagedWorkspace, hashFile } from "@cappy/workspace";
 import type { CommandContext } from "../context.js";
 import { CommandLog, acquireRunLock } from "../log.js";
-import { sourceKey } from "../manifest.js";
+import { canonicalJson, sourceKey } from "../manifest.js";
 
 const COMMAND = "compare";
 const CAPTURE_ID = /^cap_[A-Za-z0-9-]+$/;
@@ -269,6 +269,12 @@ export async function compare(context: CommandContext): Promise<CommandResult<Co
     );
   }
   const warnings: string[] = [];
+  const presentationOf = (manifest: ArtifactManifest): string => canonicalJson(manifest.identity.presentation ?? {});
+  if (presentationOf(manifestA) !== presentationOf(manifestB)) {
+    warnings.push(
+      `the captures were made with different presentation (A ${presentationOf(manifestA)}, B ${presentationOf(manifestB)}), so their frames and timings are not expected to match`,
+    );
+  }
   for (const entry of timelineDiff.filter((difference) => difference.countA !== difference.countB)) {
     warnings.push(`timeline differs: ${entry.type} occurs ${entry.countA} time(s) in A and ${entry.countB} in B`);
   }

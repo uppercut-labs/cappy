@@ -94,6 +94,13 @@ const presetSchema = z
     presentation: z.record(z.string(), z.unknown()).default({}),
   })
   .superRefine((preset, ctx) => {
+    const { timeScale, camera } = preset.presentation;
+    if (timeScale !== undefined && (typeof timeScale !== "number" || !Number.isFinite(timeScale) || timeScale < 0.1 || timeScale > 4)) {
+      ctx.addIssue({ code: "custom", path: ["presentation", "timeScale"], message: "use a number from 0.1 to 4 (0.5 is half speed)" });
+    }
+    if (camera !== undefined && (typeof camera !== "string" || camera.trim() === "")) {
+      ctx.addIssue({ code: "custom", path: ["presentation", "camera"], message: "use an adapter-defined camera name" });
+    }
     const seen = new Set<string>();
     preset.derivatives.forEach((derivative, index) => {
       if (seen.has(derivative.role)) {

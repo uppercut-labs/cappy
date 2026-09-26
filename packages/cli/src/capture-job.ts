@@ -250,6 +250,7 @@ export async function executeCapture(
       project: { id: config.project.id, name: config.project.name },
       source: plan.source,
       correlationId: context.correlationId,
+      ...(Object.keys(setup.preset.presentation).length === 0 ? {} : { presentation: setup.preset.presentation }),
     },
     build: {
       cappyVersion: CAPPY_VERSION,

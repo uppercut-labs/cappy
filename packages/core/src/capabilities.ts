@@ -14,6 +14,7 @@ export const KNOWN_CAPABILITIES = [
   "snapshots",
   "alternate_cameras",
   "telemetry",
+  "time_scale",
 ] as const;
 
 export type KnownCapability = (typeof KNOWN_CAPABILITIES)[number];
@@ -34,4 +35,16 @@ export function isKnownCapability(name: string): name is KnownCapability {
 export function missingCapabilities(advertised: CapabilitySet, required: readonly string[]): string[] {
   const available = new Set(advertised);
   return required.filter((name) => !available.has(name));
+}
+
+/**
+ * Capabilities a preset's presentation needs (SPEC 14): `timeScale` needs
+ * `time_scale`, and `camera` needs `alternate_cameras`. Other keys are
+ * adapter-defined and need nothing Cappy can check.
+ */
+export function presentationCapabilities(presentation: Readonly<Record<string, unknown>>): KnownCapability[] {
+  return [
+    ...("camera" in presentation ? (["alternate_cameras"] as const) : []),
+    ...("timeScale" in presentation ? (["time_scale"] as const) : []),
+  ];
 }

@@ -9,6 +9,7 @@ import {
   commandSuccess,
   err,
   missingCapabilities,
+  presentationCapabilities,
   ok,
 } from "@cappy/core";
 import type { AdapterConnection, OperationOutcome, ReplayHandoff } from "@cappy/protocol";
@@ -132,12 +133,24 @@ async function capture(context: CommandContext, sessionId: string): Promise<Comm
     if (!compatible.ok) {
       return compatible;
     }
+    // The preset's own requirements, including those its presentation implies, apply to replays too.
+    const { preset } = setup.value;
+    const missing = missingCapabilities(connection.capabilities, [...preset.requiredCapabilities, ...presentationCapabilities(preset.presentation)]);
+    if (missing.length > 0) {
+      return err(
+        cappyError("CAPABILITY_MISSING", `the adapter lacks ${missing.join(", ")}, which preset "${setup.value.presetName}" needs`, "replay", {
+          details: { missing, advertised: connection.capabilities },
+          retryable: false,
+        }),
+      );
+    }
     setup.value.warnings.push(...compatible.value);
+    const presentation = Object.keys(preset.presentation).length === 0 ? {} : { presentation: preset.presentation };
     return ok({
       source: { kind: "replay" as const, sessionId },
       sessionId,
       label: "REPLAY" as const,
-      prepare: () => connection.prepareReplay(handoff, { correlationId: context.correlationId, readyTimeoutMs: setup.value.config.timeouts.readyMs }),
+      prepare: () => connection.prepareReplay(handoff, { correlationId: context.correlationId, readyTimeoutMs: setup.value.config.timeouts.readyMs, ...presentation }),
     });
   });
   const options = { correlationId: result.correlationId, warnings: result.warnings };

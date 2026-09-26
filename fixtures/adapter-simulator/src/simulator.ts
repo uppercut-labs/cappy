@@ -116,6 +116,21 @@ interface ActiveOperation {
   readonly script: readonly ScriptedEvent[];
   readonly fail?: { readonly code: string; readonly message: string };
   readonly timers: NodeJS.Timeout[];
+  /** Presentation time scale (0.5 is half speed); event times are reported as presented time. */
+  readonly presentationScale?: number;
+}
+
+/** Cameras the simulator offers through presentation. */
+export const SIMULATOR_CAMERAS = ["default", "close"] as const;
+
+/** A presentation's time scale, or an error message for a camera the simulator does not have. */
+function presentationOf(presentation: Readonly<Record<string, unknown>> | undefined): { scale: number } | { error: string } {
+  const camera = presentation?.["camera"];
+  if (camera !== undefined && !(SIMULATOR_CAMERAS as readonly unknown[]).includes(camera)) {
+    return { error: `unknown camera "${String(camera)}"; the simulator has ${SIMULATOR_CAMERAS.join(", ")}` };
+  }
+  const scale = presentation?.["timeScale"];
+  return { scale: typeof scale === "number" && scale > 0 ? scale : 1 };
 }
 
 export class SimulatorRejectedError extends Error {
@@ -339,12 +354,17 @@ export class AdapterSimulator {
         if (problem !== undefined) {
           return this.send({ type: "failed", op: message.op, code: "INVALID_PARAMETERS", message: problem });
         }
+        const presentation = presentationOf(message.presentation);
+        if ("error" in presentation) {
+          return this.send({ type: "failed", op: message.op, code: "UNKNOWN_CAMERA", message: presentation.error });
+        }
         this.active = {
           op: message.op,
           kind: "scenario",
           script: scenario.events ?? [],
           ...(scenario.fail === undefined ? {} : { fail: scenario.fail }),
           timers: [],
+          presentationScale: presentation.scale,
         };
         return this.send({ type: "ready", op: message.op });
       }
@@ -370,7 +390,11 @@ export class AdapterSimulator {
         if (events === undefined) {
           return this.send({ type: "failed", op: message.op, code: "REPLAY_UNSUPPORTED", message: "replay payload is not a simulator replay" });
         }
-        this.active = { op: message.op, kind: "replay", script: events, timers: [] };
+        const presentation = presentationOf(message.presentation);
+        if ("error" in presentation) {
+          return this.send({ type: "failed", op: message.op, code: "UNKNOWN_CAMERA", message: presentation.error });
+        }
+        this.active = { op: message.op, kind: "replay", script: events, timers: [], presentationScale: presentation.scale };
         return this.send({ type: "ready", op: message.op });
       }
       case "start":
@@ -397,6 +421,8 @@ export class AdapterSimulator {
   /** Emit the operation's scripted events, then finish scenarios and replays. */
   private play(operation: ActiveOperation): void {
     const scale = this.options.timeScale ?? 0;
+    // Scripted times are simulation time; events report presented time (SPEC 9.4), with simT alongside.
+    const presented = operation.presentationScale ?? 1;
     const emit = (event: ScriptedEvent): void => {
       if (this.active !== operation) {
         return;
@@ -404,13 +430,17 @@ export class AdapterSimulator {
       if (operation.kind === "freeform") {
         this.recorded.push(event);
       }
+      const payload =
+        presented === 1
+          ? event.payload
+          : { ...(typeof event.payload === "object" && event.payload !== null ? (event.payload as Record<string, unknown>) : {}), simT: event.t };
       this.send({
         type: "event",
         op: operation.op,
-        t: event.t,
+        t: event.t / presented,
         event: event.event,
-        ...(event.durationMs === undefined ? {} : { durationMs: event.durationMs }),
-        ...(event.payload === undefined ? {} : { payload: event.payload }),
+        ...(event.durationMs === undefined ? {} : { durationMs: event.durationMs / presented }),
+        ...(payload === undefined ? {} : { payload }),
       });
     };
     const finish = (): void => {
@@ -424,10 +454,10 @@ export class AdapterSimulator {
       return;
     }
     for (const event of operation.script) {
-      operation.timers.push(setTimeout(() => emit(event), event.t * scale));
+      operation.timers.push(setTimeout(() => emit(event), (event.t / presented) * scale));
     }
     const end = Math.max(0, ...operation.script.map((event) => event.t + (event.durationMs ?? 0)));
-    operation.timers.push(setTimeout(finish, end * scale + 1));
+    operation.timers.push(setTimeout(finish, (end / presented) * scale + 1));
   }
 
   private complete(operation: ActiveOperation): void {

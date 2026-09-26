@@ -46,7 +46,7 @@ At most one operation is active at a time. Cappy creates an operation ID (`op`),
 | --- | --- | --- |
 | Authored scenario | `prepare_scenario` {op, scenario, parameters, presentation?} | `ready`, then after `start`: `started`, `event`*, `completed` or `failed` |
 | Freeform recording | `record_start` {op} | `started`, `event`*, then after `stop`: `completed` with `replay` |
-| Replay | `prepare_replay` {op, replay} | `ready`, then after `start`: `started`, `event`*, `completed` or `failed` |
+| Replay | `prepare_replay` {op, replay, presentation?} | `ready`, then after `start`: `started`, `event`*, `completed` or `failed` |
 
 - `stop` {op} asks a running freeform recording or replay to finish.
 - `cancel` {op} aborts the operation. The adapter should tear down and may stay silent.
@@ -59,6 +59,17 @@ At most one operation is active at a time. Cappy creates an operation ID (`op`),
 ```
 
 `t` is operation-relative monotonic milliseconds, never wall-clock time. Cappy stamps each event with its receipt order (`seq`) and the operation's correlation ID.
+
+`t` is presented time: what is on screen, which is the recorder's clock. It equals simulation time unless presentation changes the speed. At `timeScale` 0.5 an event 1000 ms into the simulation is sent with `t` 2000. An adapter may add the simulation time to the payload as `simT`.
+
+### Presentation
+
+`prepare_scenario` and `prepare_replay` may carry `presentation`, an object from the capture preset. Cappy defines two keys; any others are the adapter's own:
+
+- `timeScale`: a number from 0.1 to 4 (0.5 is half speed). Advertise the `time_scale` capability to accept it.
+- `camera`: a camera name the adapter defines. Advertise `alternate_cameras` to accept it. Fail the operation, for example with code `UNKNOWN_CAMERA`, for a name you do not have.
+
+Cappy checks those capabilities before recording. A replay played with a presentation must be the same simulation; only what is shown, and when, changes.
 
 ### Replay payloads
 

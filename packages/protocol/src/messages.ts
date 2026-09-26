@@ -106,7 +106,12 @@ export const controllerMessageSchema = z.discriminatedUnion("type", [
     presentation: z.record(z.string(), z.unknown()).optional(),
   }),
   z.strictObject({ type: z.literal("record_start"), op: opId }),
-  z.strictObject({ type: z.literal("prepare_replay"), op: opId, replay: replayHandoffSchema }),
+  z.strictObject({
+    type: z.literal("prepare_replay"),
+    op: opId,
+    replay: replayHandoffSchema,
+    presentation: z.record(z.string(), z.unknown()).optional(),
+  }),
   z.strictObject({ type: z.literal("start"), op: opId }),
   z.strictObject({ type: z.literal("stop"), op: opId }),
   z.strictObject({ type: z.literal("cancel"), op: opId }),

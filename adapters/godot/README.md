@@ -55,6 +55,21 @@ Cappy.set_replay_provider(_record_start, _record_stop, _replay_prepare, _replay_
 
 The last argument declares `deterministic_replay`. Cappy stores the payload byte-for-byte and never interprets it. `op.cancelled` fires if Cappy cancels; `op.stop_requested` fires when a running replay should end early.
 
+## Presentation: slow motion and cameras
+
+Scenarios and replays receive the capture preset's `op.presentation`, for example `{"timeScale": 0.5, "camera": "close"}`. The game applies it, and declares that it can:
+
+```gdscript
+Cappy.declare_capabilities(["time_scale", "alternate_cameras"])
+
+func _replay_prepare(op: CappyOperation) -> void:
+	Engine.time_scale = op.time_scale()   # 1.0 unless presentation.timeScale is set
+	# ...switch to op.presentation.get("camera", "default"), or op.fail("UNKNOWN_CAMERA", ...)
+	op.mark_ready()
+```
+
+Keep passing simulation time to `op.event()`. Cappy's timeline needs presented time, meaning what is on screen, so at a time scale other than 1 the addon sends `t / time_scale()` and adds `simT` (the simulation time) to a dictionary payload. `op.elapsed_msec()` returns simulation time as well. Put the time scale back to 1 when the operation ends.
+
 ## Demo
 
 `fixtures/godot-demo` is the acceptance fixture: a deterministic orb-launch scenario with a validation hook, and a runner whose jumps are recorded and replayed exactly. Assemble a runnable copy with the addon included:
@@ -64,3 +79,5 @@ npm run godot:demo
 ```
 
 That writes `.godot-demo/` (ignored by Git). Point `game.command` at `godot` and `game.args` at `["--headless", "--path", "<absolute path to .godot-demo>"]`, or drop `--headless` to watch it.
+
+The demo also supports presentation (`timeScale`, and the cameras `default` and `close`) and a second-build variant: the user argument `--variant=b`, after `--`.

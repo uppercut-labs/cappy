@@ -16,7 +16,9 @@ var kind: String
 var scenario_id := ""
 ## Validated scenario parameters with defaults applied.
 var parameters: Dictionary = {}
-## Presentation options from the capture preset, when any.
+## Presentation options from the capture preset, when any: `timeScale`
+## (0.5 is half speed) and `camera`, plus any the game defines. The game
+## applies them; `event()` reports times as presented (see `time_scale()`).
 var presentation: Dictionary = {}
 ## For replays: the adapter-owned payload recorded earlier, byte for byte.
 var replay_payload := PackedByteArray()
@@ -43,23 +45,40 @@ func mark_ready() -> void:
 	_adapter.call("_send", {"type": "ready", "op": id})
 
 
-## Emit a semantic timeline event. `t_msec` is operation-relative monotonic
+## The presentation's time scale: `presentation.timeScale` when it is a
+## positive number, otherwise 1 (real time).
+func time_scale() -> float:
+	var value: Variant = presentation.get("timeScale", 1.0)
+	if (typeof(value) == TYPE_FLOAT or typeof(value) == TYPE_INT) and float(value) > 0.0:
+		return float(value)
+	return 1.0
+
+
+## Emit a semantic timeline event. `t_msec` is operation-relative simulation
 ## time; deterministic games should derive it from their simulation clock.
+## Cappy expects presented time (what is on screen), so at a time scale
+## other than 1 the event is sent at `t_msec / time_scale()`, and its
+## simulation time rides along in the payload as `simT`.
 func event(name: String, t_msec: float, payload: Variant = null, duration_msec: float = -1.0) -> void:
 	if done:
 		return
-	var message := {"type": "event", "op": id, "t": maxf(t_msec, 0.0), "event": name}
+	var scale := time_scale()
+	var message := {"type": "event", "op": id, "t": maxf(t_msec, 0.0) / scale, "event": name}
 	if duration_msec >= 0.0:
-		message["durationMs"] = duration_msec
+		message["durationMs"] = duration_msec / scale
+	if scale != 1.0 and (payload == null or typeof(payload) == TYPE_DICTIONARY):
+		var with_sim: Dictionary = {} if payload == null else (payload as Dictionary).duplicate()
+		with_sim["simT"] = t_msec
+		payload = with_sim
 	if payload != null:
 		message["payload"] = payload
 	_adapter.call("_send", message)
 
 
-## Wall-clock milliseconds since the operation started, for games without a
-## simulation clock.
+## Simulation milliseconds since the operation started (wall-clock time
+## times the time scale), for games without a simulation clock of their own.
 func elapsed_msec() -> float:
-	return float(Time.get_ticks_msec() - _started_msec)
+	return float(Time.get_ticks_msec() - _started_msec) * time_scale()
 
 
 ## Finish successfully. A freeform recording passes its replay payload here.

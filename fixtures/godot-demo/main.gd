@@ -10,6 +10,10 @@ extends Node2D
 ##
 ## All timeline times come from the fixed 60 Hz physics tick, never the wall clock.
 ##
+## Presentation (replays and scenarios): `timeScale` sets Engine.time_scale,
+## and `camera` is "default" or "close" (zoomed in, following the action).
+## Simulation ticks are unchanged, so a slowed replay is the same replay.
+##
 ## Run with the user argument `--variant=b` (after `--`) to act as a second
 ## build: it reports build "<version>+b" and draws a larger green orb, so two
 ## named builds can be captured and compared.
@@ -42,6 +46,7 @@ var _replay_ticks := 0
 var _autopilot := RandomNumberGenerator.new()
 var _status := "Idle"
 var _variant := ""
+var _camera: Camera2D = null
 
 
 func _ready() -> void:
@@ -63,6 +68,7 @@ func _ready() -> void:
 		{"validate": _validate_orb, "required_capabilities": ["scenarios"]}
 	)
 	Cappy.set_replay_provider(_start_recording, _stop_recording, _prepare_replay, _start_replay, true)
+	Cappy.declare_capabilities(["alternate_cameras", "time_scale"])
 
 
 func _physics_process(_delta: float) -> void:
@@ -70,7 +76,35 @@ func _physics_process(_delta: float) -> void:
 		_step_orb()
 	if _runner != null and not _runner.done:
 		_step_runner()
+	if _camera != null:
+		_camera.position = _orb_position if _orb != null else Vector2(60.0 + float(_runner_tick * 2 % 840), GROUND_Y)
 	queue_redraw()
+
+
+# --- Presentation ----------------------------------------------------------
+
+
+## Apply an operation's presentation. Fails the operation for an unknown camera.
+func _present(operation: CappyOperation) -> bool:
+	var camera := str(operation.presentation.get("camera", "default"))
+	if camera != "default" and camera != "close":
+		operation.fail("UNKNOWN_CAMERA", "the demo has cameras default and close, not %s" % camera)
+		return false
+	Engine.time_scale = operation.time_scale()
+	if camera == "close":
+		_camera = Camera2D.new()
+		_camera.zoom = Vector2(2.0, 2.0)
+		add_child(_camera)
+		_camera.make_current()
+	operation.cancelled.connect(_unpresent)
+	return true
+
+
+func _unpresent() -> void:
+	Engine.time_scale = 1.0
+	if _camera != null:
+		_camera.queue_free()
+		_camera = null
 
 
 # --- Scenario: orb launch -----------------------------------------------------
@@ -83,6 +117,8 @@ func _validate_orb(parameters: Dictionary) -> String:
 
 
 func _prepare_orb(operation: CappyOperation) -> void:
+	if not _present(operation):
+		return
 	_orb = null
 	_orb_tick = 0
 	_orb_gravity = float(operation.parameters["gravity"])
@@ -123,6 +159,7 @@ func _step_orb() -> void:
 		_status = "Orb settled after %d bounces" % _orb_bounces
 		var finished := _orb
 		_orb = null
+		_unpresent()
 		finished.complete({"bounces": _orb_bounces, "ticks": _orb_tick})
 
 
@@ -166,6 +203,8 @@ func _prepare_replay(operation: CappyOperation) -> void:
 	for tick in decoded["jumps"]:
 		_replay_jumps[int(tick)] = true
 	_replay_ticks = int(decoded["ticks"])
+	if not _present(operation):
+		return
 	_status = "Replay ready (%d ticks)" % _replay_ticks
 	operation.mark_ready()
 
@@ -188,6 +227,7 @@ func _finish_replay() -> void:
 	_status = "Replay finished"
 	var finished := _runner
 	_runner = null
+	_unpresent()
 	finished.complete({"ticks": _runner_tick})
 
 

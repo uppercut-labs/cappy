@@ -271,6 +271,8 @@ export const manifestSchema = z
       project: z.strictObject({ id: nonEmpty, name: nonEmpty }),
       source: captureSourceSchema,
       correlationId: nonEmpty,
+      /** The presentation requested from the adapter (speed, camera), when the preset set one. */
+      presentation: z.record(z.string(), z.unknown()).optional(),
     }),
     build: z.strictObject({
       cappyVersion: nonEmpty,

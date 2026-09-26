@@ -329,12 +329,17 @@ export class AdapterConnection {
     return this.begin("freeform", options.correlationId, "started", options.startTimeoutMs, (op) => ({ type: "record_start", op }));
   }
 
-  /** Hand a stored replay to the adapter and wait until it is ready to play. */
+  /** Hand a stored replay to the adapter, with any presentation, and wait until it is ready to play. */
   async prepareReplay(
     replay: ReplayHandoff,
-    options: { correlationId: string; readyTimeoutMs: number },
+    options: { correlationId: string; readyTimeoutMs: number; presentation?: Record<string, unknown> },
   ): Promise<Result<AdapterOperation>> {
-    return this.begin("replay", options.correlationId, "ready", options.readyTimeoutMs, (op) => ({ type: "prepare_replay", op, replay }));
+    return this.begin("replay", options.correlationId, "ready", options.readyTimeoutMs, (op) => ({
+      type: "prepare_replay",
+      op,
+      replay,
+      ...(options.presentation === undefined ? {} : { presentation: options.presentation }),
+    }));
   }
 
   close(): void {

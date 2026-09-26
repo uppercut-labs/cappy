@@ -28,6 +28,7 @@ var quit_on_disconnect := true
 var game_id := ""
 var game_name := ""
 var build := ""
+var _extra_capabilities: Array[String] = []
 
 var _socket: WebSocketPeer
 var _token := ""
@@ -138,8 +139,16 @@ func _process(_delta: float) -> void:
 			_finish()
 
 
+## Declare capabilities beyond those the adapter infers, such as
+## "time_scale" or "alternate_cameras" when the game applies presentation.
+func declare_capabilities(names: Array) -> void:
+	for name in names:
+		if not _extra_capabilities.has(str(name)):
+			_extra_capabilities.append(str(name))
+
+
 func _capabilities() -> Array[String]:
-	var capabilities: Array[String] = []
+	var capabilities: Array[String] = _extra_capabilities.duplicate()
 	if not _scenarios.is_empty():
 		capabilities.append("scenarios")
 	if not _replay_provider.is_empty():
@@ -281,6 +290,7 @@ func _prepare_replay(message: Dictionary) -> void:
 		return
 	operation.replay_payload = payload
 	operation.replay_format = str(handoff.get("format", ""))
+	operation.presentation = message.get("presentation", {})
 	_replay_provider["replay_prepare"].call(operation)
 
 

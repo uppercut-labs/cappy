@@ -6,6 +6,7 @@ import {
   commandFailure,
   err,
   missingCapabilities,
+  presentationCapabilities,
   ok,
   resolveScenarioParameters,
 } from "@cappy/core";
@@ -41,7 +42,7 @@ export async function run(context: CommandContext): Promise<CommandResult<RunRep
 
 async function planScenario(context: CommandContext, setup: CaptureSetup, connection: AdapterConnection, scenarioId: string): Promise<Result<CapturePlan>> {
   const { config, preset, sessions } = setup;
-  const missing = missingCapabilities(connection.capabilities, ["scenarios", ...preset.requiredCapabilities]);
+  const missing = missingCapabilities(connection.capabilities, ["scenarios", ...preset.requiredCapabilities, ...presentationCapabilities(preset.presentation)]);
   if (missing.length > 0) {
     return err(cappyError("CAPABILITY_MISSING", `the adapter lacks ${missing.join(", ")}`, "run", { details: { missing, advertised: connection.capabilities } }));
   }

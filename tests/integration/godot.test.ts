@@ -47,7 +47,7 @@ describe.runIf(godot !== undefined)("Godot adapter and demo", { timeout: 120_000
       adapter: { name: "cappy-godot", version: "0.1.0" },
       game: { id: "cappy-godot-demo", name: "Cappy Godot Demo" },
       build: "0.1.0",
-      capabilities: ["deterministic_replay", "freeform_recording", "replay", "scenarios"],
+      capabilities: ["alternate_cameras", "deterministic_replay", "freeform_recording", "replay", "scenarios", "time_scale"],
     });
     expect(result["data"]["scenarios"]).toEqual([
       expect.objectContaining({
@@ -135,5 +135,28 @@ describe.runIf(godot !== undefined)("Godot adapter and demo", { timeout: 120_000
     expect(manifestB["build"]).toMatchObject({ name: "b", gameBuild: "0.1.0+b" });
     // Same simulation, different look: the variant only marks itself in the launch event.
     expect(manifestB["timing"]["timeline"].find((event: { type: string }) => event.type === "LAUNCH")["payload"]).toEqual({ power: 4, variant: "b" });
+  });
+
+  it("replays a recorded session at half speed through the close camera, as the same simulation", async () => {
+    const configPath = path.join(harness.project, "cappy.config.json");
+    const config = JSON.parse(await readFile(configPath, "utf8")) as Record<string, any>;
+    config["presets"] = { ...config["presets"], slowmo: { presentation: { timeScale: 0.5, camera: "close" } }, drone: { presentation: { camera: "drone" } } };
+    await import("node:fs/promises").then(({ writeFile }) => writeFile(configPath, JSON.stringify(config)));
+
+    const recorded = await runCli(harness, ["record", "--duration", "1"]);
+    const sessionId = recorded.result["data"]["session"]["id"] as string;
+    const stored = JSON.parse(await readFile(path.join(harness.project, ".cappy/sessions", sessionId, "timeline.json"), "utf8")) as { type: string; t: number }[];
+    const replayed = await runCli(harness, ["replay", sessionId, "-p", "slowmo"]);
+    expect(replayed.code, JSON.stringify(replayed.result["error"])).toBe(0);
+    const manifest = JSON.parse(await readFile(path.join(harness.project, ".cappy", replayed.result["data"]["manifest"]), "utf8")) as Record<string, any>;
+    const offset = manifest["timing"]["sync"]["adapterOffsetMs"] as number;
+    const game = (manifest["timing"]["timeline"] as { source: string; type: string; t: number; payload?: { simT?: number } }[]).filter((event) => event.source === "adapter");
+    expect(game.map((event) => event.type)).toEqual(stored.map((event) => event.type));
+    game.forEach((event, index) => {
+      expect(event.payload?.simT).toBeCloseTo(stored[index]?.t ?? NaN, 2);
+      expect(event.t - offset).toBeCloseTo((stored[index]?.t ?? NaN) * 2, 1);
+    });
+    const unknown = await runCli(harness, ["replay", sessionId, "-p", "drone"]);
+    expect(unknown.result["error"]).toMatchObject({ code: "ADAPTER_OPERATION_FAILED", details: { adapterCode: "UNKNOWN_CAMERA" } });
   });
 });
