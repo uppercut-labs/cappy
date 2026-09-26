@@ -109,6 +109,8 @@ Name builds in the config, then capture the same moment with each and compare. T
 npx cappy compare-builds orb_launch base b -pa power=4 -C /path/to/project
 ```
 
-The result holds both captures and a comparison with its triptych, scores, and timeline diff. Add gates such as `--min-ssim 0.99` to fail on a visual difference (the variant's orb is one), or `--require-same-events` to fail on a logic difference. The OBS scene must show the game window for the visual difference to register.
+The result holds both captures and a comparison with its triptych, scores, and timeline diff. Add gates such as `--min-ssim 0.999` to fail on a visual difference (the variant's orb is one), or `--require-same-events` to fail on a logic difference.
+
+The OBS scene must show the game window for a visual difference to register. On macOS, give OBS Screen Recording permission, then add a **macOS Screen Capture** source for the display. Launch the game at a fixed place with Godot's `--position 240,240 --always-on-top` in `game.args` (before any `--`), and crop the source to the window (Edit Transform, Crop). With that window position on a 2x display, the demo's content spans pixels 240 to 1200 by 240 to 780.
 
 Use `--json` on any command for machine-readable output. See [cli.md](cli.md) for every command and [storage.md](storage.md) for the workspace layout and cleanup rules.

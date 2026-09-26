@@ -132,6 +132,40 @@ Found and fixed during the Windows runs:
 - Under the full parallel real-tool load, several V1 integration tests exceeded Vitest's 5 s default. The suite timeout is now 30 s.
 - The real OBS took more than 10 s to identify under that load, so the smoke test's own config now allows `obsMs` 30 s.
 
+## Second post-V1 batch (CAP-017 to CAP-022)
+
+This batch covers every-match derivatives, comparison gates, named builds and `compare-builds`, timeline export, and presentation for replays. Both hosts ran the Godot demo with a `bounces` preset (an `"every"` clip over `BOUNCE`), the demo's variant as build `b`, and `normal` and `slowmo` (`timeScale` 0.5, `close` camera) presets.
+
+### macOS: accepted, including a real visual difference
+
+Host: macOS 27.0 (arm64), Node.js 24.18.0, Godot 4.7.2 (windowed), FFmpeg 9.0.1, OBS Studio 32.2.2. Run 2026-09-25 (America/Chicago).
+
+The owner granted OBS Screen Recording permission and approved a separate OBS scene, "Cappy Game", so these captures show the game's own pixels. The existing "Capture" scene was not changed. Cappy switched scenes with `obs.switchScene`, and the program scene was set back to "Capture" afterwards.
+
+"Cappy Game" holds a macOS Screen Capture source of the main display, cropped to the demo window's content. The game is launched with `--position 240,240 --always-on-top`, so the window is always in the same place. Application capture of `org.godotengine.godot` produced no frames of the demo window on this host, which is why display capture is used.
+
+| Area | Result | Evidence |
+| --- | --- | --- |
+| Suites | Pass | typecheck, lint, `npm test` (284 passed, 18 skipped), and every real tool including OBS (`CAPPY_REAL_TOOLS=1 CAPPY_OBS_SMOKE=1 …`: 302 passed), plus `npm run model:check` |
+| Every-match clips | Pass | One clip per bounce: `bounce-1` to `bounce-4`, each window 150 ms either side of its `BOUNCE`. The last is clamped to the master's end with a warning. |
+| `compare-builds` catches a visual change | Pass | `compare-builds orb_launch base b -pa power=4 --min-ssim 0.999` exits 1 with `COMPARISON_REGRESSED` (`failedGates: ["minSsim"]`): mean SSIM 0.9971, minimum 0.9954, mean PSNR 36.6 dB. The builds report `0.1.0` and `0.1.0+b`, and B's manifest has `build.name: "b"`. The worst-frame stills show the base's small orange orb, the variant's larger green orb, and a difference image highlighting exactly the orbs. The same comparison without gates exits 0. |
+| Timeline export | Pass | `timeline export <capture> -fo vtt -o events.vtt`: FFmpeg reads all 10 cues. |
+| Slow-motion replay | Pass | A recorded session replayed with `slowmo` produces the same 13 events in the same order over 2.0 times the span (3017 ms to 6033 ms), with each `simT` equal to the normal-speed time. Comparing it with the normal-speed replay warns about the different presentation. |
+
+Found during this run: querying the capture source's display list over OBS WebSocket (`GetInputPropertiesListPropertyItems` for `display_uuid`) crashed OBS 32.2.2 on macOS. The display UUID was read from macOS instead, and OBS was restarted.
+
+### Windows: accepted (pipeline; color-source scene)
+
+Host: Windows 11 (NT 10.0.26200), Node.js 24.18.0, Godot 4.7.2 (headless), FFmpeg 6.0, portable OBS 32.2.2 on port 4456 with its color-source "Capture" scene. Run 2026-09-25 (America/Chicago).
+
+| Area | Result | Evidence |
+| --- | --- | --- |
+| Suites | Pass | typecheck, lint, `npx vitest run` (282 passed, 20 skipped), and every real tool including OBS: 300 passed, 2 skipped (the POSIX-only signal tests) |
+| Every-match clips | Pass | Four clips, one per `BOUNCE`, the last clamped with a warning. |
+| `compare-builds` | Pass (pipeline) | The base build and variant `b` (`0.1.0` and `0.1.0+b`) captured and compared `succeeded`. The color-source scene cannot show the game's pixels, so a visual regression is verified on macOS only. |
+| Timeline export | Pass | FFmpeg reads all 10 WebVTT cues. |
+| Slow-motion replay | Pass | The same 14 events over 2.000 times the span, and the presentation warning when compared with the normal-speed replay. |
+
 ## Linux: accepted, OBS unverified
 
 Linux became a supported host post-V1 (ADR-021, amending ADR-003). It is accepted in a throwaway container, rerun with `scripts/acceptance/linux-container.sh`. The script copies the repository into the container, installs FFmpeg and Godot there, and runs the full validation, so it needs only Docker or OrbStack on the host.
@@ -151,6 +185,7 @@ No Linux-specific fix was needed.
 ## Remaining limitations
 
 - Real OBS capture on Linux is unverified (see above).
+- The visual-regression check with real OBS was verified on macOS only. Windows ran the same flow against a color-source scene.
 - The acceptance OBS scenes are color test sources on both hosts, so the comparisons prove the pipeline, not visual differences in the game. Visual scoring against real changes is covered by the real-FFmpeg tests: a changed region lowers SSIM, and the worst frame falls inside it.
 - On Windows, `compare` cannot use an FFmpeg wrapper script (`.cmd`) when the managed root is on a network share (UNC path), because `cmd.exe` refuses a UNC working directory. Point `tools.ffmpeg` at `ffmpeg.exe` in that case. This is untested on a share.
 - The Windows Ctrl+C check is a script, not part of `npm test`: it must run in an interactive console, because processes started over SSH inherit an "ignore Ctrl+C" attribute that Node does not clear.
