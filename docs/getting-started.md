@@ -1,6 +1,6 @@
 # Getting started
 
-This walks a new project through configuring Cappy and capturing the Godot demo. The same steps apply to your own Godot game once the [Cappy addon](../adapters/godot/README.md) is installed.
+This walks a new project through configuring Cappy and capturing the Godot demo. The same steps apply to your own Godot game once the [Cappy addon](../adapters/godot/README.md) is installed. They work on macOS, Windows, and Linux; on Linux, capture with real OBS is not yet verified (see [acceptance.md](acceptance.md)).
 
 ## 1. Install the tools
 

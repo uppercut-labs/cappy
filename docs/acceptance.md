@@ -1,6 +1,6 @@
 # V1 host acceptance
 
-Each supported host is accepted separately. A result on one operating system is never taken as evidence for another. Items not yet run are listed as unresolved, not as supported. Both V1 hosts, macOS and Windows, are accepted.
+Each supported host is accepted separately. A result on one operating system is never taken as evidence for another. Items not yet run are listed as unresolved, not as supported. Both V1 hosts, macOS and Windows, are accepted. Linux was accepted post-V1, with real OBS capture unverified (see [Linux](#linux-accepted-obs-unverified)).
 
 ## How to run acceptance on a host
 
@@ -132,9 +132,25 @@ Found and fixed during the Windows runs:
 - Under the full parallel real-tool load, several V1 integration tests exceeded Vitest's 5 s default. The suite timeout is now 30 s.
 - The real OBS took more than 10 s to identify under that load, so the smoke test's own config now allows `obsMs` 30 s.
 
+## Linux: accepted, OBS unverified
+
+Linux became a supported host post-V1 (ADR-021, amending ADR-003). It is accepted in a throwaway container, rerun with `scripts/acceptance/linux-container.sh`. The script copies the repository into the container, installs FFmpeg and Godot there, and runs the full validation, so it needs only Docker or OrbStack on the host.
+
+Host: Debian GNU/Linux 12 (bookworm), aarch64 (OrbStack on the owner's Mac, kernel 7.0.11), Node.js 24.21.0, npm 11.19.0, FFmpeg 5.1.9 (Debian), Godot 4.7.2 (official linux.arm64, headless). Run 2026-09-25 (America/Chicago) at CAP-021's code.
+
+| Area | Result | Evidence |
+| --- | --- | --- |
+| Typecheck, lint, model | Pass | `npm run typecheck`, `npm run lint`, `npm run model:check` |
+| Normal suite | Pass | `npx vitest run`: 284 passed, 18 skipped (opt-in) |
+| Real FFmpeg and Godot | Pass | `CAPPY_REAL_TOOLS=1 npx vitest run`: 300 passed, 2 skipped (the real-OBS smoke tests). This includes all 7 headless Godot tests: scenarios, record and replay, replay capture, the variant build through `compare-builds`, and half-speed close-camera replay. It also includes real-FFmpeg derivatives and every-match clips, comparisons with SSIM and worst frames, and WebVTT export read back by FFmpeg. |
+| POSIX processes and signals | Pass | The process-group, signal, and Ctrl+C-cancellation tests (skipped on Windows) pass on Linux. |
+| Real OBS capture | Unverified | Not run. OBS on a headless Linux host needs a virtual display (for example Xvfb) or a Linux desktop; `Ideas.md` keeps this. Capture tests on Linux use the fake OBS with real masters. |
+
+No Linux-specific fix was needed.
+
 ## Remaining limitations
 
-- Linux is outside V1 acceptance (ADR-003).
+- Real OBS capture on Linux is unverified (see above).
 - The acceptance OBS scenes are color test sources on both hosts, so the comparisons prove the pipeline, not visual differences in the game. Visual scoring against real changes is covered by the real-FFmpeg tests: a changed region lowers SSIM, and the worst frame falls inside it.
 - On Windows, `compare` cannot use an FFmpeg wrapper script (`.cmd`) when the managed root is on a network share (UNC path), because `cmd.exe` refuses a UNC working directory. Point `tools.ffmpeg` at `ffmpeg.exe` in that case. This is untested on a share.
 - The Windows Ctrl+C check is a script, not part of `npm test`: it must run in an interactive console, because processes started over SSH inherit an "ignore Ctrl+C" attribute that Node does not clear.

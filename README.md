@@ -31,6 +31,8 @@ npm run lint
 npm test            # Vitest unit and integration suites
 ```
 
+Supported hosts: macOS and Windows (V1), and Linux (post-V1, with real OBS capture unverified; `scripts/acceptance/linux-container.sh` reruns the Linux acceptance in a container). See [docs/acceptance.md](docs/acceptance.md).
+
 ## Using the CLI
 
 Build once, then run `npx cappy` from a project directory that contains `cappy.config.json` (or pass `-C <dir>`):
