@@ -3,8 +3,8 @@ import { readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { HELP } from "@cappy/cli";
-import { ERROR_CODES, EXIT_CODES, parseConfig } from "@cappy/core";
+import { HELP } from "@uppercut-labs/cappy-internal-cli";
+import { ERROR_CODES, EXIT_CODES, parseConfig } from "@uppercut-labs/cappy-internal-core";
 import { FLAGS } from "../packages/cli/src/flags.js";
 import { type Harness, configure, createHarness, disposeHarness, runCli, simulatorBin } from "../packages/cli/test/support.js";
 
