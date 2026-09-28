@@ -13,3 +13,5 @@ packages/cappy/LICENSE
 *.tgz
 packages/cappy/*.sha256
 packages/cappy/release-manifest.json
+packages/cappy/.agents/
+packages/cappy/addons/

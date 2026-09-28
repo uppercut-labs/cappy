@@ -13,7 +13,10 @@ not publish or create a tag. No npm release was made by this preparation work.
 - Inspect the public package contents with `npm pack --workspace
   @uppercut-labs/cappy --dry-run --json` and the isolated package checker.
 - Review the matching source tree and release notes. The public tarball contains
-  the CLI; the Godot addon remains in the versioned source tree.
+  the CLI, the Godot addon (`addons/cappy/`), and the agent skill
+  (`.agents/skills/cappy/`). The package checker fails if either is missing or if
+  any packaged file references a source repository, because this repository is
+  private.
 - Start **Actions → Release preparation → Run workflow** with `publish` left
   false. The run records whether the expected tag already exists and associates
   the artifact with the dispatched commit. An absent tag is allowed for this
@@ -51,6 +54,22 @@ For the first public version, an authorized maintainer must use npm's interactiv
 authentication and required MFA to publish the exact prepared `.tgz` from a
 secure workstation, then create the matching GitHub release with that artifact
 and checksum. Do not create a token or store credentials in GitHub for bootstrap.
+The bootstrap is:
+
+1. On npmjs.com, make sure the `uppercut-labs` organization exists and your
+   account can publish to it (creating a free organization claims the scope).
+2. Run **Release preparation** on `main` with tag `v0.1.0` and `publish` false,
+   and download its artifact.
+3. From the artifact folder, check the checksum and publish the tested tarball:
+
+   ```sh
+   sha256sum --check uppercut-labs-cappy-0.1.0.tgz.sha256
+   npm login
+   npm publish uppercut-labs-cappy-0.1.0.tgz --access public
+   ```
+
+4. Tag the manifest's commit as `v0.1.0` and push the tag.
+
 Once the package exists and its trusted publisher is configured, later releases
 can use the gated workflow job. Verify npm's current staged-publishing support
 and organization settings before choosing a different bootstrap method.
@@ -98,8 +117,8 @@ actual archive.
 - Node.js 24 or newer is required.
 - OBS and FFmpeg/ffprobe are external prerequisites for video capture. Cappy
   does not download them.
-- The Godot addon is installed from the matching GitHub source tag; npm contains
-  the controller CLI.
+- The Godot addon and the agent skill ship inside the npm package, next to the
+  CLI, so the addon always matches the CLI version it came with.
 - Linux is supported, but real OBS capture on Linux remains unverified.
 - Package checks exercise the npm-generated local and global launchers on
   macOS, Windows, and Linux. Windows cancellation uses a fresh console to

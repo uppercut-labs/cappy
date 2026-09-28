@@ -174,4 +174,4 @@ jobs:
             "release-artifact/uppercut-labs-cappy-${RELEASE_VERSION}.tgz" \
             "release-artifact/uppercut-labs-cappy-${RELEASE_VERSION}.tgz.sha256" \
             --title "Cappy $RELEASE_TAG" \
-            --notes "Cappy $RELEASE_TAG is the Node.js CLI distribution for the matching source commit. Requires Node.js 24 or newer. OBS and FFmpeg are required for video capture; the Godot addon is installed from this versioned source tree. Linux is supported, though real OBS capture has not been verified there. See https://github.com/uppercut-labs/cappy/blob/$RELEASE_TAG/docs/releasing.md for the release record and support notes."
+            --notes "Cappy $RELEASE_TAG is the Node.js CLI distribution for the matching source commit. Requires Node.js 24 or newer. OBS and FFmpeg are required for video capture; the package also carries the Godot addon (addons/cappy/) and the agent skill (.agents/skills/cappy/). Linux is supported, though real OBS capture has not been verified there. See https://github.com/uppercut-labs/cappy/blob/$RELEASE_TAG/docs/releasing.md for the release record and support notes."

@@ -109,6 +109,28 @@ try {
     assert(!members.some((name) => name.toLowerCase().includes(forbidden)), `tarball unexpectedly contains ${forbidden}`);
   }
 
+  const required = [
+    "package/dist/cappy.js",
+    "package/.agents/skills/cappy/SKILL.md",
+    "package/.agents/skills/cappy/references/godot-adapter.md",
+    "package/addons/cappy/cappy_adapter.gd",
+    "package/addons/cappy/cappy_operation.gd",
+    "package/addons/cappy/plugin.cfg",
+    "package/addons/cappy/plugin.gd",
+  ];
+  for (const member of required) {
+    assert(members.includes(member), `tarball is missing ${member}`);
+  }
+
+  // The source repository is private: nothing published may point at it.
+  const unpacked = path.join(scratch, "unpacked");
+  await mkdir(unpacked, { recursive: true });
+  await checked("tar", ["-xzf", path.basename(tarball), "-C", path.relative(path.dirname(tarball), unpacked)], { cwd: path.dirname(tarball) });
+  for (const member of members.filter((name) => !name.endsWith("/"))) {
+    const text = await readFile(path.join(unpacked, member), "utf8");
+    assert(!/github\.com|git\+(https|ssh)|git@/i.test(text), `${member} references a source repository`);
+  }
+
   const digest = createHash("sha256").update(await readFile(tarball)).digest("hex");
   const installRoot = path.join(scratch, "consumer");
   const globalPrefix = path.join(scratch, "global");
@@ -227,6 +249,8 @@ try {
     tarball: path.basename(tarball),
     sha256: digest,
     files: members.length,
+    skillAndAddon: "present",
+    sourceRepositoryReferences: "none",
     normalInstall: "passed",
     globalInstall: "passed",
     fixtureScenarios: "passed",
