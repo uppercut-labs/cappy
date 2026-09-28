@@ -20,12 +20,13 @@ $Simulator = (Resolve-Path $Simulator).Path
 $node = (Get-Command node).Source
 $project = Join-Path ([IO.Path]::GetTempPath()) ("cappy-package-ctrl-c-" + [Guid]::NewGuid())
 New-Item -ItemType Directory $project | Out-Null
-@{
+$config = @{
   schemaVersion = 1
   project = @{ id = "package-ctrl-c"; name = "Installed package Ctrl+C" }
   game = @{ command = $node; args = @($Simulator) }
   adapter = @{ port = 0 }
-} | ConvertTo-Json -Depth 5 | Set-Content "$project\cappy.config.json"
+} | ConvertTo-Json -Depth 5
+[IO.File]::WriteAllText("$project\cappy.config.json", $config, [Text.UTF8Encoding]::new($false))
 $cappy = $null
 $gameIds = @()
 try {

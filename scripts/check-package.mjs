@@ -101,7 +101,8 @@ try {
   }
   await access(tarball);
 
-  const listing = await checked("tar", ["-tzf", tarball]);
+  // GNU tar on Git Bash interprets a drive-letter path as a remote host.
+  const listing = await checked("tar", ["-tzf", path.basename(tarball)], { cwd: path.dirname(tarball) });
   const members = listing.stdout.split(/\r?\n/).filter(Boolean);
   assert(members.length > 0 && members.every((name) => name.startsWith("package/")), "tarball does not contain a single package/ root");
   for (const forbidden of ["test", "tests", "fixture", "fixtures", ".env", "cappy.config.json", "node_modules"]) {

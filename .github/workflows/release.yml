@@ -125,7 +125,7 @@ jobs:
           test "$(git rev-parse HEAD)" = "$SOURCE_COMMIT"
           tarball="release-artifact/uppercut-labs-cappy-${RELEASE_VERSION}.tgz"
           (cd release-artifact && sha256sum --check "$(basename "$tarball").sha256")
-          node -e 'const m=require("./release-artifact/release-manifest.json"); if(m.version!==process.env.RELEASE_VERSION||m.tag!==process.env.RELEASE_TAG||m.tagPresent!==true||m.commit!==process.env.SOURCE_COMMIT) process.exit(1)'
+          node -e 'const fs=require("node:fs"),crypto=require("node:crypto"),m=require("./release-artifact/release-manifest.json"),digest=crypto.createHash("sha256").update(fs.readFileSync(process.argv[1])).digest("hex"); if(m.package!=="@uppercut-labs/cappy"||m.version!==process.env.RELEASE_VERSION||m.tag!==process.env.RELEASE_TAG||m.commit!==process.env.SOURCE_COMMIT||m.sha256!==digest||m.tarball!==process.argv[1].split("/").at(-1)||m.tagPresent!==true) process.exit(1)' "$tarball"
           if npm view "@uppercut-labs/cappy@$RELEASE_VERSION" version --json >/dev/null 2>npm-view.err; then
             echo "Version @uppercut-labs/cappy@$RELEASE_VERSION already exists; refusing to overwrite it." >&2
             exit 1
