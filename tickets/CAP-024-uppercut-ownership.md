@@ -1,6 +1,6 @@
 # CAP-024 - Transfer Cappy ownership to Uppercut Labs
 
-**Status:** Awaiting scope approval
+**Status:** Complete
 **Depends on:** Scope approval in [migration-plan.md](../docs/migration-plan.md).
 
 ## Work
@@ -25,4 +25,9 @@ refs and local origin. Record actual results and any integration follow-up.
 
 ## Outcome
 
-Pending approval. No transfer or public visibility change performed.
+Completed 2026-09-28. Transferred the existing GitHub repository (ID
+`1387786906`) to `uppercut-labs/cappy`, retained admin access and `main`, updated
+origin, and made it public after reviewing tree/history and scanning all 46
+prior commits with Gitleaks 8.30.1 (no leaks). Added MIT copyright Devin Thomas.
+Approved choices are recorded in ADR-023 and the migration plan. No destination
+conflict, configured webhooks, or Actions secrets were reported.

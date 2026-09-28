@@ -2,8 +2,12 @@
 
 Cappy is a local developer system for reproducible game capture: authored scenarios, replayable freeform sessions, OBS recording, FFmpeg derivatives, and verifiable capture manifests.
 
+Maintained and published by Uppercut Labs. Created and maintained by Devin Thomas; licensed under MIT.
+
 - Product and domain context: [Context.md](Context.md)
 - Implementation specification: [SPEC.md](SPEC.md)
+- Uppercut Labs migration plan: [docs/migration-plan.md](docs/migration-plan.md)
+- Release preparation and publishing: [docs/releasing.md](docs/releasing.md)
 - Architecture decisions: [ADR.md](ADR.md)
 - Deferred ideas: [Ideas.md](Ideas.md)
 - Living system model: [docs/system-model.dot](docs/system-model.dot)
@@ -18,7 +22,7 @@ Cappy is a local developer system for reproducible game capture: authored scenar
 
 ## Status
 
-V1 is implemented and accepted on macOS and Windows, including real OBS, FFmpeg, and Godot captures; see [docs/acceptance.md](docs/acceptance.md) for the evidence.
+V1 is implemented. Historical acceptance covers macOS and Windows; Linux acceptance is recorded separately, with real OBS capture on Linux unverified. See [docs/acceptance.md](docs/acceptance.md). The npm package is being prepared and is not published yet.
 
 ## Development
 
@@ -35,26 +39,34 @@ Supported hosts: macOS and Windows (V1), and Linux (post-V1, with real OBS captu
 
 ## Using the CLI
 
-Build once, then run `npx cappy` from a project directory that contains `cappy.config.json` (or pass `-C <dir>`):
+After the first npm release, install globally or use the scoped one-shot command. The scoped package is not published yet:
+
+```bash
+npm install --global @uppercut-labs/cappy
+cappy doctor -C /path/to/project
+npx @uppercut-labs/cappy doctor -C /path/to/project
+```
+
+For contributors using this checkout, build the workspace and invoke its launcher explicitly from the repository root. This avoids resolving another package named `cappy` from npm:
 
 ```bash
 npm run build
-npx cappy doctor              # check config, workspace, game command, FFmpeg/ffprobe, and OBS
-npx cappy scenarios           # launch the game and list the scenarios its adapter registers
-npx cappy doctor --json       # one structured JSON result on stdout
-npx cappy run boss_intro --param difficulty=3 --preset trailer   # capture a scenario with OBS
-npx cappy record              # record a freeform session; Enter stops, Ctrl+C cancels
-npx cappy record --capture    # also record an OBS master
-npx cappy record --duration 30
-npx cappy replay <session-id>              # capture the replay: OBS master, derivatives, manifest
-npx cappy replay <session-id> --no-capture # only play it back
-npx cappy run boss_intro --take 3          # explicit take; never overwrites an existing one
-npx cappy run boss_intro -pa difficulty=3 -p trailer -j   # every flag has a whole-token shorthand
-npx cappy compare <capture-a> <capture-b> --min-ssim 0.97  # triptych video + SSIM/PSNR; exit 1 if regressed
-npx cappy compare-builds <session-id> v1 v2 -rse           # replay one session on two named builds and compare
-npx cappy timeline export <capture-id> -fo vtt -o events.vtt  # event captions for the capture's video (also json, csv)
-npx cappy clean --failed --dry-run         # preview removing failed and interrupted leftovers
-npx cappy clean cap_…                      # remove a capture; its take number is never reissued
+node packages/cli/bin/cappy.js doctor              # check config, workspace, game command, FFmpeg/ffprobe, and OBS
+node packages/cli/bin/cappy.js scenarios           # launch the game and list the scenarios its adapter registers
+node packages/cli/bin/cappy.js doctor --json       # one structured JSON result on stdout
+node packages/cli/bin/cappy.js run boss_intro --param difficulty=3 --preset trailer   # capture a scenario with OBS
+node packages/cli/bin/cappy.js record              # record a freeform session; Enter stops, Ctrl+C cancels
+node packages/cli/bin/cappy.js record --capture    # also record an OBS master
+node packages/cli/bin/cappy.js record --duration 30
+node packages/cli/bin/cappy.js replay <session-id>              # capture the replay: OBS master, derivatives, manifest
+node packages/cli/bin/cappy.js replay <session-id> --no-capture # only play it back
+node packages/cli/bin/cappy.js run boss_intro --take 3          # explicit take; never overwrites an existing one
+node packages/cli/bin/cappy.js run boss_intro -pa difficulty=3 -p trailer -j   # every flag has a whole-token shorthand
+node packages/cli/bin/cappy.js compare <capture-a> <capture-b> --min-ssim 0.97  # triptych video + SSIM/PSNR; exit 1 if regressed
+node packages/cli/bin/cappy.js compare-builds <session-id> v1 v2 -rse           # replay one session on two named builds and compare
+node packages/cli/bin/cappy.js timeline export <capture-id> -fo vtt -o events.vtt  # event captions for the capture's video (also json, csv)
+node packages/cli/bin/cappy.js clean --failed --dry-run         # preview removing failed and interrupted leftovers
+node packages/cli/bin/cappy.js clean cap_…                      # remove a capture; its take number is never reissued
 ```
 
 Shorthands use initials for multi-word flags (`-nc` is `--no-capture`) and are never grouped; [docs/cli.md](docs/cli.md#shorthands) lists them all.
@@ -100,11 +112,12 @@ The Godot addon lives in [adapters/godot](adapters/godot/README.md). `npm run go
 
 | Package | Purpose |
 | --- | --- |
-| `@cappy/core` | Engine-neutral domain contracts, configuration schema and loader, structured errors, and the CLI result envelope. |
-| `@cappy/workspace` | Managed `.cappy/` workspace: storage areas, ownership registry, atomic writes, hashing, safe cleanup, and the Git-ignore warning. |
-| `@cappy/protocol` | Versioned loopback WebSocket protocol: message schemas, handshake and capability negotiation, operation state, heartbeats. |
-| `@cappy/adapter-simulator` (`fixtures/`) | Deterministic protocol-speaking adapter used as an acceptance fixture. |
-| `@cappy/obs` | OBS WebSocket v5 client and recorder: password authentication, the doctor probe, confirmed start/stop, and master verification. |
-| `@cappy/media` | FFmpeg/ffprobe discovery, ffprobe validation, atomic derivative production with event anchors, and capture comparison (SSIM/PSNR, triptych). |
-| `@cappy/cli` | The `cappy` command: argument parsing and shorthands, human and `--json` output, every command (`doctor` through `compare` and `clean`), and game launch. |
-| `@cappy/fake-obs` (`fixtures/`) | Fake OBS WebSocket v5 server for automated tests. |
+| `@uppercut-labs/cappy` | Upcoming public npm distribution package for the `cappy` CLI; not published yet. |
+| `@uppercut-labs/cappy-internal-core` | Private engine-neutral contracts, config schema and loader, structured errors, and CLI result envelope. |
+| `@uppercut-labs/cappy-internal-workspace` | Private managed `.cappy/` workspace, ownership registry, atomic writes, hashing, and safe cleanup. |
+| `@uppercut-labs/cappy-internal-protocol` | Private versioned loopback WebSocket protocol, schemas, negotiation, operation state, and heartbeats. |
+| `@uppercut-labs/cappy-fixture-adapter-simulator` (`fixtures/`) | Private deterministic protocol-speaking acceptance fixture. |
+| `@uppercut-labs/cappy-internal-obs` | Private OBS WebSocket v5 client and recorder. |
+| `@uppercut-labs/cappy-internal-media` | Private FFmpeg/ffprobe discovery, derivatives, event anchors, and capture comparison. |
+| `@uppercut-labs/cappy-internal-cli` | Private CLI implementation used to build the public executable. |
+| `@uppercut-labs/cappy-fixture-fake-obs` (`fixtures/`) | Private fake OBS WebSocket v5 server for automated tests. |

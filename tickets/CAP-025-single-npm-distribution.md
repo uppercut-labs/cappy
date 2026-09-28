@@ -1,6 +1,6 @@
 # CAP-025 - Package Cappy as one scoped CLI distribution
 
-**Status:** Awaiting scope approval
+**Status:** Complete
 **Depends on:** CAP-024.
 
 ## Work
@@ -26,4 +26,10 @@ behavioral evidence are completed separately in CAP-026.
 
 ## Outcome
 
-Pending approval. No package changes performed.
+Completed 2026-09-28. Eight private workspaces/imports now use Uppercut Labs
+internal/fixture names; the root remains private. `packages/cappy` is the only
+public package, with a bundled ESM `cappy` executable, Node >=24, public metadata,
+MIT license, and only `ws`/`zod` runtime dependencies. Consumer docs use the
+scoped package; contributor docs use the checkout launcher. Typecheck, lint,
+model, build, and the normal suite pass on all three hosts. The tested package
+contains four files and installs without any consumer build step.

@@ -1,6 +1,6 @@
 # Cappy Uppercut Labs migration plan
 
-**Status:** Approved; implementation in progress.
+**Status:** Implemented; final source delivery in progress.
 **Date:** 2026-09-28
 **Specification:** [SPEC.md, section 26](../SPEC.md#26-uppercut-labs-ownership-and-npm-distribution)
 
@@ -37,34 +37,59 @@ unrelated work; do not rewrite history or replace the existing repository.
 ## Decisions and approval
 
 - Product identity: `uppercut-labs/cappy`, npm `@uppercut-labs/cappy`, bin `cappy`.
-- Proposed packaging: separate `packages/cappy` distribution, private internals,
+- Implemented packaging: separate `packages/cappy` distribution, private internals,
   esbuild for Node ESM, registry dependencies `ws` and `zod`.
 - License: MIT, confirmed by the owner on 2026-09-28.
 - Visibility: make public after reviewing publish contents, confirmed by the
-  owner on 2026-09-28; current GitHub repository is private.
+  owner on 2026-09-28; GitHub repository is now public.
 - Delivery: transfer GitHub and prepare npm release, confirmed by the owner on
   2026-09-28. Do not publish npm `0.1.0` during this delivery.
 - Scope approval: owner said "Go" on 2026-09-28, with GPT-6 Luna/high workers.
 
-After approval, record the ownership/distribution decision in the existing ADR
-file rather than creating a competing decisions document.
+ADR-023 records the approved ownership/distribution decision.
 
 ## Evidence and resume point
 
 Completed: repository/package inspection, approved specification/tickets, and
 MIT license. GitHub transfer succeeded: repository ID `1387786906` is now
 `uppercut-labs/cappy`, with admin access retained, default branch `main`, and
-origin updated. Remote `main` still resolves to the prior source commit.
+origin updated. Source slices were committed and pushed on `main`: `410d4aa`
+(plan/license), `8ab022a` (package distribution).
 
 Public-content review: Gitleaks 8.30.1 scanned all 46 existing commits (1.10 MB)
 with no leaks found. Tracked paths and historical paths contain no environment
 files, private keys, captures, dependency trees, or generated builds. Source
 and project documents were reviewed; test credentials are synthetic, and OBS
 credentials use environment variable names. No configured hooks or Actions
-secrets were reported. Visibility change and integrated validation are next.
+secrets were reported. The repository is now public.
 
-Completion evidence follows SPEC section 26.7. Record actual command results,
-host checks, remote commit, URLs, and any remaining publisher setup here.
+Implementation: eight private workspaces renamed, one public distribution
+added, consumer/contributor docs updated, cross-platform CI and manual gated
+release preparation added. Publication requires a separate decision and the
+explicit enable variable; it remains disabled. No npm version or tag was created.
 
-**Next action:** approve this concrete scope, then execute CAP-024 through
-CAP-027 in order. The three consequential choices are resolved.
+Validation: Node 24 source checks passed on macOS and Linux (284 tests / 18
+skipped) and Windows (282 / 20 skipped, four workers). Model, typecheck, lint,
+and distribution builds pass. Isolated local/global installs, diagnostics,
+scenario discovery, no-capture record/replay, and cancellation pass on each
+host. Windows uses actual npm `.cmd` launchers for normal commands and an
+automated native console event against the installed entrypoint for Ctrl+C.
+See [acceptance.md](acceptance.md) for provenance and the initial Windows
+parallel-load timeout repaired by limiting fixture concurrency.
+
+Candidate tarball SHA-256:
+`276e64cd7a4b6cc1072229f079aba69363103ffa816e2297a4783a70ab25f237`.
+The four-file archive has only `ws` and `zod` as runtime dependencies. The same
+archive passed macOS and Windows installation; Linux independently produced
+the same checksum. The local candidate is generated at
+`packages/cappy/uppercut-labs-cappy-0.1.0.tgz` (ignored by Git).
+
+Publisher setup remains deliberately unperformed: verify Uppercut Labs npm
+scope rights, authorize the initial interactive publication, then configure
+trusted publishing and protect `npm-production` before enabling future CI
+publication. [releasing.md](releasing.md) documents this bootstrap and recovery.
+Real-tool capture acceptance is historical and was not rerun for packaging.
+
+**Next action:** finish the source push and verify CI/release-preparation
+artifacts, then record the remote delivery. npm publication is outside this
+approved delivery.

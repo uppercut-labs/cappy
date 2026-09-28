@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Checks (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run model:check
+      - run: npm run build:distribution
+      - name: Pack the public workspace
+        shell: bash
+        run: npm pack --workspace @uppercut-labs/cappy --pack-destination packages/cappy
+      - name: Check the isolated package
+        shell: bash
+        run: |
+          version=$(node -p "require('./packages/cappy/package.json').version")
+          node scripts/check-package.mjs --tarball "packages/cappy/uppercut-labs-cappy-$version.tgz"

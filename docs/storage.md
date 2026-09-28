@@ -42,7 +42,7 @@ If `cappy-workspace.json` is corrupt, Cappy refuses to open the workspace rather
 
 ## Cleanup rules
 
-`cappy clean` (below) and the library primitive behind it, `ManagedWorkspace.remove` in `@cappy/workspace`, delete only explicitly selected files, and report exactly what happened:
+`cappy clean` (below) and the library primitive behind it, `ManagedWorkspace.remove` in the private `@uppercut-labs/cappy-internal-workspace` workspace, delete only explicitly selected files, and report exactly what happened:
 
 - a registered managed file inside the root is removed;
 - a missing file is reported as missing and dropped from the registry;

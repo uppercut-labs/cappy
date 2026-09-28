@@ -11,3 +11,5 @@ cappy.config.local.json
 docs/system-model.svg
 packages/cappy/LICENSE
 *.tgz
+packages/cappy/*.sha256
+packages/cappy/release-manifest.json

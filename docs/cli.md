@@ -4,7 +4,7 @@
 cappy <command> [options]
 ```
 
-Run from a project directory containing `cappy.config.json`, or pass `-C <dir>`. Build once with `npm run build`; `npx cappy` then resolves the workspace binary.
+Run from a project directory containing `cappy.config.json`, or pass `-C <dir>`. The upcoming public npm package is `@uppercut-labs/cappy`; it is not published yet. After release, install it with `npm install --global @uppercut-labs/cappy` and run `cappy`, or use `npx @uppercut-labs/cappy`. Contributors should build the checkout with `npm run build` and invoke `node packages/cli/bin/cappy.js <command>` from the repository root.
 
 ## Global options
 

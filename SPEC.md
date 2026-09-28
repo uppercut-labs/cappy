@@ -1141,7 +1141,7 @@ missing-config errors, and `doctor` against a controlled project. A successful
 doctor requires configured prerequisites; the missing-tools case must return the
 expected diagnostic, not be treated as a packaging failure.
 
-Run at least one no-capture scenario and record/replay fixture flow through the
+Run scenario discovery and a no-capture record/replay fixture flow through the
 installed CLI. Fixtures can be separately built test processes but must not
 supply hidden runtime dependencies to the installed package. Check subprocess
 cleanup and cancellation. Record new per-host installation evidence separately
@@ -1186,7 +1186,7 @@ Record the approved scope in the execution plan and ADR before implementation.
 | Visibility/license | Confirmed choice, public-content review if applicable, matching license metadata | Pending |
 | Build/types | Typecheck, lint, tests, model, distribution build, `git diff --check` | Pending implementation |
 | Package isolation | Inspected tarball, no private dependency references, clean local/global installation | Pending |
-| Primary behavior | Installed help/version, doctor JSON, missing config/tools, no-capture scenario and record/replay | Pending |
+| Primary behavior | Installed help/version, doctor JSON, missing config/tools, scenario discovery and no-capture record/replay | Pending |
 | Platforms | Installed npm launchers on macOS, Windows, Linux; cancellation evidence labeled by host | Pending |
 | Layout/accessibility | No GUI changes; preserve existing human and JSON CLI output | Not applicable to layout |
 | Release availability | Release-ready artifact and gated publication runbook; no npm publication | Pending implementation |

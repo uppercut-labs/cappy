@@ -1,0 +1,177 @@
+name: Release preparation
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Expected tag (may be absent for preparation only)
+        required: true
+        default: v0.1.0
+        type: string
+      publish:
+        description: Publish the tested tarball and create its GitHub release
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    name: Build and verify release artifact
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      tag: ${{ steps.meta.outputs.tag }}
+      commit: ${{ steps.meta.outputs.commit }}
+      tag_present: ${{ steps.meta.outputs.tag_present }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run model:check
+      - run: npm run build:distribution
+      - name: Resolve release identity
+        id: meta
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./packages/cappy/package.json').version")
+          test "v$version" = "$RELEASE_TAG"
+          commit=$(git rev-parse HEAD)
+          tag_present=false
+          if git rev-parse -q --verify "refs/tags/$RELEASE_TAG" >/dev/null; then
+            tag_commit=$(git rev-parse "$RELEASE_TAG^{commit}")
+            test "$tag_commit" = "$commit"
+            tag_present=true
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+          echo "tag_present=$tag_present" >> "$GITHUB_OUTPUT"
+      - name: Pack the public package
+        run: npm pack --workspace @uppercut-labs/cappy --pack-destination "${{ runner.temp }}"
+      - name: Verify the exact tarball
+        run: node scripts/check-package.mjs --tarball "${{ runner.temp }}/uppercut-labs-cappy-${{ steps.meta.outputs.version }}.tgz"
+      - name: Record checksum and source association
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ steps.meta.outputs.tag }}
+          RELEASE_VERSION: ${{ steps.meta.outputs.version }}
+          SOURCE_COMMIT: ${{ steps.meta.outputs.commit }}
+          RELEASE_TAG_PRESENT: ${{ steps.meta.outputs.tag_present }}
+        run: |
+          set -euo pipefail
+          cd "${{ runner.temp }}"
+          tarball="uppercut-labs-cappy-${RELEASE_VERSION}.tgz"
+          sha256sum "$tarball" > "$tarball.sha256"
+          node -e 'const fs=require("node:fs"); fs.writeFileSync("release-manifest.json", JSON.stringify({package:"@uppercut-labs/cappy",version:process.env.RELEASE_VERSION,tag:process.env.RELEASE_TAG,tagPresent:process.env.RELEASE_TAG_PRESENT==="true",commit:process.env.SOURCE_COMMIT,tarball:process.argv[1],sha256:fs.readFileSync(process.argv[1]+".sha256","utf8").trim().split(/\s+/)[0]},null,2)+"\n")' "$tarball"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cappy-release-${{ steps.meta.outputs.version }}-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/uppercut-labs-cappy-${{ steps.meta.outputs.version }}.tgz
+            ${{ runner.temp }}/uppercut-labs-cappy-${{ steps.meta.outputs.version }}.tgz.sha256
+            ${{ runner.temp }}/release-manifest.json
+          if-no-files-found: error
+          retention-days: 90
+
+  publish:
+    name: Publish tested artifact
+    if: inputs.publish == true
+    needs: prepare
+    runs-on: ubuntu-latest
+    environment: npm-production
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: cappy-release-${{ needs.prepare.outputs.version }}-${{ needs.prepare.outputs.commit }}
+          path: release-artifact
+      - name: Validate tag, manifest, checksum, and unpublished version
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+          SOURCE_COMMIT: ${{ needs.prepare.outputs.commit }}
+          CAPPY_NPM_PUBLISH_ENABLED: ${{ vars.CAPPY_NPM_PUBLISH_ENABLED }}
+        run: |
+          set -euo pipefail
+          test "$CAPPY_NPM_PUBLISH_ENABLED" = "true" || { echo "Set the repository variable CAPPY_NPM_PUBLISH_ENABLED=true only after publisher setup and protected environment review are complete." >&2; exit 1; }
+          test "${{ needs.prepare.outputs.tag_present }}" = "true" || { echo "The release tag must exist and point to the prepared commit before publication." >&2; exit 1; }
+          test "$(git rev-parse "$RELEASE_TAG^{commit}")" = "$SOURCE_COMMIT"
+          test "$(git rev-parse HEAD)" = "$SOURCE_COMMIT"
+          tarball="release-artifact/uppercut-labs-cappy-${RELEASE_VERSION}.tgz"
+          (cd release-artifact && sha256sum --check "$(basename "$tarball").sha256")
+          node -e 'const m=require("./release-artifact/release-manifest.json"); if(m.version!==process.env.RELEASE_VERSION||m.tag!==process.env.RELEASE_TAG||m.tagPresent!==true||m.commit!==process.env.SOURCE_COMMIT) process.exit(1)'
+          if npm view "@uppercut-labs/cappy@$RELEASE_VERSION" version --json >/dev/null 2>npm-view.err; then
+            echo "Version @uppercut-labs/cappy@$RELEASE_VERSION already exists; refusing to overwrite it." >&2
+            exit 1
+          else
+            status=$?
+            if ! grep -q 'E404' npm-view.err; then
+              cat npm-view.err >&2
+              echo "Could not establish that the requested npm version is absent." >&2
+              exit "$status"
+            fi
+          fi
+          npm install --global npm@latest
+      - name: Publish the verified tarball with npm provenance
+        run: npm publish "release-artifact/uppercut-labs-cappy-${{ needs.prepare.outputs.version }}.tgz" --access public
+      - name: Verify registry content against the tested tarball
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir registry-check
+          npm pack "@uppercut-labs/cappy@$RELEASE_VERSION" --pack-destination registry-check
+          local_tarball="release-artifact/uppercut-labs-cappy-${RELEASE_VERSION}.tgz"
+          registry_tarball="registry-check/uppercut-labs-cappy-${RELEASE_VERSION}.tgz"
+          cmp "$local_tarball" "$registry_tarball"
+          npm view "@uppercut-labs/cappy@$RELEASE_VERSION" version --json > registry-check/version.json
+          npm view "@uppercut-labs/cappy@$RELEASE_VERSION" dist.integrity --json > registry-check/integrity.json
+          node -e 'const fs=require("node:fs"),crypto=require("node:crypto"),version=JSON.parse(fs.readFileSync("registry-check/version.json","utf8")),integrity=JSON.parse(fs.readFileSync("registry-check/integrity.json","utf8")),want="sha512-"+crypto.createHash("sha512").update(fs.readFileSync(process.argv[1])).digest("base64"); if(version!==process.env.RELEASE_VERSION||integrity!==want) process.exit(1)' "$local_tarball"
+      - name: Check the version-pinned scoped command from a clean directory
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir clean-consumer
+          cd clean-consumer
+          result=$(npm exec --yes --package "@uppercut-labs/cappy@$RELEASE_VERSION" -- cappy --version)
+          test "$result" = "$RELEASE_VERSION"
+      - name: Create the matching GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          gh release create "$RELEASE_TAG" \
+            "release-artifact/uppercut-labs-cappy-${RELEASE_VERSION}.tgz" \
+            "release-artifact/uppercut-labs-cappy-${RELEASE_VERSION}.tgz.sha256" \
+            --title "Cappy $RELEASE_TAG" \
+            --notes "Cappy $RELEASE_TAG is the Node.js CLI distribution for the matching source commit. Requires Node.js 24 or newer. OBS and FFmpeg are required for video capture; the Godot addon is installed from this versioned source tree. Linux is supported, though real OBS capture has not been verified there. See https://github.com/uppercut-labs/cappy/blob/$RELEASE_TAG/docs/releasing.md for the release record and support notes."

@@ -1,6 +1,6 @@
 # CAP-027 - Deliver the approved migration and release scope
 
-**Status:** Awaiting scope approval
+**Status:** In progress
 **Depends on:** CAP-024, CAP-025, CAP-026.
 
 ## Work
@@ -26,4 +26,7 @@ version-pinned scoped CLI command. Record actual URLs and pending checks.
 
 ## Outcome
 
-Preparation-only delivery confirmed; scope approval pending. Nothing published.
+Preparation-only delivery confirmed. Plan/license and packaging slices are
+pushed to the new public Uppercut Labs repository. Integrated source and package
+checks pass on all three hosts. Final source push and remote CI/preparation
+verification are in progress; npm publication remains outside this scope.
