@@ -23,16 +23,17 @@ Help the user reach one verified capture (or one verified replay, if they have n
 
 ### 1. Locate Cappy and the project
 
-- Cappy is not published to npm. It runs from a checkout of `https://github.com/devin-thomas/cappy`: `npm install`, then `npm run build`, then `npx cappy …` inside that checkout.
+- Cappy is delivered as an npm package whose command is `cappy`. Install it the way the package's README says, usually as a dev dependency of the game project, then run it with `npx cappy`. `npx cappy --version` confirms which version runs.
+- Take the package name from the user or the package's own README. Never guess a name or install a similarly named package. If the package is not published yet, or the user cannot reach it, stop and say so.
 - It needs Node.js 24 or newer. Check `node -v` first; an older Node is the most common failure.
-- The *project* is the directory holding `cappy.config.json`, usually the game's own folder. From the Cappy checkout, point at it with `-C <project-dir>` on every command.
+- The *project* is the directory holding `cappy.config.json`, usually the game's own folder. Run commands from there, or pass `-C <project-dir>` from anywhere else.
 - Supported hosts: macOS and Windows (accepted with real OBS), and Linux (accepted, real OBS capture unverified). Do not claim a host result you did not observe.
 
 ### 2. Connect the game
 
-Cappy needs an adapter in the game. For Godot 4.x, copy `adapters/godot/addons/cappy/` into the game's `addons/` and enable the **Cappy** plugin (it registers the `Cappy` autoload). Then register at least one scenario or a replay provider. See [the Godot adapter reference](references/godot-adapter.md) for the API and patterns.
+Cappy needs an adapter in the game. For Godot 4.x, copy the `addons/cappy/` folder that ships with Cappy into the game's `addons/` and enable the **Cappy** plugin (it registers the `Cappy` autoload). Then register at least one scenario or a replay provider. See [the Godot adapter reference](references/godot-adapter.md) for the API and patterns.
 
-Other engines speak the same versioned protocol; point the user at `docs/protocol.md` in the Cappy repository rather than inventing an adapter.
+Other engines speak the same versioned protocol; point the user at Cappy's adapter protocol reference rather than inventing an adapter.
 
 ### 3. Write `cappy.config.json`
 
@@ -106,7 +107,7 @@ Read `error.code` from `--json` output, then look it up in [troubleshooting](ref
 
 Finish with:
 
-- what ran, on which host, with the Cappy commit, `node -v`, the engine version (for Godot, `godot --version`), and the FFmpeg, ffprobe, and OBS versions that `doctor --json` reported;
+- what ran, on which host, with the Cappy version (`npx cappy --version`), `node -v`, the engine version (for Godot, `godot --version`), and the FFmpeg, ffprobe, and OBS versions that `doctor --json` reported;
 - the capture, session, or comparison IDs and their final state;
 - where the outputs are, relative to the project;
 - what was not verified and why (for example: no OBS, no display, a host you did not run on).

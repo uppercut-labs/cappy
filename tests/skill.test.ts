@@ -85,6 +85,18 @@ describe("cappy skill package", () => {
     expect(broken).toEqual([]);
   });
 
+  it("points people at the npm package, never at Cappy's private source repository", async () => {
+    const offenders: string[] = [];
+    for (const [name, text] of await skillDocuments()) {
+      for (const pattern of [/github\.com/i, /git clone/i, /\bcheckout\b/i, /\bnpm run build\b/]) {
+        if (pattern.test(text)) {
+          offenders.push(`${name}: ${String(pattern)}`);
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
   it("contains no machine-specific paths or secret values", async () => {
     const offenders: string[] = [];
     for (const [name, text] of await skillDocuments()) {

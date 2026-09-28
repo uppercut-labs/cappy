@@ -4,7 +4,7 @@ The addon connects a Godot 4.x game to Cappy. The game never talks to OBS or FFm
 
 ## Install
 
-1. Copy `adapters/godot/addons/cappy/` from the Cappy repository into the game's `addons/` folder. It is four files: `cappy_adapter.gd`, `cappy_operation.gd`, `plugin.cfg`, and `plugin.gd`.
+1. Copy the `addons/cappy/` folder that ships with Cappy into the game's `addons/` folder. It is four files: `cappy_adapter.gd`, `cappy_operation.gd`, `plugin.cfg`, and `plugin.gd`.
 2. Enable **Cappy** under Project Settings > Plugins, or add the autoload yourself:
 
    ```ini
@@ -110,4 +110,4 @@ The handshake reports `Cappy.game_id`, `Cappy.game_name`, and `Cappy.build`. The
 - Keep Cappy hooks thin: scenarios call the game's own setup code, and the replay provider serializes the game's own input log. Do not build gameplay around Cappy.
 - The addon only listens on the loopback endpoint Cappy gives it. Shipping builds can keep the addon; it stays inert without Cappy's environment variables.
 
-Full protocol for other engines: `docs/protocol.md` in the Cappy repository.
+Other engines: follow Cappy's adapter protocol reference.

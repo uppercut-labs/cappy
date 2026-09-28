@@ -5,7 +5,7 @@ Run the failing command again with `--json` and read `error.code`, `error.messag
 ## Before any code
 
 - `node -v` must report 24 or newer. Older Node fails at startup, before Cappy can report a code.
-- `npx cappy` must run inside a built Cappy checkout (`npm install`, then `npm run build`). If it says the build is missing, run `npm run build`.
+- `npx cappy --version` must print a version. If it does not, the Cappy package is not installed where the command runs; install it as its README describes.
 - Every command needs the project: run it from the folder with `cappy.config.json`, or pass `-C <project-dir>`.
 
 ## Error codes
