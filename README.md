@@ -15,6 +15,7 @@ Cappy is a local developer system for reproducible game capture: authored scenar
 - Configuration example: [cappy.config.example.json](cappy.config.example.json)
 - Adapter protocol reference: [docs/protocol.md](docs/protocol.md)
 - Tickets: [tickets/](tickets/)
+- Agent skill for using Cappy: [.agents/skills/cappy](.agents/skills/cappy/SKILL.md)
 
 ## Status
 
