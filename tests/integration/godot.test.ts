@@ -1,4 +1,6 @@
+import { execFile } from "node:child_process";
 import { readFile } from "node:fs/promises";
+import { promisify } from "node:util";
 import path from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { resolveExecutable } from "@cappy/core";
@@ -158,5 +160,11 @@ describe.runIf(godot !== undefined)("Godot adapter and demo", { timeout: 120_000
     });
     const unknown = await runCli(harness, ["replay", sessionId, "-p", "drone"]);
     expect(unknown.result["error"]).toMatchObject({ code: "ADAPTER_OPERATION_FAILED", details: { adapterCode: "UNKNOWN_CAMERA" } });
+  });
+
+  it("refuses a controller endpoint that is not on loopback", async () => {
+    const env = { ...process.env, CAPPY_ENDPOINT: "ws://192.0.2.1:9", CAPPY_SESSION_TOKEN: "token" };
+    const { stdout, stderr } = await promisify(execFile)(godot ?? "godot", ["--headless", "--path", demo, "--quit-after", "30"], { env });
+    expect(`${stdout}${stderr}`).toContain("Cappy: refusing non-loopback endpoint ws://192.0.2.1:9");
   });
 });
