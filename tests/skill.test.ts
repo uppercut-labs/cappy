@@ -28,7 +28,7 @@ async function skillDocuments(): Promise<Map<string, string>> {
   const documents = new Map<string, string>();
   for (const entry of entries.filter((item) => item.isFile() && item.name.endsWith(".md"))) {
     const file = path.join(entry.parentPath, entry.name);
-    documents.set(path.relative(skillDir, file), await readFile(file, "utf8"));
+    documents.set(path.relative(skillDir, file).split(path.sep).join("/"), await readFile(file, "utf8"));
   }
   return documents;
 }
