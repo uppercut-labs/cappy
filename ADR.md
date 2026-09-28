@@ -241,3 +241,13 @@
 **Rationale:** Games ship with the addon because it is an autoload, and anyone who could set two environment variables could otherwise drive a shipped game over the protocol. Excluding the addon from release export presets does not work, because the autoload entry would point at a missing script. A project setting keeps capture of release builds possible, for example with an `override.cfg` beside a capture build. Anyone who can write that file already controls the installation. The loopback check matches the controller, which only binds loopback (SPEC section 20).
 
 **Consequences:** Capturing or comparing release exports needs the setting. Debug exports and editor runs are unchanged. The simulator adapter is unaffected.
+
+## ADR-025 - The npm package carries the Godot addon and the agent skill
+
+**Status:** Accepted (2026-09-28). Supersedes ADR-023's note that the addon comes from GitHub source.
+
+**Decision:** The source repository stays private. `@uppercut-labs/cappy` therefore ships everything a user needs: the CLI (`dist/cappy.js`), the Godot addon (`addons/cappy/`), and the agent skill (`.agents/skills/cappy/`). The package manifest has no `repository`, `homepage`, or `bugs` fields, and no packaged file names a source repository. `scripts/check-package.mjs` fails the tarball if the addon or skill is missing or if any file mentions `github.com` or a git URL.
+
+**Rationale:** People cannot reach a private repository, so a link to it is a dead end and an addon "from versioned source" is not available to them. Shipping the addon beside the CLI also keeps the two at the same version. The unscoped `cappy` name on npm belongs to an unrelated package, so documentation names the scoped package and never tells people to run `npx cappy` before installing.
+
+**Consequences:** Godot users copy `node_modules/@uppercut-labs/cappy/addons/cappy/` into their game and copy it again after upgrading. Changes to the addon or skill ship only with a new package version.

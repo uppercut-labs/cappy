@@ -9,6 +9,8 @@
   },
   "files": [
     "dist/cappy.js",
+    ".agents/skills/cappy/",
+    "addons/cappy/",
     "README.md",
     "LICENSE"
   ],
@@ -17,22 +19,14 @@
   },
   "license": "MIT",
   "author": "Devin Thomas",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/uppercut-labs/cappy.git",
-    "directory": "packages/cappy"
-  },
-  "homepage": "https://github.com/uppercut-labs/cappy#readme",
-  "bugs": {
-    "url": "https://github.com/uppercut-labs/cappy/issues"
-  },
   "keywords": [
     "game-development",
     "game-capture",
     "obs",
     "replay",
     "cli",
-    "uppercut-labs"
+    "uppercut-labs",
+    "agent-skill"
   ],
   "publishConfig": {
     "access": "public"

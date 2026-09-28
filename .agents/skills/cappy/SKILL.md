@@ -23,8 +23,9 @@ Help the user reach one verified capture (or one verified replay, if they have n
 
 ### 1. Locate Cappy and the project
 
-- Cappy is delivered as an npm package whose command is `cappy`. Install it the way the package's README says, usually as a dev dependency of the game project, then run it with `npx cappy`. `npx cappy --version` confirms which version runs.
-- Take the package name from the user or the package's own README. Never guess a name or install a similarly named package. If the package is not published yet, or the user cannot reach it, stop and say so.
+- Cappy is the npm package `@uppercut-labs/cappy`; its command is `cappy`. Install it as a dev dependency of the game project (`npm install --save-dev @uppercut-labs/cappy`), then run it with `npx cappy`. `npx cappy --version` confirms which version runs.
+- Never run `npx cappy` where the package is not installed, and never install the unscoped `cappy` package: that name belongs to an unrelated project, and `npx` would download it. To run once without installing, use `npx @uppercut-labs/cappy`. If the package cannot be installed, stop and say so.
+- The package also carries this skill (`.agents/skills/cappy/`) and the Godot addon (`addons/cappy/`), in `node_modules/@uppercut-labs/cappy/`.
 - It needs Node.js 24 or newer. Check `node -v` first; an older Node is the most common failure.
 - The *project* is the directory holding `cappy.config.json`, usually the game's own folder. Run commands from there, or pass `-C <project-dir>` from anywhere else.
 - Supported hosts: macOS and Windows (accepted with real OBS), and Linux (accepted, real OBS capture unverified). Do not claim a host result you did not observe.

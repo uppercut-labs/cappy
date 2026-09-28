@@ -1,4 +1,4 @@
-import { copyFile, chmod, mkdir } from "node:fs/promises";
+import { copyFile, chmod, cp, mkdir, rm } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, URL } from "node:url";
 import { build } from "esbuild";
@@ -9,6 +9,16 @@ const outputDir = path.join(packageDir, "dist");
 
 await mkdir(outputDir, { recursive: true });
 await copyFile(path.join(root, "LICENSE"), path.join(packageDir, "LICENSE"));
+
+// The package carries the agent skill and the Godot addon, because the source
+// repository is private and they reach people only through npm.
+for (const [from, to] of [
+  [".agents/skills/cappy", ".agents/skills/cappy"],
+  ["adapters/godot/addons/cappy", "addons/cappy"],
+]) {
+  await rm(path.join(packageDir, to), { recursive: true, force: true });
+  await cp(path.join(root, from), path.join(packageDir, to), { recursive: true });
+}
 await build({
   entryPoints: [path.join(root, "packages/cli/src/bin.ts")],
   outfile: path.join(outputDir, "cappy.js"),

@@ -4,7 +4,7 @@ The addon connects a Godot 4.x game to Cappy. The game never talks to OBS or FFm
 
 ## Install
 
-1. Copy the `addons/cappy/` folder that ships with Cappy into the game's `addons/` folder. It is four files: `cappy_adapter.gd`, `cappy_operation.gd`, `plugin.cfg`, and `plugin.gd`.
+1. Copy `node_modules/@uppercut-labs/cappy/addons/cappy/` into the game's `addons/` folder, so the game has `res://addons/cappy/`. Copy it again after upgrading Cappy, so the addon matches the CLI. It is four files: `cappy_adapter.gd`, `cappy_operation.gd`, `plugin.cfg`, and `plugin.gd`.
 2. Enable **Cappy** under Project Settings > Plugins, or add the autoload yourself:
 
    ```ini
