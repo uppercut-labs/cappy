@@ -1,0 +1,4 @@
+interface:
+  display_name: "Cappy"
+  short_description: "Capture reproducible game footage with Cappy"
+  default_prompt: "Help me set up Cappy for this game and make one verified capture, starting with cappy doctor."

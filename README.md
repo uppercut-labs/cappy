@@ -19,6 +19,7 @@ Maintained and published by Uppercut Labs. Created and maintained by Devin Thoma
 - Configuration example: [cappy.config.example.json](cappy.config.example.json)
 - Adapter protocol reference: [docs/protocol.md](docs/protocol.md)
 - Tickets: [tickets/](tickets/)
+- Agent skill for using Cappy: [.agents/skills/cappy](.agents/skills/cappy/SKILL.md)
 
 ## Status
 
