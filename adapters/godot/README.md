@@ -16,6 +16,16 @@ The addon is distributed with the versioned GitHub source tree. Once a release t
 
 The adapter is inert unless Cappy launched the game (`CAPPY_ENDPOINT` and `CAPPY_SESSION_TOKEN` are set). When Cappy disconnects, a game it launched quits; set `Cappy.quit_on_disconnect = false` to keep running.
 
+Release exports stay inert even when those variables are set, so a shipped game cannot be driven by anyone who sets them. To capture a release export, set the project setting `cappy/allow_release_builds` to `true` for that build only. The simplest way is an `override.cfg` next to the exported executable, which Godot reads at startup:
+
+```ini
+[cappy]
+
+allow_release_builds=true
+```
+
+The adapter also refuses any endpoint that is not on loopback.
+
 ## Register a scenario
 
 ```gdscript
