@@ -1,10 +1,10 @@
-# CAP-025 - Keep the Godot adapter inert in release exports
+# CAP-028 - Keep the Godot adapter inert in release exports
 
 **Status:** Complete
 
 ## Goal
 
-A shipped game that carries the Cappy addon cannot be driven through the adapter by someone who sets its environment variables (ADR-023). Raised by Fantasy Party's review of its vendored addon.
+A shipped game that carries the Cappy addon cannot be driven through the adapter by someone who sets its environment variables (ADR-024). Raised by Fantasy Party's review of its vendored addon.
 
 ## Scope
 

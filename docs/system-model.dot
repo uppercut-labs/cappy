@@ -4,6 +4,7 @@ digraph Cappy {
   edge [fontname="Arial"];
 
   developer [label="Developer / Agent"];
+  distribution [label="Upcoming Public npm Package\n@uppercut-labs/cappy\n(cappy executable)"];
   cli [label="Cappy CLI\ndoctor / scenarios / run / record / replay\nclean / compare / compare-builds\ntimeline export\nHuman + JSON modes"];
   core [label="Cappy Controller\ncapture job state machine"];
   config [label="Project Config\ncappy.config.json (source-controlled)\npresets + named builds"];
@@ -23,6 +24,8 @@ digraph Cappy {
   exports [label="Timeline Exports\nJSON (schema) / CSV / WebVTT\n(user-owned)"];
 
   developer -> cli [label="commands"];
+  developer -> distribution [label="install globally or\nrun scoped with npx"];
+  distribution -> cli [label="bundled executable\n(not published yet)"];
   cli -> core [label="commands"];
   config -> core [label="project + tool config"];
   secrets -> core [label="password by variable name"];

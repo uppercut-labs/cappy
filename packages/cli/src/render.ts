@@ -1,4 +1,4 @@
-import type { CappyError, CommandResult } from "@cappy/core";
+import type { CappyError, CommandResult } from "@uppercut-labs/cappy-internal-core";
 import type { CleanReport } from "./commands/clean.js";
 import type { CompareBuildsReport } from "./commands/compare-builds.js";
 import type { CompareReport } from "./commands/compare.js";

@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { type ConfigIssue, loadConfig, parseConfig } from "@cappy/core";
+import { type ConfigIssue, loadConfig, parseConfig } from "@uppercut-labs/cappy-internal-core";
 
 const minimal = {
   schemaVersion: 1,

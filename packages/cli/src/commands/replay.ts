@@ -11,9 +11,9 @@ import {
   missingCapabilities,
   presentationCapabilities,
   ok,
-} from "@cappy/core";
-import type { AdapterConnection, OperationOutcome, ReplayHandoff } from "@cappy/protocol";
-import { ManagedWorkspace } from "@cappy/workspace";
+} from "@uppercut-labs/cappy-internal-core";
+import type { AdapterConnection, OperationOutcome, ReplayHandoff } from "@uppercut-labs/cappy-internal-protocol";
+import { ManagedWorkspace } from "@uppercut-labs/cappy-internal-workspace";
 import { type CaptureReport, JobState, executeCapture, preflightCapture } from "../capture-job.js";
 import type { CommandContext } from "../context.js";
 import { launchGame } from "../game.js";

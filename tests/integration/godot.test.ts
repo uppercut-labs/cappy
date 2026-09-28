@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { promisify } from "node:util";
 import path from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { resolveExecutable } from "@cappy/core";
+import { resolveExecutable } from "@uppercut-labs/cappy-internal-core";
 import { type Harness, configure, createHarness, disposeHarness, repoRoot, runCli } from "../../packages/cli/test/support.js";
 
 /*

@@ -1,5 +1,5 @@
 {
-  "name": "@cappy/media",
+  "name": "@uppercut-labs/cappy-internal-media",
   "version": "0.1.0",
   "private": true,
   "description": "FFmpeg/ffprobe discovery, inspection, and derivative production.",
@@ -15,8 +15,8 @@
     "dist"
   ],
   "dependencies": {
-    "@cappy/core": "0.1.0",
-    "@cappy/workspace": "0.1.0",
+    "@uppercut-labs/cappy-internal-core": "0.1.0",
+    "@uppercut-labs/cappy-internal-workspace": "0.1.0",
     "zod": "^4.6.5"
   }
 }

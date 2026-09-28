@@ -1,4 +1,4 @@
-import { type Result, cappyError, err, ok, runProcess } from "@cappy/core";
+import { type Result, cappyError, err, ok, runProcess } from "@uppercut-labs/cappy-internal-core";
 
 export interface MediaInfo {
   readonly formatName: string;

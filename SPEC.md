@@ -982,3 +982,219 @@ A second batch was promoted the same day (ADR-017 to ADR-022; tickets CAP-017 to
 - `cappy timeline export` with published JSON Schemas (section 11.10);
 - presentation parameters for replays, with slow motion and alternate cameras in the Godot adapter and demo (sections 9.4 and 14);
 - Linux as a supported host, with OBS capture unverified (section 21).
+
+## 26. Uppercut Labs ownership and npm distribution
+
+**Status:** Implemented for preparation-only delivery on 2026-09-28.
+**Date:** 2026-09-28
+**Execution plan:** [docs/migration-plan.md](docs/migration-plan.md)
+**Tickets:** CAP-024 to CAP-027.
+
+This section specifies the migration and distribution work. Sections 1-25 remain
+the product behavior contract; ownership and packaging changes must preserve it.
+
+### 26.1 Audience, purpose, and first use
+
+Cappy becomes a reusable developer product distributed by Uppercut Labs, with
+Devin Thomas credited as its author and maintainer.
+
+| Surface | Intended identity |
+| --- | --- |
+| GitHub | `uppercut-labs/cappy` |
+| npm | `@uppercut-labs/cappy` |
+| Executable | `cappy` |
+| First public release | `v0.1.0`, npm version `0.1.0` |
+| Author/maintainer | Devin Thomas |
+| Product/publisher | Uppercut Labs |
+
+A developer installs the tool, supplies their own `cappy.config.json`, and runs:
+
+```bash
+npm install -g @uppercut-labs/cappy
+cappy doctor -C /path/to/project
+```
+
+The equivalent one-shot command is:
+
+```bash
+npx @uppercut-labs/cappy doctor -C /path/to/project
+```
+
+Installation requires no repository checkout, TypeScript compiler, or consumer
+build step. Node.js 24 or newer remains required. Missing configuration or
+external tools produce the existing actionable diagnostics and exit codes;
+installation must not silently install OBS, FFmpeg, or Godot. An empty directory
+must behave as a configuration error, not a broken installation.
+
+Do not advertise `npx cappy` as the public installation path. Public examples
+use the scoped package or the installed `cappy` executable. Contributor examples
+use an explicit checkout launcher where local resolution could be ambiguous.
+
+### 26.2 Verified starting point
+
+Inspection on 2026-09-28 found:
+
+- `origin` points to `git@github.com:devin-thomas/cappy.git`; the branch is `main`
+  and the worktree was clean before this planning change.
+- GitHub reports the repository as private. The intended public visibility is
+  a decision to confirm, not an existing property of the repository.
+- The root, six implementation packages, and two fixture packages are private.
+- The CLI launcher is `packages/cli/bin/cappy.js`; it loads the TypeScript build
+  from `dist/bin.js` and currently tells users to build when it is missing.
+- Internal imports and workspace dependencies use `@cappy/*`.
+- No tracked license, GitHub workflow, or Git tag was found.
+- Existing acceptance covers source-checkout behavior on macOS and Windows,
+  and Linux with real OBS unverified. It does not prove npm installation works.
+
+Organization transfer rights, npm scope ownership, package/version availability,
+and publishing credentials remain implementation preflight checks. No public
+release or ownership transfer is claimed by this specification.
+
+### 26.3 Repository migration
+
+Transfer the existing repository to `uppercut-labs`, retaining the name `cappy`.
+Preserve Git history, issues, pull requests, and existing repository resources;
+do not substitute a newly created repository or rewrite authorship.
+
+Before transfer, inspect destination-name conflicts, organization permissions,
+repository settings, and any workflows, secrets, webhooks, or integrations that
+need attention after transfer. A name conflict or rejected transfer must surface
+explicitly; do not delete a destination repository or bypass an organization
+policy. Recheck organization access after transfer.
+
+Update `origin` to `git@github.com:uppercut-labs/cappy.git` and verify it resolves
+to the transferred repository. Verify the default branch remains `main` and
+the intended commits are present remotely. Do not rely on the old URL redirect
+as the final configuration.
+
+The target is an open-source repository. Before changing the currently private
+repository to public, review the tracked tree and history for credentials,
+private data, generated captures, and material not intended for public release.
+A consequential finding blocks public visibility until resolved with the owner;
+do not rewrite history automatically. License choice and visibility need explicit
+confirmation. Preserve personal authorship and add Uppercut Labs publisher credit.
+
+### 26.4 One public package; private implementation workspaces
+
+Keep the existing source boundaries. Add `packages/cappy/` as a distribution-only
+workspace named `@uppercut-labs/cappy`, with `private: false`. The root remains
+private. No implementation or fixture package is published independently.
+
+Rename private workspaces and all active imports/dependency references as follows:
+
+| Current | Private workspace identity |
+| --- | --- |
+| `@cappy/core` | `@uppercut-labs/cappy-internal-core` |
+| `@cappy/workspace` | `@uppercut-labs/cappy-internal-workspace` |
+| `@cappy/protocol` | `@uppercut-labs/cappy-internal-protocol` |
+| `@cappy/obs` | `@uppercut-labs/cappy-internal-obs` |
+| `@cappy/media` | `@uppercut-labs/cappy-internal-media` |
+| `@cappy/cli` | `@uppercut-labs/cappy-internal-cli` |
+| `@cappy/adapter-simulator` | `@uppercut-labs/cappy-fixture-adapter-simulator` |
+| `@cappy/fake-obs` | `@uppercut-labs/cappy-fixture-fake-obs` |
+
+All eight retain `private: true`. Regenerate the npm lockfile through npm;
+update tests, fixtures, development tooling, and current architecture docs.
+Historical ticket evidence may retain the names used when it was recorded.
+
+Build the public CLI from `packages/cli/src/bin.ts` with a project-local bundler
+(proposed: esbuild), bundling all internal modules into a Node ESM executable.
+Preserve its shebang, signal handling, argument forwarding, and current-directory
+behavior. Keep Node built-ins external. Initially keep `ws` and `zod` as declared
+registry runtime dependencies; their transitive installation must work normally.
+No published dependency may reference a private workspace, local file, or link.
+
+The public manifest maps `bin.cappy` to the built executable. Use an explicit
+files allowlist for the executable, package README, license, and necessary
+third-party notices. Exclude tests, fixtures, caches, captures, local config,
+credentials, and development tooling. Do not introduce a public JavaScript
+library API in this release; retain internal source exports for development.
+
+The Godot addon remains available from the versioned GitHub source tree, with
+installation instructions pinned to the release tag. npm distributes the
+controller CLI, not the Godot editor or demo. A future addon archive is optional
+and does not block this migration.
+
+Set public metadata deliberately: description, `engines.node: >=24`, license,
+author, repository URL and package directory, homepage, bugs URL, keywords, and
+`publishConfig.access: public`. Keep the release version and `CAPPY_VERSION`
+synchronized so CLI output and capture manifests identify the released version.
+
+### 26.5 Documentation, checks, and release automation
+
+Update README and getting-started instructions for global and scoped one-shot
+installation, runtime prerequisites, configuration, and Godot addon retrieval.
+Separate contributor builds from consumer installation. Update ownership links,
+package tables, relevant Context/ADR/model references, and license information.
+Preserve the existing host limitations and historical acceptance evidence.
+
+Add CI for macOS, Windows, and Linux using Node.js 24 and `npm ci`. Required
+checks are typecheck, lint, tests, model validation, and distribution build.
+Add a reproducible package check that packs only `packages/cappy`, inspects its
+contents and dependency closure, and installs the resulting tarball into a clean
+directory outside the checkout with no workspace links or developer dependencies.
+
+Exercise both a normal local installation and an isolated global prefix. Verify
+the actual npm-generated `cappy` launcher on macOS/Linux and Windows, not only
+`node` invoked against the bundle. Verify `--help`, `--version`, JSON diagnostics,
+missing-config errors, and `doctor` against a controlled project. A successful
+doctor requires configured prerequisites; the missing-tools case must return the
+expected diagnostic, not be treated as a packaging failure.
+
+Run scenario discovery and a no-capture record/replay fixture flow through the
+installed CLI. Fixtures can be separately built test processes but must not
+supply hidden runtime dependencies to the installed package. Check subprocess
+cleanup and cancellation. Record new per-host installation evidence separately
+from previous real OBS/Godot capture acceptance.
+
+Prepare a manually initiated release workflow with an approval gate and a
+runbook. Before enabling publication, verify current npm/GitHub requirements
+from their official documentation, organization rights, and authentication
+availability. Prefer supported trusted publishing; keep any required bootstrap
+or credential configuration explicit and never commit tokens.
+
+Publication must select only the public package, validate that tag, manifest,
+and CLI versions match, and publish the exact tested tarball. Retain its checksum
+and commit association. Create the matching GitHub release with notes, package
+artifact/checksum, prerequisites, and support limitations. A failure between
+GitHub release creation and npm publication is a partial release to reconcile,
+not success. Check for an existing version before publishing; never overwrite a
+published version or blindly retry an ambiguous publish result.
+
+### 26.6 Boundaries and consequential decisions
+
+No new CLI commands, capture features, protocol changes, workspace format
+changes, GUI, library releases, executable rename, or external-tool downloads
+are part of this migration. Future standalone libraries may use names such as
+`@uppercut-labs/cappy-core` only when external demand justifies a supported API.
+
+The owner confirmed on 2026-09-28:
+
+1. Transfer GitHub and prepare npm publication; do not publish npm `0.1.0` yet.
+2. Use the MIT license.
+3. Make the transferred repository public after reviewing publish contents.
+
+Reversible packaging choices above are proposed implementation defaults. The
+overall scope was approved on 2026-09-28 under the invoked quick-build workflow.
+Record the approved scope in the execution plan and ADR before implementation.
+
+### 26.7 Acceptance and completion evidence
+
+| Evidence | Required check | Current result |
+| --- | --- | --- |
+| Ownership | Transferred repo, correct origin, preserved history and resources | Passed; original repository ID retained |
+| Visibility/license | Confirmed choice, public-content review if applicable, matching license metadata | Public, MIT; history/content reviewed |
+| Build/types | Typecheck, lint, tests, model, distribution build, `git diff --check` | Passed on all three hosts; docs/acceptance.md |
+| Package isolation | Inspected tarball, no private dependency references, clean local/global installation | Passed; four-file tarball, only ws/zod dependencies |
+| Primary behavior | Installed help/version, doctor JSON, missing config/tools, scenario discovery and no-capture record/replay | Passed |
+| Platforms | Installed npm launchers on macOS, Windows, Linux; cancellation evidence labeled by host | Passed; Windows uses a native console event against the installed entrypoint |
+| Layout/accessibility | No GUI changes; preserve existing human and JSON CLI output | Not applicable to layout |
+| Release availability | Release-ready artifact and gated publication runbook; no npm publication | Preparation workflow succeeded; npm remains unpublished |
+
+For a preparation-only delivery, completion means transferred ownership,
+approved visibility/license, passing package checks, documented remaining
+publisher setup, and publication disabled until authorized. Do not describe it
+as an npm release. For a publication delivery, additionally verify registry
+metadata and integrity against the tested artifact and run the documented
+version-pinned scoped command from a clean environment. Record the branch,
+commit, repository URL, actual release/package URLs, and unresolved checks.

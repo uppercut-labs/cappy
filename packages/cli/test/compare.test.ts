@@ -3,10 +3,10 @@ import { writeFileSync } from "node:fs";
 import { readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { comparisonManifestSchema } from "@cappy/core";
-import { probeMedia } from "@cappy/media";
-import { main } from "@cappy/cli";
-import { hashFile } from "@cappy/workspace";
+import { comparisonManifestSchema } from "@uppercut-labs/cappy-internal-core";
+import { probeMedia } from "@uppercut-labs/cappy-internal-media";
+import { main } from "@uppercut-labs/cappy-internal-cli";
+import { hashFile } from "@uppercut-labs/cappy-internal-workspace";
 import { type Harness, configure, createHarness, disposeHarness, repoRoot, runCli } from "./support.js";
 
 let harness: Harness;
@@ -331,7 +331,7 @@ describe("cappy compare", { timeout: 30_000 }, () => {
     const broken = (await compare([first["captureId"], third["captureId"]])).result["data"]["comparisonId"] as string;
     // A comparison written before gates existed (version 1) is still a cleanup item.
     const legacy = `cmp_${"3".repeat(8)}-0000-0000-0000-000000000000`;
-    const ws = await (await import("@cappy/workspace")).ManagedWorkspace.open({ projectDir: harness.project });
+    const ws = await (await import("@uppercut-labs/cappy-internal-workspace")).ManagedWorkspace.open({ projectDir: harness.project });
     if (!ws.ok) throw new Error(ws.error.message);
     await ws.value.writeManaged(`comparisons/${legacy}/manifest.json`, JSON.stringify({ comparisonVersion: 1, status: "failed", createdAt: new Date().toISOString() }));
     const failed = await runCli(harness, ["clean", "--failed"]);

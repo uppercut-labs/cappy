@@ -8,8 +8,8 @@ import {
   err,
   ok,
   resolveExecutable,
-} from "@cappy/core";
-import { type AdapterConnection, AdapterServer, type HeartbeatOptions } from "@cappy/protocol";
+} from "@uppercut-labs/cappy-internal-core";
+import { type AdapterConnection, AdapterServer, type HeartbeatOptions } from "@uppercut-labs/cappy-internal-protocol";
 
 /** A launched game with a negotiated adapter connection. */
 export interface GameSession {

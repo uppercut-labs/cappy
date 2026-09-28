@@ -1,6 +1,6 @@
 # Cappy Adapter Protocol
 
-Version 1. This is the contract a game adapter implements to be driven by Cappy. The schemas in `packages/protocol/src/messages.ts` are authoritative; this page explains them.
+Version 1. This is the contract a game adapter implements to be driven by Cappy. The schemas in `packages/protocol/src/messages.ts` (private workspace `@uppercut-labs/cappy-internal-protocol`) are authoritative; this page explains them.
 
 ## Transport
 

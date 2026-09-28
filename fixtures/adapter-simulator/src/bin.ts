@@ -6,7 +6,7 @@
  */
 import { writeFileSync } from "node:fs";
 import path from "node:path";
-import { ENDPOINT_ENV, TOKEN_ENV } from "@cappy/protocol";
+import { ENDPOINT_ENV, TOKEN_ENV } from "@uppercut-labs/cappy-internal-protocol";
 import { AdapterSimulator, type SimulatorProcessOptions } from "./simulator.js";
 
 const endpoint = process.env[ENDPOINT_ENV];

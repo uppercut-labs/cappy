@@ -4,6 +4,8 @@ A Godot 4.x addon that connects a game to Cappy. It implements the [adapter prot
 
 ## Install
 
+The addon is distributed with the versioned GitHub source tree. Once a release tag exists, obtain that tagged source (for example, `v0.1.0`) and copy `adapters/godot/addons/cappy/` into your project's `addons/` folder. The tag has not been published yet; with the current checkout, copy `adapters/godot/addons/cappy/` from this repository.
+
 1. Copy `addons/cappy/` into your project's `addons/` folder.
 2. Enable **Cappy** under Project Settings > Plugins, or add the autoload yourself:
 

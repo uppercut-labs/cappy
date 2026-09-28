@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { type TimelineEvent, diffTimelines } from "@cappy/core";
+import { type TimelineEvent, diffTimelines } from "@uppercut-labs/cappy-internal-core";
 
 let seq = 0;
 const event = (type: string, t: number, source: TimelineEvent["source"] = "adapter"): TimelineEvent => ({ id: `evt_${seq}`, source, seq: seq++, t, type });

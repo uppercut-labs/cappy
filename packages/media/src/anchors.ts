@@ -1,4 +1,4 @@
-import { type TimelineEvent, timelineEventSchema } from "@cappy/core";
+import { type TimelineEvent, timelineEventSchema } from "@uppercut-labs/cappy-internal-core";
 import { z } from "zod";
 
 const scalar = z.union([z.string(), z.number(), z.boolean(), z.null()]);

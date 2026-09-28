@@ -8,7 +8,7 @@ import {
   exitCodeFor,
   newCorrelationId,
   serializeCommandResult,
-} from "@cappy/core";
+} from "@uppercut-labs/cappy-internal-core";
 import { type CleanReport, clean } from "./commands/clean.js";
 import { type CompareBuildsReport, compareBuilds } from "./commands/compare-builds.js";
 import { type CompareReport, compare } from "./commands/compare.js";

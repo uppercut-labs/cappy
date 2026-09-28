@@ -9,7 +9,7 @@ import {
   err,
   missingCapabilities,
   ok,
-} from "@cappy/core";
+} from "@uppercut-labs/cappy-internal-core";
 import WebSocket, { WebSocketServer } from "ws";
 import { AdapterConnection, DEFAULT_HEARTBEAT, type HeartbeatOptions } from "./connection.js";
 import { type ControllerMessage, MAX_MESSAGE_BYTES, SUPPORTED_PROTOCOL, helloSchema, negotiateVersion } from "./messages.js";

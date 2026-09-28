@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { type FrameScore, comparisonArguments, parseFrameScores, selectWorstFrames, summarizeScores, worstFrameArguments } from "@cappy/media";
+import { type FrameScore, comparisonArguments, parseFrameScores, selectWorstFrames, summarizeScores, worstFrameArguments } from "@uppercut-labs/cappy-internal-media";
 
 const frame = (n: number, ssim: number, fps = 10): FrameScore => ({ frame: n, tMs: ((n - 1) * 1000) / fps, ssim, psnr: 30 });
 

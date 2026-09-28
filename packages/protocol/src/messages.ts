@@ -1,4 +1,4 @@
-import { adapterIdentitySchema, capabilitySetSchema, scenarioParametersSchema, scenarioSchema } from "@cappy/core";
+import { adapterIdentitySchema, capabilitySetSchema, scenarioParametersSchema, scenarioSchema } from "@uppercut-labs/cappy-internal-core";
 import { z } from "zod";
 
 /*
