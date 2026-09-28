@@ -2,8 +2,8 @@ import { mkdtemp, readdir, realpath, rm, utimes, writeFile } from "node:fs/promi
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { FakeObsServer, type FakeObsOptions } from "@cappy/fake-obs";
-import { ALLOWED_OBS_REQUESTS, ObsRecorder, verifyMaster } from "@cappy/obs";
+import { FakeObsServer, type FakeObsOptions } from "@uppercut-labs/cappy-fixture-fake-obs";
+import { ALLOWED_OBS_REQUESTS, ObsRecorder, verifyMaster } from "@uppercut-labs/cappy-internal-obs";
 
 let dir: string;
 let obs: FakeObsServer | undefined;

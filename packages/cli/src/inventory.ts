@@ -1,8 +1,8 @@
 import type { Dirent } from "node:fs";
 import { lstat, readFile, readdir } from "node:fs/promises";
 import path from "node:path";
-import { captureSourceSchema } from "@cappy/core";
-import type { ManagedFile, ManagedWorkspace } from "@cappy/workspace";
+import { captureSourceSchema } from "@uppercut-labs/cappy-internal-core";
+import type { ManagedFile, ManagedWorkspace } from "@uppercut-labs/cappy-internal-workspace";
 import { z } from "zod";
 
 /** The units `cappy clean` selects (SPEC 11.7). */

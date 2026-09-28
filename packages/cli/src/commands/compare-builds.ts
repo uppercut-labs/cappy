@@ -1,4 +1,4 @@
-import { BASE_BUILD, type CommandResult, cappyError, commandFailure, commandSuccess, loadConfig, newCorrelationId, selectBuild } from "@cappy/core";
+import { BASE_BUILD, type CommandResult, cappyError, commandFailure, commandSuccess, loadConfig, newCorrelationId, selectBuild } from "@uppercut-labs/cappy-internal-core";
 import type { CommandContext } from "../context.js";
 import { type CompareReport, compare, parseGates } from "./compare.js";
 import { type ReplayReport, replay } from "./replay.js";

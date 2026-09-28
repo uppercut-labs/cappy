@@ -6,8 +6,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { type Interrupts, main } from "@cappy/cli";
-import { sessionSchema } from "@cappy/core";
+import { type Interrupts, main } from "@uppercut-labs/cappy-internal-cli";
+import { sessionSchema } from "@uppercut-labs/cappy-internal-core";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 const simulatorBin = path.join(repoRoot, "fixtures/adapter-simulator/dist/bin.js");

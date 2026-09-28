@@ -3,7 +3,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import Ajv from "ajv";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { main } from "@cappy/cli";
+import { main } from "@uppercut-labs/cappy-internal-cli";
 import { type Harness, configure, createHarness, disposeHarness, repoRoot, runCli } from "./support.js";
 
 let harness: Harness;

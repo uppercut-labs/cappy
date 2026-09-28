@@ -1,4 +1,4 @@
-import { type LoadedConfig, type Result, loadConfig, ok, selectBuild } from "@cappy/core";
+import { type LoadedConfig, type Result, loadConfig, ok, selectBuild } from "@uppercut-labs/cappy-internal-core";
 import type { CommandContext } from "./context.js";
 
 /** The build named with `--build`, if any. */

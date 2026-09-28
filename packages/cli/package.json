@@ -1,12 +1,9 @@
 {
-  "name": "@cappy/cli",
+  "name": "@uppercut-labs/cappy-internal-cli",
   "version": "0.1.0",
   "private": true,
   "description": "Cappy command-line interface with human and JSON output.",
   "type": "module",
-  "bin": {
-    "cappy": "./bin/cappy.js"
-  },
   "exports": {
     ".": {
       "source": "./src/index.ts",
@@ -19,11 +16,11 @@
     "dist"
   ],
   "dependencies": {
-    "@cappy/core": "0.1.0",
-    "@cappy/media": "0.1.0",
-    "@cappy/obs": "0.1.0",
-    "@cappy/protocol": "0.1.0",
-    "@cappy/workspace": "0.1.0",
+    "@uppercut-labs/cappy-internal-core": "0.1.0",
+    "@uppercut-labs/cappy-internal-media": "0.1.0",
+    "@uppercut-labs/cappy-internal-obs": "0.1.0",
+    "@uppercut-labs/cappy-internal-protocol": "0.1.0",
+    "@uppercut-labs/cappy-internal-workspace": "0.1.0",
     "zod": "^4.6.5"
   }
 }

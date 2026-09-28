@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { readFile, stat, unlink } from "node:fs/promises";
 import path from "node:path";
-import { type Artifact, type CappyError, type Result, cappyError, err, ok, runProcess } from "@cappy/core";
-import type { ManagedWorkspace } from "@cappy/workspace";
+import { type Artifact, type CappyError, type Result, cappyError, err, ok, runProcess } from "@uppercut-labs/cappy-internal-core";
+import type { ManagedWorkspace } from "@uppercut-labs/cappy-internal-workspace";
 import { frameAtOrBefore } from "./derivatives.js";
 import { type MediaInfo, probeMedia } from "./probe.js";
 

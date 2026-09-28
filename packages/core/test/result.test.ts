@@ -8,7 +8,7 @@ import {
   exitCodeFor,
   serializeCommandResult,
   stripAnsi,
-} from "@cappy/core";
+} from "@uppercut-labs/cappy-internal-core";
 
 describe("command result envelope", () => {
   it("wraps successful data with a correlation ID and exit code 0", () => {

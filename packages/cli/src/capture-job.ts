@@ -17,11 +17,11 @@ import {
   commandFailure,
   commandSuccess,
   newId,
-} from "@cappy/core";
-import { type ToolInfo, expandDerivative, locateTool, probeMedia, produceDerivative, validateDerivatives } from "@cappy/media";
-import type { ObsRecorder } from "@cappy/obs";
-import type { AdapterConnection, AdapterOperation, OperationOutcome } from "@cappy/protocol";
-import { ManagedWorkspace } from "@cappy/workspace";
+} from "@uppercut-labs/cappy-internal-core";
+import { type ToolInfo, expandDerivative, locateTool, probeMedia, produceDerivative, validateDerivatives } from "@uppercut-labs/cappy-internal-media";
+import type { ObsRecorder } from "@uppercut-labs/cappy-internal-obs";
+import type { AdapterConnection, AdapterOperation, OperationOutcome } from "@uppercut-labs/cappy-internal-protocol";
+import { ManagedWorkspace } from "@uppercut-labs/cappy-internal-workspace";
 import { prepareRecorder, publishMaster, selectPreset } from "./capture.js";
 import type { CommandContext, Interrupts } from "./context.js";
 import { type GameSession, launchGame } from "./game.js";

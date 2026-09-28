@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveScenarioParameters, scenarioSchema } from "@cappy/core";
+import { resolveScenarioParameters, scenarioSchema } from "@uppercut-labs/cappy-internal-core";
 
 const scenario = scenarioSchema.parse({
   id: "boss_intro",

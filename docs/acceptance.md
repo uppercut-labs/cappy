@@ -182,6 +182,48 @@ Host: Debian GNU/Linux 12 (bookworm), aarch64 (OrbStack on the owner's Mac, kern
 
 No Linux-specific fix was needed.
 
+## Uppercut Labs npm distribution preparation (2026-09-28)
+
+This verifies the installed distribution separately from the historical capture
+acceptance above. No npm package, GitHub release, or tag was published by this
+migration. The repository was transferred intact to `uppercut-labs/cappy` and
+made public after reviewing tracked contents and scanning all prior commits.
+
+| Host | Source validation | Installed package evidence |
+| --- | --- | --- |
+| macOS 27, arm64, Node 24.21.0 | Typecheck, lint, 284 tests passed / 18 skipped, model, distribution build | Local/global npm launchers; help/version; missing-config and missing-tools JSON; scenario discovery; record/replay without capture; SIGINT cancellation |
+| Windows 11, x64, Node 24.18.0, npm 11.16.0 | Clean checkout and npm ci; typecheck, lint, 282 tests passed / 20 skipped with four workers; model, distribution build | Same tarball as macOS/Linux installed locally/globally; actual `.cmd` launchers; diagnostics, discovery, record/replay; installed entrypoint cancelled through a native console Ctrl+C event |
+| Debian bookworm container, arm64, Node 24.21.0, npm 11.19.0 | Fresh source copy and npm ci; build, typecheck, lint, 284 tests passed / 18 skipped, model, distribution build | Local/global npm launchers; help/version; diagnostics, discovery, record/replay; SIGINT cancellation |
+
+The tested `@uppercut-labs/cappy@0.1.0` archive contains four files: manifest,
+README, MIT license, and the executable. Its only runtime dependencies are
+registry packages `ws` and `zod`; no implementation/fixture workspaces ship as
+dependencies. SHA-256:
+
+```text
+276e64cd7a4b6cc1072229f079aba69363103ffa816e2297a4783a70ab25f237
+```
+
+`npm run package:check` packs the public workspace, installs outside the
+checkout, and exercises these cases. It can also check a specific artifact with
+`-- --tarball <path>`. The Windows cancellation helper allocates a fresh console
+and enables Ctrl+C handling before launching the installed executable, avoiding
+SSH's inherited ignore flag. It verifies exit 130, persisted cancelled metadata,
+and simulator-child cleanup. This is an automated native console-event check;
+the local/global `.cmd` launchers are separately verified for normal commands.
+
+The first Windows full suite hit a transient fake-OBS stop timeout under the
+default parallel load. Running with four workers passed; `vitest.config.ts` now
+sets that bound on Windows, without changing product timeouts. No real OBS,
+Godot, or FFmpeg capture acceptance was rerun for this packaging change. The
+historical real-tool evidence and Linux OBS limitation remain as recorded above.
+
+GitHub [CI on revision 50b5eb1](https://github.com/uppercut-labs/cappy/actions/runs/36431049845)
+passed on all three hosted runners. [Release preparation](https://github.com/uppercut-labs/cappy/actions/runs/36431184220)
+retained the tested artifact and skipped publication. The first hosted Windows
+package check exposed GNU tar's drive-letter parsing under Git Bash; using the
+archive basename with its directory as the working directory fixed the check.
+
 ## Remaining limitations
 
 - Real OBS capture on Linux is unverified (see above).

@@ -1,6 +1,6 @@
 # Getting started
 
-This walks a new project through configuring Cappy and capturing the Godot demo. The same steps apply to your own Godot game once the [Cappy addon](../adapters/godot/README.md) is installed. They work on macOS, Windows, and Linux; on Linux, capture with real OBS is not yet verified (see [acceptance.md](acceptance.md)).
+This walks a contributor through configuring Cappy and capturing the Godot demo. The same steps apply to your own Godot game once the [Cappy addon](../adapters/godot/README.md) is installed. Historical acceptance covers macOS and Windows; Linux support is documented separately, with real OBS capture on Linux unverified (see [acceptance.md](acceptance.md)). The npm package is upcoming and is not published yet.
 
 ## 1. Install the tools
 
@@ -15,10 +15,22 @@ The first time OBS opens, macOS asks you to confirm opening a downloaded app, an
 
 In OBS, create the scene Cappy should record (for example `Capture`) with a Game Capture, Window Capture, or Display Capture source for the game. Cappy never creates or edits OBS scenes.
 
-## 2. Build Cappy and the demo
+## 2. Install Cappy
+
+When the first npm release is available, install the public package globally or invoke it once with its scoped name:
 
 ```bash
-git clone https://github.com/devin-thomas/cappy.git
+npm install --global @uppercut-labs/cappy
+cappy doctor -C /path/to/project
+npx @uppercut-labs/cappy doctor -C /path/to/project
+```
+
+The package requires Node.js 24 or newer. It does not install Godot, FFmpeg, or OBS for you. Until that release, use the contributor checkout steps below.
+
+## 3. Build Cappy and the demo
+
+```bash
+git clone https://github.com/uppercut-labs/cappy.git
 cd cappy
 npm install
 npm run build
@@ -27,7 +39,7 @@ npm run godot:demo
 
 `npm run godot:demo` writes `.godot-demo/`: the demo game with the Cappy addon installed.
 
-## 3. Create a project
+## 4. Create a project
 
 Make a project directory anywhere and add `cappy.config.json`. Start from [cappy.config.example.json](../cappy.config.example.json); for the demo:
 
@@ -59,43 +71,43 @@ Make a project directory anywhere and add `cappy.config.json`. Start from [cappy
 - Add `.cappy/` to the project's `.gitignore`.
 - The `settled` still is anchored to the demo's `SETTLED` event rather than a fixed second. It is optional because only `orb_launch` emits that event. See [presets.md](presets.md) for anchors.
 
-## 4. Check the setup
+## 5. Check the setup
 
 Run commands from the Cappy repository with `-C` pointing at your project:
 
 ```bash
-npx cappy doctor -C /path/to/project
+node packages/cli/bin/cappy.js doctor -C /path/to/project
 ```
 
 Every check should pass. Fix anything marked `FAIL`; `WARN` is advisory.
 
-## 5. Explore the game
+## 6. Explore the game
 
 ```bash
-npx cappy scenarios -C /path/to/project
+node packages/cli/bin/cappy.js scenarios -C /path/to/project
 ```
 
 The demo registers `orb_launch` with `power` (integer 1-5) and `gravity` (number 0.5-4).
 
-## 6. Record and replay a freeform session
+## 7. Record and replay a freeform session
 
 ```bash
-npx cappy record --duration 3 -C /path/to/project
-npx cappy replay <session-id> --no-capture -C /path/to/project
+node packages/cli/bin/cappy.js record --duration 3 -C /path/to/project
+node packages/cli/bin/cappy.js replay <session-id> --no-capture -C /path/to/project
 ```
 
 `record` prints the session ID. Only freeform sessions made by `record` can be replayed; `run` also creates a scenario session, which has no replay payload. The replay reproduces the recorded jumps, landings, and coins at the same simulation times. Without `--duration`, press Enter to stop or Ctrl+C to cancel.
 
-## 7. Capture
+## 8. Capture
 
 ```bash
-npx cappy run orb_launch --param power=4 -C /path/to/project
-npx cappy replay <session-id> -C /path/to/project
+node packages/cli/bin/cappy.js run orb_launch --param power=4 -C /path/to/project
+node packages/cli/bin/cappy.js replay <session-id> -C /path/to/project
 ```
 
 Each capture leaves `.cappy/captures/<capture-id>/` with `master.<ext>` (OBS 32 records Hybrid MOV by default, so `master.mov`), the preset's derivatives, and `manifest.json`. Run the same command again for take 2; use `--take <n>` to choose a take explicitly.
 
-## 8. Compare two builds
+## 9. Compare two builds
 
 Name builds in the config, then capture the same moment with each and compare. The demo has a variant for this: the user argument `--variant=b` reports build `0.1.0+b` and draws a larger green orb.
 
@@ -106,7 +118,7 @@ Name builds in the config, then capture the same moment with each and compare. T
 ```
 
 ```bash
-npx cappy compare-builds orb_launch base b -pa power=4 -C /path/to/project
+node packages/cli/bin/cappy.js compare-builds orb_launch base b -pa power=4 -C /path/to/project
 ```
 
 The result holds both captures and a comparison with its triptych, scores, and timeline diff. Add gates such as `--min-ssim 0.999` to fail on a visual difference (the variant's orb is one), or `--require-same-events` to fail on a logic difference.

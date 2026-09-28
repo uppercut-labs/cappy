@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { promisify } from "node:util";
 import path from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { resolveExecutable } from "@cappy/core";
+import { resolveExecutable } from "@uppercut-labs/cappy-internal-core";
 import { type Harness, configure, createHarness, disposeHarness, repoRoot, runCli } from "../../packages/cli/test/support.js";
 
 /*
@@ -162,9 +162,13 @@ describe.runIf(godot !== undefined)("Godot adapter and demo", { timeout: 120_000
     expect(unknown.result["error"]).toMatchObject({ code: "ADAPTER_OPERATION_FAILED", details: { adapterCode: "UNKNOWN_CAMERA" } });
   });
 
-  it("refuses a controller endpoint that is not on loopback", async () => {
-    const env = { ...process.env, CAPPY_ENDPOINT: "ws://192.0.2.1:9", CAPPY_SESSION_TOKEN: "token" };
-    const { stdout, stderr } = await promisify(execFile)(godot ?? "godot", ["--headless", "--path", demo, "--quit-after", "30"], { env });
-    expect(`${stdout}${stderr}`).toContain("Cappy: refusing non-loopback endpoint ws://192.0.2.1:9");
-  });
+  // Userinfo would make WebSocketPeer connect to the host after the "@".
+  it.each(["ws://192.0.2.1:9", "ws://127.0.0.1:1@192.0.2.1:9/", "ws://127.0.0.1.example.com:9", "ws://localhost.example.com:9", "ws://[::1]@192.0.2.1:9"])(
+    "refuses the non-loopback controller endpoint %s",
+    async (endpoint) => {
+      const env = { ...process.env, CAPPY_ENDPOINT: endpoint, CAPPY_SESSION_TOKEN: "token" };
+      const { stdout, stderr } = await promisify(execFile)(godot ?? "godot", ["--headless", "--path", demo, "--quit-after", "30"], { env });
+      expect(`${stdout}${stderr}`).toContain(`Cappy: refusing non-loopback endpoint ${endpoint}`);
+    },
+  );
 });

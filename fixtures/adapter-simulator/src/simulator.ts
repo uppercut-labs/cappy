@@ -7,7 +7,7 @@ import {
   type ReplayHandoff,
   SUPPORTED_PROTOCOL,
   parseControllerMessage,
-} from "@cappy/protocol";
+} from "@uppercut-labs/cappy-internal-protocol";
 import WebSocket from "ws";
 
 export interface ScriptedEvent {

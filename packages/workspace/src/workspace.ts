@@ -12,7 +12,7 @@ import {
   cappyError,
   err,
   ok,
-} from "@cappy/core";
+} from "@uppercut-labs/cappy-internal-core";
 import { hashBytes, hashFile } from "./hash.js";
 import {
   PathRejectedError,

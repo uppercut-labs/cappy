@@ -1,8 +1,8 @@
 import { mkdir, readFile, readdir, unlink, writeFile } from "node:fs/promises";
 import { hostname } from "node:os";
 import path from "node:path";
-import { boundDetails } from "@cappy/core";
-import type { ManagedWorkspace } from "@cappy/workspace";
+import { boundDetails } from "@uppercut-labs/cappy-internal-core";
+import type { ManagedWorkspace } from "@uppercut-labs/cappy-internal-workspace";
 
 export interface LogEntry {
   readonly at: string;

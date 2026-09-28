@@ -8,10 +8,10 @@ import {
   commandFailure,
   commandSuccess,
   missingCapabilities,
-} from "@cappy/core";
-import type { ObsRecorder, RecordingStarted } from "@cappy/obs";
-import type { AdapterOperation, OperationOutcome } from "@cappy/protocol";
-import { ManagedWorkspace } from "@cappy/workspace";
+} from "@uppercut-labs/cappy-internal-core";
+import type { ObsRecorder, RecordingStarted } from "@uppercut-labs/cappy-internal-obs";
+import type { AdapterOperation, OperationOutcome } from "@uppercut-labs/cappy-internal-protocol";
+import { ManagedWorkspace } from "@uppercut-labs/cappy-internal-workspace";
 import { collectMaster, prepareRecorder, selectPreset } from "../capture.js";
 import type { CommandContext } from "../context.js";
 import { CommandLog, acquireRunLock, liveCorrelationIds } from "../log.js";

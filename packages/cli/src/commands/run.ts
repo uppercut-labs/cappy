@@ -9,8 +9,8 @@ import {
   presentationCapabilities,
   ok,
   resolveScenarioParameters,
-} from "@cappy/core";
-import type { AdapterConnection } from "@cappy/protocol";
+} from "@uppercut-labs/cappy-internal-core";
+import type { AdapterConnection } from "@uppercut-labs/cappy-internal-protocol";
 import { type CaptureReport, type CapturePlan, JobState, type CaptureSetup, executeCapture, preflightCapture } from "../capture-job.js";
 import type { CommandContext } from "../context.js";
 import { newSessionId } from "../sessions.js";

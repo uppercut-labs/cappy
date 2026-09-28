@@ -11,8 +11,8 @@ import {
   err,
   ok,
   runProcess,
-} from "@cappy/core";
-import type { ManagedWorkspace } from "@cappy/workspace";
+} from "@uppercut-labs/cappy-internal-core";
+import type { ManagedWorkspace } from "@uppercut-labs/cappy-internal-workspace";
 import { z } from "zod";
 import { type DerivativeTime, type EventAnchor, derivativeTimeSchema, describeAnchor, findAnchorEvent, findAnchorEvents } from "./anchors.js";
 import { type MediaInfo, probeMedia } from "./probe.js";

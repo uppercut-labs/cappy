@@ -14,7 +14,7 @@ import {
   scenarioSchema,
   sessionSchema,
   timelineEventSchema,
-} from "@cappy/core";
+} from "@uppercut-labs/cappy-internal-core";
 
 const sha = "a".repeat(64);
 const now = "2026-09-25T12:00:00.000-05:00";

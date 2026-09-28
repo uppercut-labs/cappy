@@ -1,6 +1,6 @@
 import { stat } from "node:fs/promises";
 import path from "node:path";
-import { type CappyConfig, type CappyError, type Result, cappyError, err, ok } from "@cappy/core";
+import { type CappyConfig, type CappyError, type Result, cappyError, err, ok } from "@uppercut-labs/cappy-internal-core";
 import { OBS_EVENTS_OUTPUTS, ObsClient } from "./client.js";
 import { resolveObsPassword } from "./probe.js";
 

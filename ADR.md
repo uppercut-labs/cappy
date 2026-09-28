@@ -220,13 +220,24 @@
 
 **Consequences:** The protocol gains an optional `presentation` on replay requests, an additive change within protocol version 1. Comparisons warn when presentations differ. Camera rails, free camera, shot lists, and multi-angle passes remain in `Ideas.md`.
 
-## ADR-023 - The Godot adapter stays inert in release exports
+## ADR-023 - Prepare Uppercut Labs ownership and npm distribution
+
+**Status:** Accepted (2026-09-28).
+
+**Decision:** Maintain and publish the project as `uppercut-labs/cappy`, crediting Devin Thomas as author and maintainer. Use the MIT license. Prepare one public npm package, `@uppercut-labs/cappy`, exposing the existing `cappy` CLI, and keep implementation and fixture workspaces private under their `@uppercut-labs/cappy-internal-*` and `@uppercut-labs/cappy-fixture-*` names. The npm package is not published as part of this work. The Godot addon remains available from versioned GitHub source; until a release tag exists, documentation must describe the current checkout accurately rather than imply a released addon.
+
+**Approved scope:** Transfer the existing GitHub repository and prepare its public contents and npm package for review. Do not publish to npm and do not add or change product features. Preserve existing acceptance limits: macOS and Windows acceptance remains historical evidence, and real OBS capture on Linux remains unverified.
+
+**Rationale:** A single executable package gives consumers a stable scoped install while keeping the implementation modular for contributors. Repository transfer preserves history and authorship; separating release preparation from publication leaves the package ready for a deliberate release decision.
+
+**Consequences:** Consumer instructions use `npm install --global @uppercut-labs/cappy` or `npx @uppercut-labs/cappy` after publication. Contributor instructions use `node packages/cli/bin/cappy.js` from the checkout and never rely on unscoped `npx cappy`. Documentation must state that publication is pending and distinguish packaging checks from prior host acceptance evidence.
+
+## ADR-024 - The Godot adapter stays inert in release exports
 
 **Status:** Accepted (2026-09-28, post-V1)
 
-**Decision:** In a release export (`OS.is_debug_build()` is false), the Godot adapter ignores `CAPPY_ENDPOINT` and `CAPPY_SESSION_TOKEN` unless the project setting `cappy/allow_release_builds` is true. In every build, it refuses an endpoint that is not on loopback.
+**Decision:** In a release export (`OS.is_debug_build()` is false), the Godot adapter ignores `CAPPY_ENDPOINT` and `CAPPY_SESSION_TOKEN` unless the project setting `cappy/allow_release_builds` is true. In every build, it refuses an endpoint whose host is not exactly `127.0.0.1`, `localhost`, or `[::1]`, and any endpoint with userinfo (an `@` in the authority), since `WebSocketPeer` would connect to the host after the `@`.
 
 **Rationale:** Games ship with the addon because it is an autoload, and anyone who could set two environment variables could otherwise drive a shipped game over the protocol. Excluding the addon from release export presets does not work, because the autoload entry would point at a missing script. A project setting keeps capture of release builds possible, for example with an `override.cfg` beside a capture build. Anyone who can write that file already controls the installation. The loopback check matches the controller, which only binds loopback (SPEC section 20).
 
 **Consequences:** Capturing or comparing release exports needs the setting. Debug exports and editor runs are unchanged. The simulator adapter is unaffected.
-

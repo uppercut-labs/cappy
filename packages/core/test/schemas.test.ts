@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import Ajv from "ajv";
 import { describe, expect, it } from "vitest";
-import { publishedSchemas } from "@cappy/core";
+import { publishedSchemas } from "@uppercut-labs/cappy-internal-core";
 
 const directory = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../docs/schemas");
 

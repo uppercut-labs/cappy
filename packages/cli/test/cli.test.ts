@@ -5,8 +5,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { FakeObsServer } from "@cappy/fake-obs";
-import { main } from "@cappy/cli";
+import { FakeObsServer } from "@uppercut-labs/cappy-fixture-fake-obs";
+import { main } from "@uppercut-labs/cappy-internal-cli";
 import { writeFakeTool } from "./support.js";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");

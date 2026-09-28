@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { type CappyError, type Result, cappyError, err, ok } from "@cappy/core";
+import { type CappyError, type Result, cappyError, err, ok } from "@uppercut-labs/cappy-internal-core";
 import WebSocket from "ws";
 
 /*
