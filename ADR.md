@@ -230,7 +230,7 @@
 
 **Rationale:** A single executable package gives consumers a stable scoped install while keeping the implementation modular for contributors. Repository transfer preserves history and authorship; separating release preparation from publication leaves the package ready for a deliberate release decision.
 
-**Consequences:** Consumer instructions use `npm install --global @uppercut-labs/cappy` or `npx @uppercut-labs/cappy` after publication. Contributor instructions use `node packages/cli/bin/cappy.js` from the checkout and never rely on unscoped `npx cappy`. Documentation must state that publication is pending and distinguish packaging checks from prior host acceptance evidence.
+**Consequences:** Consumer instructions use `npm install --global @uppercut-labs/cappy` or `npx @uppercut-labs/cappy`. Contributor instructions use `node packages/cli/bin/cappy.js` from the checkout and never rely on unscoped `npx cappy`. Documentation must state that publication is pending and distinguish packaging checks from prior host acceptance evidence.
 
 ## ADR-024 - The Godot adapter stays inert in release exports
 

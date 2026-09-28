@@ -10,7 +10,7 @@ Cappy is not a game, video editor, or general screen recorder. It coordinates an
 
 The first serious consumer is expected to be a Godot game such as Fantasy Party, but the core protocol is engine-neutral.
 
-The product is maintained and published by Uppercut Labs (`uppercut-labs/cappy`) and credits Devin Thomas as author and maintainer. The planned consumer package is `@uppercut-labs/cappy`, with the `cappy` executable; npm publication is pending. The Godot addon remains distributed from versioned GitHub source.
+The product is maintained and published by Uppercut Labs (`uppercut-labs/cappy`) and credits Devin Thomas as author and maintainer. The consumer package is `@uppercut-labs/cappy`, with the `cappy` executable; `0.1.0` was published to npm on 2026-09-28. The Godot addon remains distributed from versioned GitHub source.
 
 ## Objective
 

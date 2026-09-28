@@ -1,6 +1,6 @@
 # Getting started
 
-This walks a contributor through configuring Cappy and capturing the Godot demo. The same steps apply to your own Godot game once the [Cappy addon](../adapters/godot/README.md) is installed. Historical acceptance covers macOS and Windows; Linux support is documented separately, with real OBS capture on Linux unverified (see [acceptance.md](acceptance.md)). The npm package is upcoming and is not published yet.
+This walks a contributor through configuring Cappy and capturing the Godot demo. The same steps apply to your own Godot game once the [Cappy addon](../adapters/godot/README.md) is installed. Historical acceptance covers macOS and Windows; Linux support is documented separately, with real OBS capture on Linux unverified (see [acceptance.md](acceptance.md)). The CLI is published on npm as `@uppercut-labs/cappy`.
 
 ## 1. Install the tools
 

@@ -23,7 +23,7 @@ Maintained and published by Uppercut Labs. Created and maintained by Devin Thoma
 
 ## Status
 
-V1 is implemented. Historical acceptance covers macOS and Windows; Linux acceptance is recorded separately, with real OBS capture on Linux unverified. See [docs/acceptance.md](docs/acceptance.md). The npm package is being prepared and is not published yet.
+V1 is implemented. Historical acceptance covers macOS and Windows; Linux acceptance is recorded separately, with real OBS capture on Linux unverified. See [docs/acceptance.md](docs/acceptance.md). The CLI is published on npm as `@uppercut-labs/cappy`.
 
 ## Development
 
@@ -40,7 +40,7 @@ Supported hosts: macOS and Windows (V1), and Linux (post-V1, with real OBS captu
 
 ## Using the CLI
 
-After the first npm release, install globally or use the scoped one-shot command. The scoped package is not published yet:
+Install globally or use the scoped one-shot command:
 
 ```bash
 npm install --global @uppercut-labs/cappy
@@ -113,7 +113,7 @@ The Godot addon lives in [adapters/godot](adapters/godot/README.md). `npm run go
 
 | Package | Purpose |
 | --- | --- |
-| `@uppercut-labs/cappy` | Upcoming public npm distribution package for the `cappy` CLI; not published yet. |
+| `@uppercut-labs/cappy` | Public npm distribution package for the `cappy` CLI. |
 | `@uppercut-labs/cappy-internal-core` | Private engine-neutral contracts, config schema and loader, structured errors, and CLI result envelope. |
 | `@uppercut-labs/cappy-internal-workspace` | Private managed `.cappy/` workspace, ownership registry, atomic writes, hashing, and safe cleanup. |
 | `@uppercut-labs/cappy-internal-protocol` | Private versioned loopback WebSocket protocol, schemas, negotiation, operation state, and heartbeats. |
