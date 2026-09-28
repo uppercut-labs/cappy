@@ -71,6 +71,32 @@ The published tarball was checked byte for byte against the tested one, and
 `npx @uppercut-labs/cappy@0.1.0 --version` returned `0.1.0`. A new package can
 return `E404` for several minutes after npm accepts it; this one took about four.
 
+### Later releases with staged publishing
+
+Now that the package exists, a token without 2FA bypass can stage a version for a
+maintainer to approve. Staging needs npm CLI 11.15.0 or newer and Node.js 22.14
+or newer, and the account must have 2FA enabled.
+
+1. Prepare and download the release artifact as above, and check its checksum.
+2. Update npm with `npm install --global npm@latest`.
+3. Stage the tested tarball with the maintainer's token. Staging does not ask
+   for 2FA:
+
+   ```sh
+   npm stage publish uppercut-labs-cappy-<version>.tgz --access public
+   ```
+
+4. Check it with `npm stage list @uppercut-labs/cappy` and
+   `npm stage view <stage-id>`, then approve it on npmjs.com under
+   **Staged Packages** or with `npm stage approve <stage-id>`. Approval always
+   asks for 2FA.
+5. Tag the manifest's commit as `v<version>`, push the tag, and create the
+   GitHub release with the tarball and checksum.
+
+The steps are described in npm's [staged publishing guide](https://docs.npmjs.com/staged-publishing).
+Staging a tarball file (instead of the package folder) has not been tried yet;
+if npm rejects it, extract the tarball and stage its `package/` folder.
+
 npm trusted publishing configuration and provenance requirements are described
 in the official [trusted publishers guide](https://docs.npmjs.com/trusted-publishers/)
 and [provenance guide](https://docs.npmjs.com/generating-provenance-statements/).
