@@ -1,5 +1,5 @@
-import { type CommandResult, type Scenario, commandFailure, commandSuccess } from "@cappy/core";
-import type { NegotiatedAdapter } from "@cappy/protocol";
+import { type CommandResult, type Scenario, commandFailure, commandSuccess } from "@uppercut-labs/cappy-internal-core";
+import type { NegotiatedAdapter } from "@uppercut-labs/cappy-internal-protocol";
 import type { CommandContext } from "../context.js";
 import { launchGame } from "../game.js";
 import { loadCommandConfig } from "../project.js";

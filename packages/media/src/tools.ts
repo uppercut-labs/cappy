@@ -1,4 +1,4 @@
-import { type CappyConfig, type Result, cappyError, err, ok, resolveExecutable, runProcess } from "@cappy/core";
+import { type CappyConfig, type Result, cappyError, err, ok, resolveExecutable, runProcess } from "@uppercut-labs/cappy-internal-core";
 
 export type MediaTool = "ffmpeg" | "ffprobe";
 

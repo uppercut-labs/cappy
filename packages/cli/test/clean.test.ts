@@ -3,9 +3,9 @@ import { existsSync } from "node:fs";
 import { mkdir, readFile, readdir, rename, rm, symlink, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { type Session, newId } from "@cappy/core";
-import { SessionStore, acquireRunLock, main } from "@cappy/cli";
-import { ManagedWorkspace } from "@cappy/workspace";
+import { type Session, newId } from "@uppercut-labs/cappy-internal-core";
+import { SessionStore, acquireRunLock, main } from "@uppercut-labs/cappy-internal-cli";
+import { ManagedWorkspace } from "@uppercut-labs/cappy-internal-workspace";
 import { type Harness, configure, createHarness, disposeHarness, repoRoot, runCli } from "./support.js";
 
 let harness: Harness;

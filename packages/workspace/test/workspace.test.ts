@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, readFile, readdir, realpath, rm, symlink, unlink, utime
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { ManagedWorkspace, REGISTRY_FILENAME, checkGitIgnore, hashFile, resolveWorkspaceRoot, unsafeRootReason } from "@cappy/workspace";
+import { ManagedWorkspace, REGISTRY_FILENAME, checkGitIgnore, hashFile, resolveWorkspaceRoot, unsafeRootReason } from "@uppercut-labs/cappy-internal-workspace";
 
 let base: string;
 let project: string;

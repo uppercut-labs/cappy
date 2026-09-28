@@ -1,5 +1,5 @@
 {
-  "name": "@cappy/workspace",
+  "name": "@uppercut-labs/cappy-internal-workspace",
   "version": "0.1.0",
   "private": true,
   "description": "Cappy managed workspace: storage layout, ownership registry, atomic writes, hashing, and safe cleanup.",
@@ -13,7 +13,7 @@
   },
   "files": ["dist"],
   "dependencies": {
-    "@cappy/core": "0.1.0",
+    "@uppercut-labs/cappy-internal-core": "0.1.0",
     "zod": "^4.6.5"
   }
 }

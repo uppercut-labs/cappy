@@ -1,0 +1,44 @@
+{
+  "name": "@uppercut-labs/cappy",
+  "version": "0.1.0",
+  "private": false,
+  "description": "Reproducible game capture with scenarios, replayable sessions, OBS recording, and FFmpeg derivatives.",
+  "type": "module",
+  "bin": {
+    "cappy": "./dist/cappy.js"
+  },
+  "files": [
+    "dist/cappy.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "license": "MIT",
+  "author": "Devin Thomas",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/uppercut-labs/cappy.git",
+    "directory": "packages/cappy"
+  },
+  "homepage": "https://github.com/uppercut-labs/cappy#readme",
+  "bugs": {
+    "url": "https://github.com/uppercut-labs/cappy/issues"
+  },
+  "keywords": [
+    "game-development",
+    "game-capture",
+    "obs",
+    "replay",
+    "cli",
+    "uppercut-labs"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "ws": "^8.21.3",
+    "zod": "^4.6.5"
+  }
+}

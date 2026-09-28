@@ -10,9 +10,9 @@ import {
   newId,
   ok,
   sessionSchema,
-} from "@cappy/core";
-import { MAX_INLINE_REPLAY_BYTES, type ReplayHandoff } from "@cappy/protocol";
-import { type ManagedWorkspace, hashBytes, hashFile } from "@cappy/workspace";
+} from "@uppercut-labs/cappy-internal-core";
+import { MAX_INLINE_REPLAY_BYTES, type ReplayHandoff } from "@uppercut-labs/cappy-internal-protocol";
+import { type ManagedWorkspace, hashBytes, hashFile } from "@uppercut-labs/cappy-internal-workspace";
 
 const SESSION_ID = /^ses_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const OPERATION = "sessions";

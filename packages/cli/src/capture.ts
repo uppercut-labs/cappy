@@ -7,9 +7,9 @@ import {
   cappyError,
   err,
   ok,
-} from "@cappy/core";
-import { ObsRecorder, type RecordingStarted, verifyMaster } from "@cappy/obs";
-import type { ManagedWorkspace } from "@cappy/workspace";
+} from "@uppercut-labs/cappy-internal-core";
+import { ObsRecorder, type RecordingStarted, verifyMaster } from "@uppercut-labs/cappy-internal-obs";
+import type { ManagedWorkspace } from "@uppercut-labs/cappy-internal-workspace";
 
 const MEDIA_TYPES: Readonly<Record<string, string>> = {
   ".mkv": "video/x-matroska",

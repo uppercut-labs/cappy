@@ -9,3 +9,5 @@ cappy.config.local.json
 .godot/
 .godot-demo/
 docs/system-model.svg
+packages/cappy/LICENSE
+*.tgz

@@ -24,7 +24,7 @@ import {
   manifestSchema,
   newId,
   ok,
-} from "@cappy/core";
+} from "@uppercut-labs/cappy-internal-core";
 import {
   type ComparisonScores,
   DEFAULT_COMPARISON_FRAME_RATE,
@@ -33,8 +33,8 @@ import {
   locateTool,
   probeMedia,
   produceComparison,
-} from "@cappy/media";
-import { ManagedWorkspace, hashFile } from "@cappy/workspace";
+} from "@uppercut-labs/cappy-internal-media";
+import { ManagedWorkspace, hashFile } from "@uppercut-labs/cappy-internal-workspace";
 import type { CommandContext } from "../context.js";
 import { CommandLog, acquireRunLock } from "../log.js";
 import { canonicalJson, sourceKey } from "../manifest.js";

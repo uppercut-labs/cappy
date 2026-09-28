@@ -1,7 +1,7 @@
 import { lstat, readdir, rmdir } from "node:fs/promises";
 import path from "node:path";
-import { type CaptureSource, type CommandResult, cappyError, commandFailure, commandSuccess, loadConfig } from "@cappy/core";
-import { ManagedWorkspace, resolveWorkspaceRoot } from "@cappy/workspace";
+import { type CaptureSource, type CommandResult, cappyError, commandFailure, commandSuccess, loadConfig } from "@uppercut-labs/cappy-internal-core";
+import { ManagedWorkspace, resolveWorkspaceRoot } from "@uppercut-labs/cappy-internal-workspace";
 import type { CommandContext } from "../context.js";
 import { type ItemKind, type WorkspaceItem, filesOnDisk, readInventory } from "../inventory.js";
 import { liveCorrelationIds } from "../log.js";

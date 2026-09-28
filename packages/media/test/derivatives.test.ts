@@ -2,8 +2,8 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { type DerivativeSpec, type TimelineEvent, parseConfig } from "@cappy/core";
-import { MAX_EVERY_OUTPUTS, expandDerivative, ffmpegArguments, resolveTiming, validateDerivatives } from "@cappy/media";
+import { type DerivativeSpec, type TimelineEvent, parseConfig } from "@uppercut-labs/cappy-internal-core";
+import { MAX_EVERY_OUTPUTS, expandDerivative, ffmpegArguments, resolveTiming, validateDerivatives } from "@uppercut-labs/cappy-internal-media";
 
 describe("derivative options", () => {
   it("accepts every preset in the example configuration", async () => {

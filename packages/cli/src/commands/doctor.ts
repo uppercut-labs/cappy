@@ -11,10 +11,10 @@ import {
   loadConfig,
   resolveExecutable,
   selectBuild,
-} from "@cappy/core";
-import { locateTool } from "@cappy/media";
-import { expectedScenes, probeObs } from "@cappy/obs";
-import { ManagedWorkspace, checkGitIgnore, resolveWorkspaceRoot, unsafeRootReason } from "@cappy/workspace";
+} from "@uppercut-labs/cappy-internal-core";
+import { locateTool } from "@uppercut-labs/cappy-internal-media";
+import { expectedScenes, probeObs } from "@uppercut-labs/cappy-internal-obs";
+import { ManagedWorkspace, checkGitIgnore, resolveWorkspaceRoot, unsafeRootReason } from "@uppercut-labs/cappy-internal-workspace";
 import { gameWorkingDirectory } from "../game.js";
 import type { CommandContext } from "../context.js";
 

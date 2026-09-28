@@ -2,8 +2,8 @@ import { chmod, mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { type Interrupts, main } from "@cappy/cli";
-import { FakeObsServer, type FakeObsOptions } from "@cappy/fake-obs";
+import { type Interrupts, main } from "@uppercut-labs/cappy-internal-cli";
+import { FakeObsServer, type FakeObsOptions } from "@uppercut-labs/cappy-fixture-fake-obs";
 
 export const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 export const simulatorBin = path.join(repoRoot, "fixtures/adapter-simulator/dist/bin.js");

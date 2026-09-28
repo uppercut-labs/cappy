@@ -11,7 +11,7 @@ import {
   err,
   newId,
   ok,
-} from "@cappy/core";
+} from "@uppercut-labs/cappy-internal-core";
 import type WebSocket from "ws";
 import { type AdapterMessage, type ControllerMessage, type ReplayHandoff, parseAdapterMessage } from "./messages.js";
 

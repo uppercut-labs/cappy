@@ -2,8 +2,8 @@ import { mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { main } from "@cappy/cli";
-import { manifestSchema } from "@cappy/core";
+import { main } from "@uppercut-labs/cappy-internal-cli";
+import { manifestSchema } from "@uppercut-labs/cappy-internal-core";
 import { repoRoot, simulatorBin } from "../../packages/cli/test/support.js";
 
 /*

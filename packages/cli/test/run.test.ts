@@ -2,8 +2,8 @@ import { existsSync } from "node:fs";
 import { readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { ALLOWED_OBS_REQUESTS } from "@cappy/obs";
-import { hashFile } from "@cappy/workspace";
+import { ALLOWED_OBS_REQUESTS } from "@uppercut-labs/cappy-internal-obs";
+import { hashFile } from "@uppercut-labs/cappy-internal-workspace";
 import { type Harness, configure, createHarness, disposeHarness, runCli } from "./support.js";
 
 let harness: Harness;

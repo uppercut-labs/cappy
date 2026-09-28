@@ -1,5 +1,5 @@
 {
-  "name": "@cappy/core",
+  "name": "@uppercut-labs/cappy-internal-core",
   "version": "0.1.0",
   "private": true,
   "description": "Engine-neutral Cappy domain contracts, configuration, and result envelopes.",

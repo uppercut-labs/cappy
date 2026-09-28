@@ -9,8 +9,8 @@ import {
   err,
   manifestSchema,
   ok,
-} from "@cappy/core";
-import type { ManagedFile, ManagedWorkspace } from "@cappy/workspace";
+} from "@uppercut-labs/cappy-internal-core";
+import type { ManagedFile, ManagedWorkspace } from "@uppercut-labs/cappy-internal-workspace";
 
 /** JSON with object keys sorted, so equal values serialize identically. */
 export function canonicalJson(value: unknown): string {

@@ -4,7 +4,7 @@ import {
   AdapterSimulator,
   type SimulatorOptions,
   SimulatorRejectedError,
-} from "@cappy/adapter-simulator";
+} from "@uppercut-labs/cappy-fixture-adapter-simulator";
 import {
   type AdapterConnection,
   AdapterServer,
@@ -13,7 +13,7 @@ import {
   TOKEN_ENV,
   negotiateVersion,
   parseAdapterMessage,
-} from "@cappy/protocol";
+} from "@uppercut-labs/cappy-internal-protocol";
 
 const servers: AdapterServer[] = [];
 const simulators: AdapterSimulator[] = [];

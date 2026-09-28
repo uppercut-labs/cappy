@@ -15,8 +15,8 @@ import {
   ok,
   timelineEventSchema,
   timelineExportSchema,
-} from "@cappy/core";
-import { ManagedWorkspace, resolveWorkspaceRoot } from "@cappy/workspace";
+} from "@uppercut-labs/cappy-internal-core";
+import { ManagedWorkspace, resolveWorkspaceRoot } from "@uppercut-labs/cappy-internal-workspace";
 import { z } from "zod";
 import type { CommandContext } from "../context.js";
 
