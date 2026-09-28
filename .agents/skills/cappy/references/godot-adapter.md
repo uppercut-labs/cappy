@@ -18,6 +18,20 @@ The adapter is inert unless Cappy launched the game (`CAPPY_ENDPOINT` and `CAPPY
 
 When Cappy disconnects, a game it launched quits. Set `Cappy.quit_on_disconnect = false` to keep it running.
 
+## Release exports
+
+Editor runs and debug exports connect as usual. A release export ignores Cappy, even when Cappy launched it, unless the project setting `cappy/allow_release_builds` is `true`; it logs `ignoring the controller in a release build` instead. This keeps a shipped game from being driven by anyone who sets the environment variables.
+
+To capture a release export on purpose, turn the setting on for that build only, with an `override.cfg` next to the exported executable:
+
+```ini
+[cappy]
+
+allow_release_builds=true
+```
+
+Never turn the setting on in the project itself, and never ship that `override.cfg`. Every build, debug or release, also refuses an endpoint that is not on loopback.
+
 ## Register a scenario
 
 A scenario is a named, parameterized moment Cappy can reproduce on demand.
@@ -108,6 +122,6 @@ The handshake reports `Cappy.game_id`, `Cappy.game_name`, and `Cappy.build`. The
 
 - The addon and game code must not reference OBS, FFmpeg, or ffprobe. Capture belongs to Cappy.
 - Keep Cappy hooks thin: scenarios call the game's own setup code, and the replay provider serializes the game's own input log. Do not build gameplay around Cappy.
-- The addon only listens on the loopback endpoint Cappy gives it. Shipping builds can keep the addon; it stays inert without Cappy's environment variables.
+- The addon only connects to a loopback endpoint. Shipping builds can keep the addon: release exports stay inert unless `cappy/allow_release_builds` is on.
 
 Other engines: follow Cappy's adapter protocol reference.

@@ -179,6 +179,16 @@ describe("cappy skill matches the Godot addon", () => {
     expect([...new Set(used.filter((member) => !members.has(member)))]).toEqual([]);
   });
 
+  it("names the addon's release-build setting as the addon reads it", async () => {
+    const adapter = await readFile(path.join(addonDir, "cappy_adapter.gd"), "utf8");
+    const setting = /const ALLOW_RELEASE_SETTING := "([^"]+)"/.exec(adapter)?.[1];
+    expect(setting).toBeDefined();
+    const [section, key] = (setting ?? "").split("/");
+    const guide = (await skillDocuments()).get("references/godot-adapter.md") ?? "";
+    expect(guide).toContain(`\`${setting ?? ""}\``);
+    expect(guide).toContain(`[${section ?? ""}]\n\n${key ?? ""}=true`);
+  });
+
   it("lists the addon's files as they are", async () => {
     const guide = (await skillDocuments()).get("references/godot-adapter.md") ?? "";
     const files = (await readdir(addonDir)).filter((file) => !file.endsWith(".uid")).sort();

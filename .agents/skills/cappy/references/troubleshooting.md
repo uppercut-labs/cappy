@@ -19,7 +19,7 @@ Run the failing command again with `--json` and read `error.code`, `error.messag
 | `DOCTOR_CHECKS_FAILED` | At least one doctor check failed. | Read each `fail` check in `data.checks`; each carries its own code. |
 | `GAME_LAUNCH_FAILED` | `game.command` was not found or could not start. | Use an absolute path, or put the engine on PATH. `doctor` checks this without launching. |
 | `GAME_EXITED` | The game quit before its adapter connected. | Run the same command and arguments by hand and read the engine's error. A wrong `--path` is common. |
-| `ADAPTER_CONNECT_TIMEOUT` | The game started but never connected. | The addon is missing or disabled, the autoload is not named `Cappy`, or the command launched the editor or another project. A slow first import may need a larger `timeouts.connectMs`. |
+| `ADAPTER_CONNECT_TIMEOUT` | The game started but never connected. | The addon is missing or disabled, the autoload is not named `Cappy`, the command launched the editor or another project, or it launched a release export without `cappy/allow_release_builds` (see the Godot adapter reference). A slow first import may need a larger `timeouts.connectMs`. |
 | `CAPABILITY_MISSING` | The game did not advertise a capability the command, preset, or `adapter.requiredCapabilities` needs. | Register a scenario (`scenarios`), a replay provider (`replay`), or declare `time_scale` and `alternate_cameras` for presentation. Register during startup, before the handshake. |
 | `SCENARIO_NOT_FOUND` | The scenario ID is not registered. | Run `cappy scenarios` and use an ID it lists. |
 | `PARAMETER_INVALID` | A `--param` value fails the scenario's spec or its validate hook. | Check types and ranges shown by `cappy scenarios`. |
@@ -53,6 +53,7 @@ Run the failing command again with `--json` and read `error.code`, `error.messag
 ## Symptoms without a code
 
 - **Nothing happens when pressing Play in the Godot editor.** Expected: the adapter is inert unless Cappy launched the game.
+- **A release export never connects.** Expected: release exports ignore Cappy unless `cappy/allow_release_builds` is on. The game's log says `ignoring the controller in a release build`.
 - **The capture is black or shows the wrong window.** The OBS scene's source does not show the game. Launching with `--headless` also leaves nothing to capture. On macOS, OBS needs Screen Recording permission for display or window capture.
 - **Clips start at the wrong moment.** Event times must be simulation milliseconds from the operation's start, not wall-clock or engine uptime.
 - **A replay drifts from the recording.** The game's simulation is not deterministic for that payload: unseeded randomness, frame-rate-dependent logic, or input read outside the recorded log.

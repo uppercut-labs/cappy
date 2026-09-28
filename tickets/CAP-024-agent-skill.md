@@ -12,6 +12,7 @@ An agent helping someone use Cappy can load one skill from this repository and r
 - The skill is self-contained: its links stay inside its folder, so it works when copied into an agent's skills directory.
 - The skill reaches people through Cappy's npm package, not this repository, which stays private: it installs and runs Cappy through the package (`npx cappy`) and never links to or clones the source repository.
 - A Vitest suite that keeps the skill true to the code: commands, flags and shorthands, error codes, exit codes, the Godot addon's members and files, a starting configuration the schema accepts, and the first steps it prescribes.
+- The Godot guidance covers CAP-025's release-build gate: release exports stay inert unless `cappy/allow_release_builds` is on, the `override.cfg` that turns it on for one capture build, and the loopback-only endpoint.
 - A link from `README.md`.
 
 Out of scope: publishing the skill elsewhere, and any change to Cappy's behavior.
@@ -28,7 +29,7 @@ Out of scope: publishing the skill elsewhere, and any change to Cappy's behavior
 
 ## Dependencies
 
-CAP-023.
+CAP-023, CAP-025.
 
 ## Completion
 
@@ -39,8 +40,9 @@ Completed 2026-09-27 (America/Chicago), in a Linux container with Node.js 24.21.
 - **Package delivery:** "points people at the npm package, never at Cappy's private source repository" passes; the skill installs through the package and never guesses its name.
 - **Drift detection:** the command, flag, error-code, exit-code, and addon-member tests pass, and each failed when a nonexistent command (`frobnicate`), flag (`--nope`, `-zz`), error code, and addon method were introduced by hand, then passed again once reverted.
 - **Starting configuration and first steps:** "gives a starting configuration the schema accepts" and "runs doctor, scenarios, record, and replay --no-capture from the skill's starting configuration" pass against the simulator, fake OBS, and fake FFmpeg/ffprobe. This proves the commands and configuration shape, not a real capture.
+- **Release-build gate:** "names the addon's release-build setting as the addon reads it" passes against CAP-025's `ALLOW_RELEASE_SETTING`, and failed when the guide's `override.cfg` key was misspelled by hand.
 - **Safety boundary:** stated in `SKILL.md` under "Safety boundary"; reviewed against the text, not simulated.
-- **Validation:** `npm run typecheck` pass; `npm run lint` pass; `npm test` 298 passed, 18 skipped (opt-in real-tool tests); `npm run model:check` pass; `git diff --check` clean.
+- **Validation:** `npm run typecheck` pass; `npm run lint` pass; `npm test` 299 passed, 19 skipped (opt-in real-tool tests), with CAP-025 merged in; `npm run model:check` pass; `git diff --check` clean.
 
 Not yet decided, so not in this ticket: the published package's name and first version, and which package ships the skill and the Godot addon. When publishing is set up, that package's `files` must include `.agents/skills/cappy/` and the addon.
 
