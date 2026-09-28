@@ -219,3 +219,14 @@
 **Rationale:** Re-capturing a moment at another speed or from another camera is the first step toward cinematic replay. Presented time keeps anchors, clips, and comparisons aligned with the master at any speed. The alternative, simulation time plus a declared scale, would push conversion into every consumer.
 
 **Consequences:** The protocol gains an optional `presentation` on replay requests, an additive change within protocol version 1. Comparisons warn when presentations differ. Camera rails, free camera, shot lists, and multi-angle passes remain in `Ideas.md`.
+
+## ADR-023 - The Godot adapter stays inert in release exports
+
+**Status:** Accepted (2026-09-28, post-V1)
+
+**Decision:** In a release export (`OS.is_debug_build()` is false), the Godot adapter ignores `CAPPY_ENDPOINT` and `CAPPY_SESSION_TOKEN` unless the project setting `cappy/allow_release_builds` is true. In every build, it refuses an endpoint that is not on loopback.
+
+**Rationale:** Games ship with the addon because it is an autoload, and anyone who could set two environment variables could otherwise drive a shipped game over the protocol. Excluding the addon from release export presets does not work, because the autoload entry would point at a missing script. A project setting keeps capture of release builds possible, for example with an `override.cfg` beside a capture build. Anyone who can write that file already controls the installation. The loopback check matches the controller, which only binds loopback (SPEC section 20).
+
+**Consequences:** Capturing or comparing release exports needs the setting. Debug exports and editor runs are unchanged. The simulator adapter is unaffected.
+

@@ -8,6 +8,9 @@ extends Node
 ## replay operations to callbacks the game registers. Without those variables
 ## it stays inert and the game runs normally.
 ##
+## Release exports stay inert as well, unless the project setting
+## cappy/allow_release_builds is true. The endpoint must be a loopback address.
+##
 ## The adapter knows nothing about recording video; the controller handles that.
 
 signal connected
@@ -21,6 +24,8 @@ const ADAPTER_VERSION := "0.1.0"
 const MAX_INLINE_REPLAY_BYTES := 1024 * 1024
 const PARAMETER_TYPES := ["string", "number", "integer", "boolean"]
 const PARAMETER_KEYS := ["type", "description", "required", "default", "enum", "minimum", "maximum"]
+const ALLOW_RELEASE_SETTING := "cappy/allow_release_builds"
+const LOOPBACK_PREFIXES := ["ws://127.0.0.1:", "ws://localhost:", "ws://[::1]:"]
 
 ## Quit the game when the controller disconnects (only applies when launched by Cappy).
 var quit_on_disconnect := true
@@ -44,6 +49,12 @@ func _ready() -> void:
 	var endpoint := OS.get_environment("CAPPY_ENDPOINT")
 	_token = OS.get_environment("CAPPY_SESSION_TOKEN")
 	if endpoint.is_empty() or _token.is_empty():
+		return
+	if not OS.is_debug_build() and not ProjectSettings.get_setting(ALLOW_RELEASE_SETTING, false):
+		push_warning("Cappy: ignoring the controller in a release build (%s is off)" % ALLOW_RELEASE_SETTING)
+		return
+	if not _is_loopback(endpoint):
+		push_error("Cappy: refusing non-loopback endpoint %s" % endpoint)
 		return
 	if game_name.is_empty():
 		game_name = str(ProjectSettings.get_setting("application/config/name", "Godot Game"))
@@ -402,6 +413,13 @@ func _sha256(bytes: PackedByteArray) -> String:
 	context.start(HashingContext.HASH_SHA256)
 	context.update(bytes)
 	return context.finish().hex_encode()
+
+
+func _is_loopback(endpoint: String) -> bool:
+	for prefix in LOOPBACK_PREFIXES:
+		if endpoint.begins_with(prefix):
+			return true
+	return false
 
 
 func _slug(text: String) -> String:
