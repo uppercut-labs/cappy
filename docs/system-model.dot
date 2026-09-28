@@ -4,7 +4,7 @@ digraph Cappy {
   edge [fontname="Arial"];
 
   developer [label="Developer / Agent"];
-  distribution [label="Upcoming Public npm Package\n@uppercut-labs/cappy\n(cappy executable)"];
+  distribution [label="Public npm Package\n@uppercut-labs/cappy\n(cappy executable)"];
   cli [label="Cappy CLI\ndoctor / scenarios / run / record / replay\nclean / compare / compare-builds\ntimeline export\nHuman + JSON modes"];
   core [label="Cappy Controller\ncapture job state machine"];
   config [label="Project Config\ncappy.config.json (source-controlled)\npresets + named builds"];

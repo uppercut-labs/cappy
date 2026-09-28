@@ -4,7 +4,11 @@ This runbook covers the npm CLI package `@uppercut-labs/cappy`. A release prep
 run builds and tests one tarball, installs that exact tarball in isolated local
 and global prefixes, computes its SHA-256, and retains the tarball and a manifest
 with its version, expected tag, and source commit as a workflow artifact. It does
-not publish or create a tag. No npm release was made by this preparation work.
+not publish or create a tag.
+
+`0.1.0` was published to npm on 2026-09-28 by the `uppercut-labs` npm user,
+tagged `v0.1.0` at `6d0835f`, and released on GitHub with its tarball and
+checksum (see [First release record](#first-release-record)).
 
 ## Before release preparation
 
@@ -30,10 +34,8 @@ candidate for review; do not rebuild it on a different commit when publishing.
 
 Set up the publisher before enabling publication:
 
-1. Confirm Uppercut Labs controls the npm scope and has publish rights. The
-   package currently returns `E404`; npm trusted-publisher settings are attached
-   to a package, so the first `0.1.0` publication requires a separately approved
-   bootstrap. After that initial package exists, configure a trusted publisher
+1. Confirm the `uppercut-labs` npm user still has publish rights. The package
+   exists since `0.1.0`, so configure a trusted publisher
    for GitHub Actions repository `uppercut-labs/cappy`, workflow filename
    `release.yml`, and environment `npm-production`. Trusted publishing uses
    short-lived OIDC credentials. The current npm requirements are npm CLI
@@ -50,29 +52,24 @@ Set up the publisher before enabling publication:
 4. Confirm the workflow has `id-token: write` only on the gated publication job.
    Do not add a long-lived npm token to the repository or environment.
 
-For the first public version, an authorized maintainer must use npm's interactive
-authentication and required MFA to publish the exact prepared `.tgz` from a
-secure workstation, then create the matching GitHub release with that artifact
-and checksum. Do not create a token or store credentials in GitHub for bootstrap.
-The bootstrap is:
+Until trusted publishing is configured, a maintainer publishes the prepared
+`.tgz` from a workstation. The npm scope `@uppercut-labs` is owned by the npm
+user `uppercut-labs`; the user and scope names must match, so another account
+cannot publish this package.
 
-1. On npmjs.com, make sure the `uppercut-labs` organization exists and your
-   account can publish to it (creating a free organization claims the scope).
-2. Run **Release preparation** on `main` with tag `v0.1.0` and `publish` false,
-   and download its artifact.
-3. From the artifact folder, check the checksum and publish the tested tarball:
+### First release record
 
-   ```sh
-   sha256sum --check uppercut-labs-cappy-0.1.0.tgz.sha256
-   npm login
-   npm publish uppercut-labs-cappy-0.1.0.tgz --access public
-   ```
+`0.1.0` was published from a workstation on 2026-09-28. npm refused the first
+attempt with `E403` because the access token did not bypass two-factor
+authentication; npm only lets a token publish when it does. The working token
+was a granular access token with **Bypass two-factor authentication** ticked,
+**Read and write (publish and stage)** permission, and **All Packages** selected
+(a package that does not exist yet cannot be selected by name). It was deleted
+right after publishing. Interactive `npm login` with MFA avoids tokens entirely.
 
-4. Tag the manifest's commit as `v0.1.0` and push the tag.
-
-Once the package exists and its trusted publisher is configured, later releases
-can use the gated workflow job. Verify npm's current staged-publishing support
-and organization settings before choosing a different bootstrap method.
+The published tarball was checked byte for byte against the tested one, and
+`npx @uppercut-labs/cappy@0.1.0 --version` returned `0.1.0`. A new package can
+return `E404` for several minutes after npm accepts it; this one took about four.
 
 npm trusted publishing configuration and provenance requirements are described
 in the official [trusted publishers guide](https://docs.npmjs.com/trusted-publishers/)
