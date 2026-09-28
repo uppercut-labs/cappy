@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { readFile, readdir, writeFile } from "node:fs/promises";
+import { readFile as readRaw, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -14,6 +14,12 @@ import { type Harness, configure, createHarness, disposeHarness, runCli, simulat
  * addon API, and the first steps it prescribes.
  */
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+// Windows checkouts may convert line endings; the checks below expect LF.
+async function readFile(file: string, encoding: "utf8"): Promise<string> {
+  return (await readRaw(file, encoding)).replace(/\r\n/g, "\n");
+}
+
 const skillDir = path.join(repoRoot, ".agents/skills/cappy");
 const addonDir = path.join(repoRoot, "adapters/godot/addons/cappy");
 
