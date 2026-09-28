@@ -224,7 +224,7 @@
 
 **Status:** Accepted (2026-09-28, post-V1)
 
-**Decision:** In a release export (`OS.is_debug_build()` is false), the Godot adapter ignores `CAPPY_ENDPOINT` and `CAPPY_SESSION_TOKEN` unless the project setting `cappy/allow_release_builds` is true. In every build, it refuses an endpoint that is not on loopback.
+**Decision:** In a release export (`OS.is_debug_build()` is false), the Godot adapter ignores `CAPPY_ENDPOINT` and `CAPPY_SESSION_TOKEN` unless the project setting `cappy/allow_release_builds` is true. In every build, it refuses an endpoint whose host is not exactly `127.0.0.1`, `localhost`, or `[::1]`, and any endpoint with userinfo (an `@` in the authority), since `WebSocketPeer` would connect to the host after the `@`.
 
 **Rationale:** Games ship with the addon because it is an autoload, and anyone who could set two environment variables could otherwise drive a shipped game over the protocol. Excluding the addon from release export presets does not work, because the autoload entry would point at a missing script. A project setting keeps capture of release builds possible, for example with an `override.cfg` beside a capture build. Anyone who can write that file already controls the installation. The loopback check matches the controller, which only binds loopback (SPEC section 20).
 

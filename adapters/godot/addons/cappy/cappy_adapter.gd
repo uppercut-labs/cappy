@@ -25,7 +25,7 @@ const MAX_INLINE_REPLAY_BYTES := 1024 * 1024
 const PARAMETER_TYPES := ["string", "number", "integer", "boolean"]
 const PARAMETER_KEYS := ["type", "description", "required", "default", "enum", "minimum", "maximum"]
 const ALLOW_RELEASE_SETTING := "cappy/allow_release_builds"
-const LOOPBACK_PREFIXES := ["ws://127.0.0.1:", "ws://localhost:", "ws://[::1]:"]
+const LOOPBACK_HOSTS := ["127.0.0.1", "localhost", "::1"]
 
 ## Quit the game when the controller disconnects (only applies when launched by Cappy).
 var quit_on_disconnect := true
@@ -415,11 +415,27 @@ func _sha256(bytes: PackedByteArray) -> String:
 	return context.finish().hex_encode()
 
 
+## True when the endpoint's host is exactly a loopback host. Userinfo is refused,
+## because WebSocketPeer would connect to the host after the "@".
 func _is_loopback(endpoint: String) -> bool:
-	for prefix in LOOPBACK_PREFIXES:
-		if endpoint.begins_with(prefix):
-			return true
-	return false
+	if not endpoint.begins_with("ws://"):
+		return false
+	var authority := endpoint.substr(5).get_slice("/", 0)
+	if authority.contains("@"):
+		return false
+	var host := ""
+	if authority.begins_with("["):
+		var close := authority.find("]")
+		if close < 0:
+			return false
+		host = authority.substr(1, close - 1)
+		authority = authority.substr(close + 1)
+	else:
+		host = authority.get_slice(":", 0)
+		authority = authority.substr(host.length())
+	if not authority.begins_with(":") or not authority.substr(1).is_valid_int():
+		return false
+	return host in LOOPBACK_HOSTS
 
 
 func _slug(text: String) -> String:
