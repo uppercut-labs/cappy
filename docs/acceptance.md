@@ -218,6 +218,12 @@ sets that bound on Windows, without changing product timeouts. No real OBS,
 Godot, or FFmpeg capture acceptance was rerun for this packaging change. The
 historical real-tool evidence and Linux OBS limitation remain as recorded above.
 
+GitHub [CI on revision 50b5eb1](https://github.com/uppercut-labs/cappy/actions/runs/36431049845)
+passed on all three hosted runners. [Release preparation](https://github.com/uppercut-labs/cappy/actions/runs/36431184220)
+retained the tested artifact and skipped publication. The first hosted Windows
+package check exposed GNU tar's drive-letter parsing under Git Bash; using the
+archive basename with its directory as the working directory fixed the check.
+
 ## Remaining limitations
 
 - Real OBS capture on Linux is unverified (see above).

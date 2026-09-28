@@ -1,6 +1,6 @@
 # Cappy Uppercut Labs migration plan
 
-**Status:** Implemented; final source delivery in progress.
+**Status:** Complete for the approved preparation-only delivery.
 **Date:** 2026-09-28
 **Specification:** [SPEC.md, section 26](../SPEC.md#26-uppercut-labs-ownership-and-npm-distribution)
 
@@ -54,7 +54,8 @@ Completed: repository/package inspection, approved specification/tickets, and
 MIT license. GitHub transfer succeeded: repository ID `1387786906` is now
 `uppercut-labs/cappy`, with admin access retained, default branch `main`, and
 origin updated. Source slices were committed and pushed on `main`: `410d4aa`
-(plan/license), `8ab022a` (package distribution).
+(plan/license), `8ab022a` (package distribution), `ca6fac9` (verification and
+release tooling), `50b5eb1` (archive/console-fixture hardening).
 
 Public-content review: Gitleaks 8.30.1 scanned all 46 existing commits (1.10 MB)
 with no leaks found. Tracked paths and historical paths contain no environment
@@ -90,6 +91,20 @@ trusted publishing and protect `npm-production` before enabling future CI
 publication. [releasing.md](releasing.md) documents this bootstrap and recovery.
 Real-tool capture acceptance is historical and was not rerun for packaging.
 
-**Next action:** finish the source push and verify CI/release-preparation
-artifacts, then record the remote delivery. npm publication is outside this
-approved delivery.
+Remote verification on `50b5eb1`:
+
+- [CI](https://github.com/uppercut-labs/cappy/actions/runs/36431049845) passed on
+  macOS, Windows, and Linux.
+- [Release preparation](https://github.com/uppercut-labs/cappy/actions/runs/36431184220)
+  passed and retained the tarball, checksum, and source manifest. Its publish
+  job was skipped; `tagPresent` is false.
+- The first CI run exposed Git Bash GNU tar treating a Windows drive letter
+  as a remote archive host. The checker now lists by basename from the archive
+  directory; the corrected run passes. The Windows test helper explicitly
+  writes UTF-8, and publication checks the manifest digest against the archive.
+- A documentation-only closeout commit follows; runtime/tooling evidence is
+  associated with the immutable source revision above.
+
+**Next action:** when the owner authorizes the first npm release, follow
+[releasing.md](releasing.md) to confirm npm scope rights and bootstrap the tested
+artifact. No approval or implementation work remains for this migration.

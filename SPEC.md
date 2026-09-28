@@ -985,7 +985,7 @@ A second batch was promoted the same day (ADR-017 to ADR-022; tickets CAP-017 to
 
 ## 26. Uppercut Labs ownership and npm distribution
 
-**Status:** Approved for implementation on 2026-09-28.
+**Status:** Implemented for preparation-only delivery on 2026-09-28.
 **Date:** 2026-09-28
 **Execution plan:** [docs/migration-plan.md](docs/migration-plan.md)
 **Tickets:** CAP-024 to CAP-027.
@@ -1182,14 +1182,14 @@ Record the approved scope in the execution plan and ADR before implementation.
 
 | Evidence | Required check | Current result |
 | --- | --- | --- |
-| Ownership | Transferred repo, correct origin, preserved history and resources | Pending |
-| Visibility/license | Confirmed choice, public-content review if applicable, matching license metadata | Pending |
-| Build/types | Typecheck, lint, tests, model, distribution build, `git diff --check` | Pending implementation |
-| Package isolation | Inspected tarball, no private dependency references, clean local/global installation | Pending |
-| Primary behavior | Installed help/version, doctor JSON, missing config/tools, scenario discovery and no-capture record/replay | Pending |
-| Platforms | Installed npm launchers on macOS, Windows, Linux; cancellation evidence labeled by host | Pending |
+| Ownership | Transferred repo, correct origin, preserved history and resources | Passed; original repository ID retained |
+| Visibility/license | Confirmed choice, public-content review if applicable, matching license metadata | Public, MIT; history/content reviewed |
+| Build/types | Typecheck, lint, tests, model, distribution build, `git diff --check` | Passed on all three hosts; docs/acceptance.md |
+| Package isolation | Inspected tarball, no private dependency references, clean local/global installation | Passed; four-file tarball, only ws/zod dependencies |
+| Primary behavior | Installed help/version, doctor JSON, missing config/tools, scenario discovery and no-capture record/replay | Passed |
+| Platforms | Installed npm launchers on macOS, Windows, Linux; cancellation evidence labeled by host | Passed; Windows uses a native console event against the installed entrypoint |
 | Layout/accessibility | No GUI changes; preserve existing human and JSON CLI output | Not applicable to layout |
-| Release availability | Release-ready artifact and gated publication runbook; no npm publication | Pending implementation |
+| Release availability | Release-ready artifact and gated publication runbook; no npm publication | Preparation workflow succeeded; npm remains unpublished |
 
 For a preparation-only delivery, completion means transferred ownership,
 approved visibility/license, passing package checks, documented remaining

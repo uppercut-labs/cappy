@@ -1,6 +1,6 @@
 # CAP-027 - Deliver the approved migration and release scope
 
-**Status:** In progress
+**Status:** Complete (preparation-only delivery)
 **Depends on:** CAP-024, CAP-025, CAP-026.
 
 ## Work
@@ -26,7 +26,17 @@ version-pinned scoped CLI command. Record actual URLs and pending checks.
 
 ## Outcome
 
-Preparation-only delivery confirmed. Plan/license and packaging slices are
-pushed to the new public Uppercut Labs repository. Integrated source and package
-checks pass on all three hosts. Final source push and remote CI/preparation
-verification are in progress; npm publication remains outside this scope.
+Completed 2026-09-28. Coherent source slices are pushed to public
+`https://github.com/uppercut-labs/cappy` on `main`. Runtime/tooling revision
+`50b5eb1f1373c3f4e3ccb5f78081901287f747f3` passed
+[all three CI hosts](https://github.com/uppercut-labs/cappy/actions/runs/36431049845).
+[Release preparation](https://github.com/uppercut-labs/cappy/actions/runs/36431184220)
+succeeded and retained the tested artifact, checksum, and source association;
+the publication job was skipped. No npm package, tag, or GitHub release was
+created. A documentation-only closeout commit follows this verification.
+
+The four-file candidate also exists locally at
+`packages/cappy/uppercut-labs-cappy-0.1.0.tgz`, ignored by Git. Publisher setup
+and first-publication authorization remain deliberate future release work,
+documented in [releasing.md](../docs/releasing.md). All migration tickets are
+complete; historical real-tool limitations remain explicit.
