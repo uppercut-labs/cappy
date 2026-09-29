@@ -18,9 +18,9 @@ checksum (see [First release record](#first-release-record)).
   @uppercut-labs/cappy --dry-run --json` and the isolated package checker.
 - Review the matching source tree and release notes. The public tarball contains
   the CLI, the Godot addon (`addons/cappy/`), and the agent skill
-  (`.agents/skills/cappy/`). The package checker fails if either is missing or if
-  any packaged file references a source repository, because this repository is
-  private.
+  (`.agents/skills/cappy/`). The package checker fails if either is missing, if the
+  manifest does not link `uppercut-labs/cappy`, or if any packaged file links
+  another repository.
 - Start **Actions → Release preparation → Run workflow** with `publish` left
   false. The run records whether the expected tag already exists and associates
   the artifact with the dispatched commit. An absent tag is allowed for this

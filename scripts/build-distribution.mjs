@@ -10,8 +10,8 @@ const outputDir = path.join(packageDir, "dist");
 await mkdir(outputDir, { recursive: true });
 await copyFile(path.join(root, "LICENSE"), path.join(packageDir, "LICENSE"));
 
-// The package carries the agent skill and the Godot addon, because the source
-// repository is private and they reach people only through npm.
+// The package carries the agent skill and the Godot addon, so an install from
+// npm has everything and the addon always matches the CLI version.
 for (const [from, to] of [
   [".agents/skills/cappy", ".agents/skills/cappy"],
   ["adapters/godot/addons/cappy", "addons/cappy"],

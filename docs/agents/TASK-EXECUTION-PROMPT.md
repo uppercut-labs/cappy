@@ -9,7 +9,7 @@ When this file is referenced or supplied without additional task text, execute t
 ```text
 Complete exactly one next executable ticket for Cappy.
 
-Repository: devin-thomas/cappy, at the local repository root
+Repository: uppercut-labs/cappy, at the local repository root
 Task source of truth: the ticket files tickets/CAP-*.md in this repository. GitHub Issues and pull requests are never tasks.
 Target branch: main. Commit directly to main; do not create feature branches or pull requests.
 Host: this macOS machine only. No other host is used during a pass.

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { timelineEventSchema, timelineExportSchema } from "./domain.js";
 
-const BASE = "https://github.com/devin-thomas/cappy/blob/main/docs/schemas";
+const BASE = "https://github.com/uppercut-labs/cappy/blob/main/docs/schemas";
 
 /**
  * The JSON Schemas Cappy publishes in `docs/schemas/` (draft-07), keyed by

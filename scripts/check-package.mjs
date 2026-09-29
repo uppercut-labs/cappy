@@ -122,13 +122,17 @@ try {
     assert(members.includes(member), `tarball is missing ${member}`);
   }
 
-  // The source repository is private: nothing published may point at it.
+  // Published files may link to Cappy's own public repository and nothing else,
+  // so a stale or unrelated repository never ships.
   const unpacked = path.join(scratch, "unpacked");
   await mkdir(unpacked, { recursive: true });
   await checked("tar", ["-xzf", path.basename(tarball), "-C", path.relative(path.dirname(tarball), unpacked)], { cwd: path.dirname(tarball) });
   for (const member of members.filter((name) => !name.endsWith("/"))) {
     const text = await readFile(path.join(unpacked, member), "utf8");
-    assert(!/github\.com|git\+(https|ssh)|git@/i.test(text), `${member} references a source repository`);
+    const foreign = [...text.matchAll(/(?:github\.com[/:]|git@github\.com:)([\w.-]+\/[\w.-]+)/gi)]
+      .map((match) => (match[1] ?? "").replace(/\.git$/, ""))
+      .filter((repo) => repo.toLowerCase() !== "uppercut-labs/cappy");
+    assert(foreign.length === 0, `${member} references another repository: ${foreign.join(", ")}`);
   }
 
   const digest = createHash("sha256").update(await readFile(tarball)).digest("hex");
@@ -139,6 +143,7 @@ try {
   await checkedNpm(["install", "--prefix", installRoot, "--no-save", "--ignore-scripts", tarball], { cwd: scratch });
   const installedPackage = JSON.parse(await readFile(path.join(installRoot, "node_modules/@uppercut-labs/cappy/package.json"), "utf8"));
   assert(installedPackage.name === "@uppercut-labs/cappy" && installedPackage.private !== true, "tarball manifest is not the public package");
+  assert(installedPackage.repository?.url === "git+https://github.com/uppercut-labs/cappy.git", "package manifest must link the uppercut-labs/cappy source repository");
   assert(installedPackage.engines?.node === ">=24", "package must require Node.js >=24");
   assert(installedPackage.bin?.cappy, "public package manifest must provide the cappy executable");
   const runtimeDependencies = installedPackage.dependencies ?? {};
@@ -250,7 +255,7 @@ try {
     sha256: digest,
     files: members.length,
     skillAndAddon: "present",
-    sourceRepositoryReferences: "none",
+    otherRepositoryReferences: "none",
     normalInstall: "passed",
     globalInstall: "passed",
     fixtureScenarios: "passed",
