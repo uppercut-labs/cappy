@@ -1,0 +1,3 @@
+# Keep text files LF in every checkout, so a package packed on Windows matches
+# one packed on Linux byte for byte.
+* text=auto eol=lf

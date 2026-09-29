@@ -251,3 +251,13 @@
 **Rationale:** People cannot reach a private repository, so a link to it is a dead end and an addon "from versioned source" is not available to them. Shipping the addon beside the CLI also keeps the two at the same version. The unscoped `cappy` name on npm belongs to an unrelated package, so documentation names the scoped package and never tells people to run `npx cappy` before installing.
 
 **Consequences:** Godot users copy `node_modules/@uppercut-labs/cappy/addons/cappy/` into their game and copy it again after upgrading. Changes to the addon or skill ship only with a new package version.
+
+## ADR-026 - The source repository is public
+
+**Status:** Accepted (2026-09-29). Supersedes ADR-025's premise that the repository stays private; the package contents it decided are unchanged.
+
+**Decision:** `uppercut-labs/cappy` is public. The npm manifest links it again (`repository`, `homepage`, `bugs`). The package still ships the CLI, the Godot addon, and the agent skill, and `scripts/check-package.mjs` now allows links to `uppercut-labs/cappy` and fails on any other repository. Text files are LF in every checkout (`.gitattributes`).
+
+**Rationale:** The published CLI is unminified, so a private repository hid little while blocking issues, fixes, and a source link from npm. Shipping the addon in the package still keeps it at the CLI's version. 0.1.0 was packed on Windows and carried CRLF line endings; forcing LF makes a Windows pack match a Linux one.
+
+**Consequences:** The skill keeps installing from npm and never builds from source; its test still rejects GitHub links, clone, and build wording. Schema `$id`s move from the old `devin-thomas/cappy` URL, which GitHub redirects, to `uppercut-labs/cappy`.

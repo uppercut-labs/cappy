@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://github.com/devin-thomas/cappy/blob/main/docs/schemas/timeline-event.schema.json",
+  "$id": "https://github.com/uppercut-labs/cappy/blob/main/docs/schemas/timeline-event.schema.json",
   "title": "Cappy timeline event",
   "type": "object",
   "properties": {

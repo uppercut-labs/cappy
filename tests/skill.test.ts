@@ -91,7 +91,7 @@ describe("cappy skill package", () => {
     expect(broken).toEqual([]);
   });
 
-  it("points people at the npm package, never at Cappy's private source repository", async () => {
+  it("points people at the npm package, never at building from source", async () => {
     const offenders: string[] = [];
     for (const [name, text] of await skillDocuments()) {
       for (const pattern of [/github\.com/i, /git clone/i, /\bcheckout\b/i, /\bnpm run build\b/]) {

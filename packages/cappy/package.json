@@ -19,6 +19,15 @@
   },
   "license": "MIT",
   "author": "Devin Thomas",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/uppercut-labs/cappy.git",
+    "directory": "packages/cappy"
+  },
+  "homepage": "https://github.com/uppercut-labs/cappy#readme",
+  "bugs": {
+    "url": "https://github.com/uppercut-labs/cappy/issues"
+  },
   "keywords": [
     "game-development",
     "game-capture",
