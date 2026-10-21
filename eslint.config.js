@@ -2,7 +2,7 @@ import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["**/dist/**", "**/node_modules/**", "**/coverage/**", ".cappy/**"] },
+  { ignores: ["**/dist/**", "**/node_modules/**", "**/coverage/**", ".cappy/**", "artifacts/**", "site/worker-configuration.d.ts", "marketing/video/assets/gsap.min.js", "marketing/video/.hyperframes/**"] },
   js.configs.recommended,
   ...tseslint.configs.strict,
   {

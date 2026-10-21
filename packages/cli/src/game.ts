@@ -24,6 +24,7 @@ export interface LaunchOptions {
   readonly projectDir: string;
   readonly env: NodeJS.ProcessEnv;
   readonly heartbeat?: HeartbeatOptions;
+  readonly signal?: AbortSignal;
 }
 
 export function gameWorkingDirectory(config: CappyConfig, projectDir: string): string {
@@ -36,6 +37,11 @@ export function gameWorkingDirectory(config: CappyConfig, projectDir: string): s
  */
 export async function launchGame(options: LaunchOptions): Promise<Result<GameSession>> {
   const { config, projectDir, env } = options;
+  const cancelled = () => err(cappyError("OPERATION_CANCELLED", "game launch cancelled", "game.launch"));
+  const isCancelled = (): boolean => options.signal?.aborted === true;
+  if (isCancelled()) {
+    return cancelled();
+  }
   const cwd = gameWorkingDirectory(config, projectDir);
   const executable = await resolveExecutable(config.game.command, { cwd, env });
   if (executable === undefined) {
@@ -57,6 +63,10 @@ export async function launchGame(options: LaunchOptions): Promise<Result<GameSes
     return listening;
   }
   const server = listening.value;
+  if (isCancelled()) {
+    await server.close();
+    return cancelled();
+  }
 
   let game: ManagedProcess;
   try {
@@ -70,10 +80,23 @@ export async function launchGame(options: LaunchOptions): Promise<Result<GameSes
     );
   }
 
+  let onAbort!: () => void;
+  const aborted = new Promise<{ kind: "cancelled" }>((resolve) => (onAbort = () => resolve({ kind: "cancelled" })));
+  options.signal?.addEventListener("abort", onAbort, { once: true });
+  if (isCancelled()) {
+    onAbort();
+  }
   const outcome = await Promise.race([
     server.accept(config.timeouts.connectMs).then((result) => ({ kind: "accepted" as const, result })),
     game.exited.then((exit) => ({ kind: "exited" as const, exit })),
-  ]);
+    aborted,
+  ]).finally(() => options.signal?.removeEventListener("abort", onAbort));
+
+  if (outcome.kind === "cancelled") {
+    await game.stop(0);
+    await server.close();
+    return cancelled();
+  }
 
   if (outcome.kind === "exited" || !outcome.result.ok) {
     await game.stop(0);

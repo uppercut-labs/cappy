@@ -27,7 +27,7 @@ await build({
   target: "node24",
   format: "esm",
   conditions: ["source"],
-  external: ["node:*", "ws", "zod"],
+  external: ["node:*", "ws", "zod", "@modelcontextprotocol/sdk", "@modelcontextprotocol/sdk/*"],
   sourcemap: false,
   legalComments: "none",
 });

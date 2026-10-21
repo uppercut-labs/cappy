@@ -1,4 +1,4 @@
-import { type CommandResult, type Scenario, commandFailure, commandSuccess } from "@uppercut-labs/cappy-internal-core";
+import { type CommandResult, type Result, type Scenario, cappyError, commandFailure, commandSuccess, err } from "@uppercut-labs/cappy-internal-core";
 import type { NegotiatedAdapter } from "@uppercut-labs/cappy-internal-protocol";
 import type { CommandContext } from "../context.js";
 import { launchGame } from "../game.js";
@@ -18,17 +18,24 @@ export async function scenarios(context: CommandContext): Promise<CommandResult<
   }
   const { config, projectDir } = loaded.value;
 
-  const session = await launchGame({ config, projectDir, env: context.env });
+  const session = await launchGame({ config, projectDir, env: context.env, signal: context.signal });
   if (!session.ok) {
     return commandFailure("scenarios", session.error, options);
   }
+  let onAbort!: () => void;
+  const aborted = new Promise<Result<readonly Scenario[]>>((resolve) => (onAbort = () => resolve(err(cappyError("OPERATION_CANCELLED", "scenario discovery cancelled", "scenarios")))));
+  context.signal?.addEventListener("abort", onAbort, { once: true });
+  if (context.signal?.aborted === true) {
+    onAbort();
+  }
   try {
-    const listed = await session.value.connection.listScenarios(config.timeouts.readyMs);
+    const listed = await Promise.race([session.value.connection.listScenarios(config.timeouts.readyMs), aborted]);
     if (!listed.ok) {
       return commandFailure("scenarios", listed.error, options);
     }
     return commandSuccess("scenarios", { adapter: session.value.connection.negotiated, scenarios: listed.value }, options);
   } finally {
+    context.signal?.removeEventListener("abort", onAbort);
     await session.value.close();
   }
 }

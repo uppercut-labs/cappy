@@ -1,0 +1,14 @@
+{
+  "duration": 3,
+  "assertions": [
+    {
+      "kind": "appearsBy",
+      "selector": "#glass-close .copy",
+      "bySec": 1
+    },
+    {
+      "kind": "staysInFrame",
+      "selector": "#glass-close .copy"
+    }
+  ]
+}

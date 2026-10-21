@@ -21,6 +21,22 @@ Help the user reach one verified capture (or one verified replay, if they have n
 
 ## Workflow
 
+### MCP connections
+
+Cappy 1.0.1 adds a local MCP server, launched with `npx @uppercut-labs/cappy mcp -C /absolute/path/to/game`.
+Check the installed version first; 0.1.0 does not include this command. Local MCP
+uses the same configuration and environment as the CLI. Its tools cover doctor,
+scenarios, inventory, run, bounded record, replay, comparisons, timeline export,
+cleanup preview, and confirmed deletion. `cappy_record` requires a positive
+`durationSeconds`. `cappy_clean` always previews; `cappy_delete` requires explicit
+`confirmDelete: true` after the user has reviewed that preview. The safety
+boundaries above apply equally to MCP tools.
+
+The hosted server at `https://cappy.uppercut-labs.com/mcp` provides public guides,
+the skill, and setup instructions without installation. It cannot access the
+user's game, OBS, or files. Use local MCP or the CLI for capture. The readable
+[MCP guide](https://docs.uppercut-labs.com/cappy/mcp.md) describes both connections.
+
 ### 1. Locate Cappy and the project
 
 - Cappy is the npm package `@uppercut-labs/cappy`; its command is `cappy`. Install it as a dev dependency of the game project (`npm install --save-dev @uppercut-labs/cappy`), then run it with `npx cappy`. `npx cappy --version` confirms which version runs.

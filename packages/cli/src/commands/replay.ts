@@ -178,7 +178,7 @@ async function playback(context: CommandContext, sessionId: string): Promise<Com
   const log = new CommandLog(context.correlationId);
   log.record("command.started", { command: "replay", sessionId, capture: false });
 
-  const game = await launchGame({ config, projectDir, env: context.env });
+  const game = await launchGame({ config, projectDir, env: context.env, signal: context.signal });
   if (!game.ok) {
     return commandFailure("replay", game.error, options);
   }

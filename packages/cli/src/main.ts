@@ -26,6 +26,7 @@ export const HELP = `Usage: cappy <command> [options]
 
 Commands:
   doctor               Check configuration, workspace, game command, FFmpeg, and OBS without capturing
+  mcp                  Serve local tools over MCP stdio (use -C and -c to select the project)
   scenarios            Launch the game and list the scenarios its adapter registers
   run <scenario>       Capture an authored scenario with OBS, FFmpeg derivatives, and a manifest
   record               Record a freeform, replayable session (Enter stops, Ctrl+C cancels)
@@ -159,6 +160,20 @@ export async function main(argv: readonly string[], io: CliIO): Promise<number> 
   if (values.help === true || name === undefined) {
     (name === undefined && values.help !== true ? io.writeError : io.write)(HELP);
     return name === undefined && values.help !== true ? 2 : 0;
+  }
+  if (name === "mcp") {
+    const unsupported = Object.keys(values).filter((key) => key !== "project" && key !== "config");
+    if (positionals.length !== 1 || unsupported.length > 0) {
+      io.writeError("cappy mcp accepts only --project and --config; stdout is reserved for MCP messages\n");
+      return 2;
+    }
+    const { serveLocalMcp } = await import("./mcp.js");
+    return serveLocalMcp({
+      projectDir: path.resolve(io.cwd, values.project ?? "."),
+      ...(values.config === undefined ? {} : { configPath: values.config }),
+      env: io.env,
+      progress: io.writeError,
+    });
   }
   const command = COMMANDS[name];
   if (command === undefined || (positionals.length > 1 && !TAKES_ARGUMENTS.has(name))) {

@@ -28,6 +28,7 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run model:check
+      - run: npm run site:check
       - run: npm run build:distribution
       - name: Pack the public workspace
         shell: bash

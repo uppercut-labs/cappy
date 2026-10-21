@@ -1,0 +1,8 @@
+.hyperframes/
+.thumbnails/
+node_modules/
+assets/*.mp4
+assets/glass-poster.png
+public/
+__pycache__/
+public/delivery-qc/

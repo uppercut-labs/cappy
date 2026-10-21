@@ -42,3 +42,21 @@ Do not run `npx cappy` without installing this package first: the unscoped
 
 Start with `cappy doctor`, which checks the configuration, workspace, game command,
 FFmpeg, and OBS before running capture commands.
+
+## MCP
+
+Version 1.0.1 adds a local stdio server:
+
+```sh
+cappy mcp -C /absolute/path/to/game
+```
+
+Configure your MCP client to launch that command. It exposes typed diagnostic,
+scenario, capture, recording, replay, comparison, timeline, inventory, and cleanup
+tools. Recording requires a positive duration; cleanup previews and confirmed
+deletion are separate tools. Use the existing project's configuration and provide
+OBS credentials through the server environment.
+
+For installation-free documentation, skill access, and setup guidance, connect
+to `https://cappy.uppercut-labs.com/mcp`. The hosted server cannot control your
+local game or OBS. [Read the setup guide](https://docs.uppercut-labs.com/cappy/mcp/).
