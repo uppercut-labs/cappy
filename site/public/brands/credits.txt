@@ -1,0 +1,13 @@
+Agent Prompts uses product artwork to identify the referenced services. Trademarks remain with their owners; inclusion does not imply endorsement.
+
+ChatGPT (Blossom), Claude, Claude Code, Codex, Cursor, Gemini, Grok, Cloudflare: LobeHub Icons 1.95.1, MIT. Source: https://github.com/lobehub/lobe-icons
+Resend, Mintlify, X: Simple Icons 16.35.0, CC0. Source: https://simpleicons.org
+Arg: public favicon from https://arg.ai/favicon-32x32.png, used to identify the cited site.
+Geist Variable: Fontsource 5.3.0, Geist Project Authors, SIL Open Font License 1.1. Source: https://github.com/vercel/geist-font
+
+License notices are retained beside the artwork and font assets.
+
+Antigravity: official Google press kit. Original full-color, one-color black, and white icon files from https://antigravity.google/press . Google retains its trademark and artwork rights.
+Grok Bot: monochrome logomark from https://asvg.app/icons/grok-bot (retrieved 2026-10-15), identifying the product at https://x.ai/bot . Original source: https://asvg.app/assets/svg/grok-bot/grok-bot-logomark-mono.svg . Product artwork rights remain with its owner; it is not covered by this project's MIT license.
+Black and white variants preserve the source geometry. The Grok Bot eye mask remains unchanged. ChatGPT, Cursor, Grok Bot, and Grok use monochrome originals; no extra color palette is invented. OpenAI brand guidance: https://openai.com/brand/ . Grok brand guidance: https://x.ai/legal/brand-guidelines .
+The neutral light and dark comparison plates are original site artwork.

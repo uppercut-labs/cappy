@@ -6,6 +6,8 @@ Cappy is a local developer system for reproducible game capture: authored scenar
 
 Maintained and published by Uppercut Labs. Created and maintained by Devin Thomas; licensed under MIT.
 
+[Website](https://cappy.uppercut-labs.com) · [Documentation](https://docs.uppercut-labs.com/cappy/) · [MCP setup](https://docs.uppercut-labs.com/cappy/mcp/)
+
 - Product and domain context: [Context.md](Context.md)
 - Implementation specification: [SPEC.md](SPEC.md)
 - Uppercut Labs migration plan: [docs/migration-plan.md](docs/migration-plan.md)
@@ -110,6 +112,41 @@ npm run model:check                                  # validate docs/system-mode
 ## Godot
 
 The Godot addon lives in [adapters/godot](adapters/godot/README.md). `npm run godot:demo` assembles the demo fixture with the addon into `.godot-demo/`.
+
+## MCP
+
+`cappy mcp -C /absolute/path/to/game` starts the local stdio server introduced
+in version 0.2.0. It exposes eleven typed tools for diagnostics, scenario and
+artifact discovery, capture, bounded recording, replay, comparisons, timelines,
+cleanup previews, and explicitly confirmed deletion. It reuses the CLI engine,
+returns structured results, and cancels active recordings when the client
+disconnects. Existing FFmpeg work and probes finish or reach their configured
+timeout before shutdown completes.
+
+From this checkout:
+
+```sh
+npm run build
+node packages/cli/bin/cappy.js mcp -C /absolute/path/to/game
+```
+
+The public hosted server at `https://cappy.uppercut-labs.com/mcp` provides docs,
+the skill, and setup guidance without installation. It cannot access a user's
+game, OBS, or files. Full capture control runs locally. See the
+[MCP guide](https://docs.uppercut-labs.com/cappy/mcp/) for client configuration
+and release availability; published 0.1.0 does not include the local server.
+
+## Website and film sources
+
+`npm run site:check` builds and checks the landing page, source-backed docs, and
+hosted guidance server. `npm run site:dev` previews them locally. Production
+configuration is in [wrangler.jsonc](wrangler.jsonc); only Cappy's paths on the
+shared docs host are routed to this Worker.
+
+The [brand assets](assets/brand/README.md) preserve the supplied mascot and
+include a reproducible Blender purple-glass setup. The
+[12-second film source](marketing/video/README.md) uses actual, hash-verified
+Cappy footage. Generated Blender scenes and intermediate frames stay out of Git.
 
 ## Packages
 

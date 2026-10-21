@@ -261,3 +261,40 @@
 **Rationale:** The published CLI is unminified, so a private repository hid little while blocking issues, fixes, and a source link from npm. Shipping the addon in the package still keeps it at the CLI's version. 0.1.0 was packed on Windows and carried CRLF line endings; forcing LF makes a Windows pack match a Linux one.
 
 **Consequences:** The skill keeps installing from npm and never builds from source; its test still rejects GitHub links, clone, and build wording. Schema `$id`s move from the old `devin-thomas/cappy` URL, which GitHub redirects, to `uppercut-labs/cappy`.
+
+## ADR-027 - Local capture MCP and hosted guidance
+
+**Status:** Accepted (2026-10-20).
+
+**Decision:** Ship typed stdio capture tools in the existing npm package. Use
+the official SDK, command implementations and structured results. Serialize
+operations, require a bounded recording duration, and separate cleanup preview
+from explicit deletion. Serve public documentation, skill retrieval and setup
+instructions through a stateless Streamable HTTP Worker at the product's `/mcp`.
+
+**Rationale:** A hosted Worker cannot directly control a visitor's game, OBS or
+filesystem. The owner explicitly selected hosted guidance plus local capture
+instead of a relay or managed capture machines.
+
+**Consequences:** Documentation and tool descriptions distinguish guidance from
+execution. Hosted guides use the same built Markdown as the docs site. The
+installed package checker verifies real MCP initialization and calls. Existing
+media/probe shutdown remains bounded by completion or configured timeout.
+
+## ADR-028 - One Cappy source for public launch surfaces
+
+**Status:** Accepted (2026-10-20).
+
+**Decision:** Keep landing/docs/Worker and film source in this public repository.
+Use Cappy's custom domain plus narrow `/cappy` docs-host routes. Preserve the
+supplied original mascot and real SVG; use Blender purple glass around that
+artwork, not a mascot redesign. Both sites carry working branded agent handoffs
+and the Uppercut Labs, Starter Pack and dvn ecosystem footer.
+
+**Rationale:** Source-backed documentation and verified real capture examples
+give humans and agents the same reliable product entry point.
+
+**Consequences:** Verify opening phone controls and actual Dark Reader behavior.
+Keep private instructions, credentials, raw records and generated frame sequences
+out of public source. The twelve-second film uses approved existing footage and
+requires an assembled-preview approval before final export.

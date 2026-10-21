@@ -1198,3 +1198,57 @@ as an npm release. For a publication delivery, additionally verify registry
 metadata and integrity against the tested artifact and run the documented
 version-pinned scoped command from a clean environment. Record the branch,
 commit, repository URL, actual release/package URLs, and unresolved checks.
+
+## 27. MCP and public product surfaces
+
+Approved 2026-10-20 through the quick-build plan, including the later purple
+Blender-glass identity and twelve-second film direction. The original mascot
+artwork stays unchanged; only its glass presentation, lighting and motion vary.
+
+### 27.1 Local MCP
+
+The existing npm package exposes `cappy mcp -C <project> [-c <config>]` over
+stdio. Typed tools reuse existing commands and envelopes, including warnings,
+correlation IDs and errors. Tool discovery covers diagnostics, scenarios,
+inventory, capture, positive-duration recording, replay, comparisons, timelines,
+preview cleanup and separately confirmed deletion. Only one operation runs per
+server. No shell-command tool or arbitrary external filesystem reader is exposed.
+Protocol stdout is isolated from progress output and interactive line input.
+
+Cancellation and disconnect reach recording interrupts and game startup, wait
+for cleanup and never report cancelled work as successful. Existing media jobs
+and probes finish or time out before shutdown completes. Tests distinguish
+those limits from prompt recording/startup cancellation.
+
+### 27.2 Hosted guidance
+
+`https://cappy.uppercut-labs.com/mcp` serves stateless Streamable HTTP using the
+official MCP SDK. It supplies bounded documentation search, complete guides,
+the agent skill, public resources and client setup instructions. It does not
+launch games, read visitor files, reach local OBS or accept credentials. Guide
+content comes from the same built Markdown assets as the public documentation.
+
+### 27.3 Website and docs
+
+The landing page lives at `https://cappy.uppercut-labs.com`, with documentation
+under `https://docs.uppercut-labs.com/cappy/`. Preserve other products on the
+shared docs host. Keep CLI, skill, hosted guidance and local capture setup
+accessible. Use concise task copy, a restrained dark sans-serif presentation,
+source-verified showcase footage, supplied Cappy artwork and shared Uppercut
+Labs, Starter Pack and dvn footer links.
+
+Landing and documentation both include authentic named agent marks and a usable
+short prompt in the opening 320x667 and 390x844 viewports. Prompt text, preview
+and clipboard match; denial offers one selected readonly recovery dialog. Public
+guides return Markdown and have observable completion checks. Verify keyboard,
+reduced motion, four viewport sizes and actual Dark Reader transformation.
+
+### 27.4 Delivery checks
+
+Run repository types, lint, tests, model and isolated package checks, including a
+real MCP client against the installed executable. Run `npm run site:check` and
+exercise deployed initialization, tool calls, guide retrieval, asset playback and
+branded prompts. Verify the final film's decoded frames, dimensions and duration;
+a source composition alone does not establish a delivered video. Record release
+availability separately from source completion and do not advertise unpublished
+local MCP functionality as available in the registry.
