@@ -133,8 +133,7 @@ node packages/cli/bin/cappy.js mcp -C /absolute/path/to/game
 The public hosted server at `https://cappy.uppercut-labs.com/mcp` provides docs,
 the skill, and setup guidance without installation. It cannot access a user's
 game, OBS, or files. Full capture control runs locally. See the
-[MCP guide](https://docs.uppercut-labs.com/cappy/mcp/) for client configuration
-and release availability; published 0.1.0 does not include the local server.
+[MCP guide](https://docs.uppercut-labs.com/cappy/mcp/) for client configuration.
 
 ## Website and film sources
 

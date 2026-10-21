@@ -10,6 +10,16 @@ not publish or create a tag.
 tagged `v0.1.0` at `6d0835f`, and released on GitHub with its tarball and
 checksum (see [First release record](#first-release-record)).
 
+`1.0.1` was published on 2026-10-21 from verified source
+`dd31f21b1bc6d7d63030c6847bef833c6c05d6ea`. The registry tarball matches the
+release-preparation artifact byte for byte, with SHA-256
+`35b0e0e61d239cefdc69cab8467ab70a74fa7518b326edc6d78e779f49e05065`.
+The downloaded package passed normal/global installs, local MCP checks, capture
+fixtures and cancellation checks; `npx @uppercut-labs/cappy@1.0.1 --version`
+returned `1.0.1`. The tag, tarball, checksum and source manifest are in the
+[GitHub release](https://github.com/uppercut-labs/cappy/releases/tag/v1.0.1).
+See [launch verification](launch-handoff.md) for the sites and film.
+
 ## Before release preparation
 
 - Confirm the selected source commit is on `main`, all required CI checks pass,

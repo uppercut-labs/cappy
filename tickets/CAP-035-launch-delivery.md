@@ -1,6 +1,6 @@
 # CAP-035 Release and live delivery
 
-Status: in progress.
+Status: done; source merged, both domains deployed, npm 1.0.1 published and verified.
 
 Verify the integrated CLI/MCP distribution and public Worker, publish reviewed
 source commits/PR, deploy the requested domains and prepare the version 1.0.1

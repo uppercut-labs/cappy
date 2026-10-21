@@ -87,7 +87,7 @@ export function createGuidanceServer(readGuide: (topic: Topic) => Promise<string
       mode, requires: ["Node.js 24 or newer", "An existing Cappy game configuration", "OBS and FFmpeg for video capture"],
       server: { command: "npx", args: ["-y", "@uppercut-labs/cappy@1.0.1", "mcp", "-C", projectPath] },
       verify: "Connect, list tools, then run doctor. Select the intended OBS scene before capturing.",
-      guide: `${DOCS}/mcp.md`, release: "Use version 1.0.1 once it is published; unreleased source builds use the repository launcher.",
+      guide: `${DOCS}/mcp.md`,
     });
   });
 
