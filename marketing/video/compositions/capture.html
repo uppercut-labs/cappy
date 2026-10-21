@@ -1,0 +1,7 @@
+<template><style>
+ #capture{width:100%;height:100%;background:#141021;overflow:hidden}
+ #capture .footage{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+ #capture .label{position:absolute;top:65px;left:90px;background:#141021;padding:18px 30px;font-size:60px;font-weight:600;letter-spacing:-2px}
+ #capture .details{position:absolute;bottom:0;left:0;right:0;height:175px;background:#141021;display:flex;align-items:center;justify-content:space-between;padding:0 100px}
+ #capture .cmd{font-size:45px;color:#eee3ff}#capture .kind{font-size:35px;color:#d4c3e7}
+ </style><div data-hf-id="hf-6ylq" id="capture" data-composition-id="capture" data-width="1920" data-height="1080" data-duration="3"><video data-hf-id="hf-6u0v" id="capture-footage" class="footage clip" src="assets/capture.mp4" data-start="0" data-duration="3" data-track-index="0" muted playsinline></video><div data-hf-id="hf-kxeo" class="label">Capture</div><div data-hf-id="hf-6z33" class="details" data-layout-allow-overflow><span data-hf-id="hf-po97" class="cmd" data-layout-allow-overflow>$ cappy run hero_duel</span></div></div><script>const tl=gsap.timeline({paused:true});tl.fromTo('#capture .label',{opacity:0,x:-24},{opacity:1,x:0,duration:.4,ease:'power3.out'},.08);tl.fromTo('#capture .details',{y:175},{y:0,duration:.45,ease:'power2.out'},.1);window.__timelines['capture']=tl;</script></template>

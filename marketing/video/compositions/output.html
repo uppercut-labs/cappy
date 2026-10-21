@@ -1,0 +1,7 @@
+<template><style>
+ #output{width:100%;height:100%;background:#141021;overflow:hidden}
+ #output .footage{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+ #output .label{position:absolute;top:65px;left:90px;background:#141021;padding:18px 30px;font-size:60px;font-weight:600;letter-spacing:-2px}
+ #output .details{position:absolute;bottom:0;left:0;right:0;height:175px;background:#141021;display:flex;align-items:center;justify-content:space-between;padding:0 100px}
+ #output .cmd{font-size:45px;color:#eee3ff}#output .kind{font-size:35px;color:#d4c3e7}
+ </style><div data-hf-id="hf-kyyu" id="output" data-composition-id="output" data-width="1920" data-height="1080" data-duration="3"><video data-hf-id="hf-0pfq" id="output-footage" class="footage clip" src="assets/knockdown.mp4" data-start="0" data-duration="3" data-track-index="0" muted playsinline></video><div data-hf-id="hf-gc00" class="label">Keep the moment</div><div data-hf-id="hf-6z33" class="details" data-layout-allow-overflow><span data-hf-id="hf-1m8f" class="cmd" data-layout-allow-overflow>knockdown.mp4</span><span data-hf-id="hf-8sqh" class="kind" data-layout-allow-overflow>Event-anchored clip</span></div></div><script>const tl=gsap.timeline({paused:true});tl.fromTo('#output .label',{opacity:0,x:-24},{opacity:1,x:0,duration:.4,ease:'power3.out'},.08);tl.fromTo('#output .details',{y:175},{y:0,duration:.45,ease:'power2.out'},.1);window.__timelines['output']=tl;</script></template>

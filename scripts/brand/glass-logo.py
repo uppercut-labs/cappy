@@ -17,6 +17,7 @@ from mathutils import Vector
 def arguments():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--preview", action="store_true")
+    parser.add_argument("--plate", action="store_true", help="Render the approved 3-second logo plate")
     parser.add_argument("--size", type=int, default=1024)
     parser.add_argument("--samples", type=int, default=32)
     parser.add_argument("--output", type=Path)
@@ -207,6 +208,11 @@ def build(args):
     if args.preview:
         scene.render.filepath = str(output / "cappy-glass-preview.png")
         bpy.ops.render.render(write_still=True)
+    if args.plate:
+        scene.frame_end = 90
+        scene.render.filepath = str(output / "frames" / "glass-")
+        (output / "frames").mkdir(exist_ok=True)
+        bpy.ops.render.render(animation=True)
     print("Cappy glass scene saved; original mascot artwork preserved.")
 
 

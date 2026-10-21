@@ -1,0 +1,50 @@
+{
+  "captureId": "cap_2d7d3530-aa39-4370-b29d-11da9a373616",
+  "scenario": {
+    "kind": "scenario",
+    "scenarioId": "hero_duel",
+    "parameters": {
+      "rival": "strider",
+      "stairs": true
+    }
+  },
+  "status": "succeeded",
+  "cappyVersion": "0.1.0",
+  "assets": [
+    {
+      "role": "delivery",
+      "sha256": "a3157108c1a143c2eb99b34b59b164ad45018439b0df75e42f9ad88efbdb6cec",
+      "bytes": 6887258,
+      "durationMs": 12400,
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "role": "knockdown",
+      "sha256": "10eb8440e2d54ff38375b7983a916508c5168cc36fd602aefced83c6c403e9cb",
+      "bytes": 2000310,
+      "durationMs": 5033,
+      "width": 1920,
+      "height": 1080,
+      "window": {
+        "startMs": 3540.674,
+        "endMs": 8574.007,
+        "startEventId": "evt_f61e34bc-8648-4f4f-a7aa-310a1a545ab3",
+        "endEventId": "evt_a1c64835-b593-44cf-ad9b-47f33db2c195"
+      }
+    }
+  ],
+  "edit": {
+    "capture": {
+      "sourceRole": "delivery",
+      "startSeconds": 1.75,
+      "durationSeconds": 3
+    },
+    "anchoredOutput": {
+      "sourceRole": "knockdown",
+      "startSeconds": 0,
+      "durationSeconds": 3
+    }
+  },
+  "claim": "The second segment is an event-anchored output of the same capture, not a replay or a slow-motion claim."
+}

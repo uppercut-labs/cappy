@@ -1,0 +1,41 @@
+{
+  "duration": 12,
+  "assertions": [
+    {
+      "kind": "appearsBy",
+      "selector": "[data-composition-id=\"glass-open\"] .copy",
+      "bySec": 1
+    },
+    {
+      "kind": "staysInFrame",
+      "selector": "[data-composition-id=\"glass-open\"] .copy"
+    },
+    {
+      "kind": "appearsBy",
+      "selector": "[data-composition-id=\"capture\"] .label",
+      "bySec": 4
+    },
+    {
+      "kind": "staysInFrame",
+      "selector": "[data-composition-id=\"capture\"] .label"
+    },
+    {
+      "kind": "appearsBy",
+      "selector": "[data-composition-id=\"output\"] .label",
+      "bySec": 7
+    },
+    {
+      "kind": "staysInFrame",
+      "selector": "[data-composition-id=\"output\"] .label"
+    },
+    {
+      "kind": "appearsBy",
+      "selector": "[data-composition-id=\"glass-close\"] .copy",
+      "bySec": 10
+    },
+    {
+      "kind": "staysInFrame",
+      "selector": "[data-composition-id=\"glass-close\"] .copy"
+    }
+  ]
+}
