@@ -23,7 +23,7 @@ Help the user reach one verified capture (or one verified replay, if they have n
 
 ### MCP connections
 
-Cappy 0.2.0 adds a local MCP server, launched with `npx @uppercut-labs/cappy mcp -C /absolute/path/to/game`.
+Cappy 1.0.1 adds a local MCP server, launched with `npx @uppercut-labs/cappy mcp -C /absolute/path/to/game`.
 Check the installed version first; 0.1.0 does not include this command. Local MCP
 uses the same configuration and environment as the CLI. Its tools cover doctor,
 scenarios, inventory, run, bounded record, replay, comparisons, timeline export,

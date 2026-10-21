@@ -3,7 +3,7 @@
 Status: in progress.
 
 Verify the integrated CLI/MCP distribution and public Worker, publish reviewed
-source commits/PR, deploy the requested domains and prepare the version 0.2.0
+source commits/PR, deploy the requested domains and prepare the version 1.0.1
 release through the existing process. Attempt publication only after validation;
 record actual authentication/release blockers and avoid unreleased-feature claims.
 

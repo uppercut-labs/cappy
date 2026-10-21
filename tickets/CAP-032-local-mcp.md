@@ -1,6 +1,6 @@
 # CAP-032 Local capture MCP
 
-Status: done; verified in source and the installed 0.2.0 release candidate.
+Status: done; verified in source and the installed 1.0.1 release candidate.
 
 Expose typed local tools through `cappy mcp` using existing command behavior,
 structured results, cancellation and cleanup. Inventory discovers stored IDs;

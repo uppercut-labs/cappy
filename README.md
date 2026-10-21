@@ -116,7 +116,7 @@ The Godot addon lives in [adapters/godot](adapters/godot/README.md). `npm run go
 ## MCP
 
 `cappy mcp -C /absolute/path/to/game` starts the local stdio server introduced
-in version 0.2.0. It exposes eleven typed tools for diagnostics, scenario and
+in version 1.0.1. It exposes eleven typed tools for diagnostics, scenario and
 artifact discovery, capture, bounded recording, replay, comparisons, timelines,
 cleanup previews, and explicitly confirmed deletion. It reuses the CLI engine,
 returns structured results, and cancels active recordings when the client

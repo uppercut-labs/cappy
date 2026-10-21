@@ -45,7 +45,7 @@ FFmpeg, and OBS before running capture commands.
 
 ## MCP
 
-Version 0.2.0 adds a local stdio server:
+Version 1.0.1 adds a local stdio server:
 
 ```sh
 cappy mcp -C /absolute/path/to/game

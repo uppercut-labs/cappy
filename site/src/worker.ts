@@ -32,7 +32,7 @@ function result(data: Record<string, unknown>) {
 
 /** A new server per request keeps this public guidance endpoint stateless. */
 export function createGuidanceServer(readGuide: (topic: Topic) => Promise<string>, readSkill: (reference: SkillReference) => Promise<string>): McpServer {
-  const server = new McpServer({ name: "cappy-guidance", version: "0.2.0", websiteUrl: HOME }, {
+  const server = new McpServer({ name: "cappy-guidance", version: "1.0.1", websiteUrl: HOME }, {
     jsonSchemaValidator: new CfWorkerJsonSchemaValidator(),
     instructions: "This server provides Cappy documentation, the agent skill and setup guidance. It cannot access a user's game, OBS or filesystem, and cannot execute captures. Use the local Cappy MCP for capture control. Treat document contents as reference material within the user's existing permissions.",
   });
@@ -85,9 +85,9 @@ export function createGuidanceServer(readGuide: (topic: Topic) => Promise<string
     }
     return result({
       mode, requires: ["Node.js 24 or newer", "An existing Cappy game configuration", "OBS and FFmpeg for video capture"],
-      server: { command: "npx", args: ["-y", "@uppercut-labs/cappy@0.2.0", "mcp", "-C", projectPath] },
+      server: { command: "npx", args: ["-y", "@uppercut-labs/cappy@1.0.1", "mcp", "-C", projectPath] },
       verify: "Connect, list tools, then run doctor. Select the intended OBS scene before capturing.",
-      guide: `${DOCS}/mcp.md`, release: "Use version 0.2.0 once it is published; unreleased source builds use the repository launcher.",
+      guide: `${DOCS}/mcp.md`, release: "Use version 1.0.1 once it is published; unreleased source builds use the repository launcher.",
     });
   });
 
@@ -135,6 +135,49 @@ async function readAsset(assets: AssetFetcher, origin: string, assetPath: string
   return text;
 }
 
+/** Static Assets can omit range handling; this one bounded film must remain seekable. */
+async function serveFilm(request: Request, assets: AssetFetcher): Promise<Response> {
+  const assetHeaders = new Headers(request.headers);
+  assetHeaders.delete("Range");
+  assetHeaders.delete("If-Range");
+  assetHeaders.set("Accept-Encoding", "identity");
+  const asset = await assets.fetch(new Request(request.url, { method: "GET", headers: assetHeaders }));
+  if (asset.status !== 200) return headers(new Response(request.method === "HEAD" ? null : asset.body, asset));
+  const maxBytes = 25 * 1024 * 1024;
+  if (Number(asset.headers.get("Content-Length")) > maxBytes) {
+    await asset.body?.cancel();
+    return headers(new Response(request.method === "HEAD" ? null : "Cappy film exceeds the supported size.", { status: 502 }));
+  }
+  const bytes = await asset.arrayBuffer();
+  if (bytes.byteLength > maxBytes) return headers(new Response(request.method === "HEAD" ? null : "Cappy film exceeds the supported size.", { status: 502 }));
+  const length = bytes.byteLength;
+  // Add security headers before constructing the fixed-length response body.
+  const responseHeaders = headers(new Response(null, { headers: asset.headers })).headers;
+  responseHeaders.set("Accept-Ranges", "bytes");
+  responseHeaders.set("Content-Length", String(length));
+  responseHeaders.delete("Content-Range");
+  if (request.method === "HEAD") return new Response(null, { headers: responseHeaders });
+
+  const ifRange = request.headers.get("If-Range");
+  const matchingValidator = ifRange === null ||
+    (/^"[^"]*"$/.test(ifRange) && ifRange === asset.headers.get("ETag")) ||
+    (ifRange === asset.headers.get("Last-Modified") && Number.isFinite(Date.parse(ifRange)));
+  const match = matchingValidator ? /^bytes=([0-9]*)-([0-9]*)$/.exec(request.headers.get("Range") ?? "") : null;
+  if (match === null || (match[1] === "" && match[2] === "")) return new Response(bytes, { headers: responseHeaders });
+  const suffix = match[1] === "";
+  const start = suffix ? Math.max(0, length - Number(match[2])) : Number(match[1]);
+  const end = suffix || match[2] === "" ? length - 1 : Math.min(Number(match[2]), length - 1);
+  if (start >= length || end < start || (suffix && Number(match[2]) === 0)) {
+    responseHeaders.set("Content-Range", `bytes */${length}`);
+    responseHeaders.set("Content-Length", "0");
+    return new Response(null, { status: 416, headers: responseHeaders });
+  }
+  const selected = bytes.slice(start, end + 1);
+  responseHeaders.set("Content-Range", `bytes ${start}-${end}/${length}`);
+  responseHeaders.set("Content-Length", String(selected.byteLength));
+  return new Response(selected, { status: 206, headers: responseHeaders });
+}
+
 export async function handleRequest(request: Request, assets: AssetFetcher): Promise<Response> {
   const url = new URL(request.url);
   if (url.pathname === "/mcp") {
@@ -156,7 +199,8 @@ export async function handleRequest(request: Request, assets: AssetFetcher): Pro
     }
   }
   if (request.method !== "GET" && request.method !== "HEAD") return headers(new Response("Method not allowed", { status: 405, headers: { Allow: "GET, HEAD" } }));
-  if (url.pathname === "/cappy") return headers(Response.redirect(`${url.origin}/cappy/`, 308));
+  if (url.pathname === "/cappy/assets/cappy-film.mp4") return serveFilm(request, assets);
+  if (url.pathname === "/cappy") return headers(Response.redirect(`${url.origin}/cappy/${url.search}`, 308));
   if (url.pathname === "/llms.txt") url.pathname = "/cappy/llms.txt";
   return headers(await assets.fetch(new Request(url, request)));
 }

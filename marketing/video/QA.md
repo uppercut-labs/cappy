@@ -1,5 +1,10 @@
 # Film review
 
+Production playback passed on phone and desktop: controls and poster are
+visible, playback starts only on request, and seeking reaches exactly 6 and
+10.5 seconds. The first shows gameplay and the second the glass closing slate.
+The Worker returns HTTP 206 with the requested bytes and correct range headers.
+
 Prepared: four scenes, 12 seconds, 1920x1080, 30 fps, silent.
 
 - Blender rendered 90 frames at 900x900, 16 samples with denoising. The packed texture is the unchanged supplied Cappy cutout. Opening and closing use the same physical plate.

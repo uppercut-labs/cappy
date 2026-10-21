@@ -98,9 +98,100 @@ test('HTTP boundary enforces body limits, methods and document redirects', async
     assert.equal(unsupported.status, 405);
     assert.equal(unsupported.headers.get('Allow'), 'POST, OPTIONS');
   }
-  const redirect = await handleRequest(new Request('https://docs.uppercut-labs.com/cappy'), assets);
+  const redirect = await handleRequest(new Request('https://docs.uppercut-labs.com/cappy?ref=agent'), assets);
   assert.equal(redirect.status, 308);
-  assert.equal(redirect.headers.get('Location'), 'https://docs.uppercut-labs.com/cappy/');
+  assert.equal(redirect.headers.get('Location'), 'https://docs.uppercut-labs.com/cappy/?ref=agent');
   const denied = await handleRequest(new Request('https://docs.uppercut-labs.com/cappy/cli.md', { method: 'POST' }), assets);
   assert.equal(denied.status, 405);
+});
+
+test('the film serves exact byte ranges, full HEAD metadata and bounded suffixes', async () => {
+  const bytes = new Uint8Array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  const forwarded = [];
+  const filmAssets = { fetch: async request => {
+    forwarded.push(request);
+    return new Response(bytes, { headers: { 'Content-Type': 'video/mp4', ETag: '"film-v1"', 'Last-Modified': 'Tue, 20 Oct 2026 12:00:00 GMT' } });
+  } };
+  const film = (headers = {}, method = 'GET') => handleRequest(new Request('https://cappy.uppercut-labs.com/cappy/assets/cappy-film.mp4?rev=1', { method, headers }), filmAssets);
+  const full = await film();
+  assert.equal(full.status, 200);
+  assert.equal(full.headers.get('Content-Type'), 'video/mp4');
+  assert.equal(full.headers.get('Accept-Ranges'), 'bytes');
+  assert.equal(full.headers.get('Content-Length'), '10');
+  assert.equal(full.headers.get('Content-Range'), null);
+  assert.deepEqual(new Uint8Array(await full.arrayBuffer()), bytes);
+  for (const [range, expected, contentRange] of [
+    ['bytes=2-5', [2, 3, 4, 5], 'bytes 2-5/10'],
+    ['bytes=7-', [7, 8, 9], 'bytes 7-9/10'],
+    ['bytes=-3', [7, 8, 9], 'bytes 7-9/10'],
+    ['bytes=8-9999999999999999999999999', [8, 9], 'bytes 8-9/10'],
+    ['bytes=-9999999999999999999999999', [...bytes], 'bytes 0-9/10'],
+  ]) {
+    const response = await film({ Range: range });
+    assert.equal(response.status, 206, range);
+    assert.equal(response.headers.get('Content-Range'), contentRange);
+    assert.equal(response.headers.get('Content-Length'), String(expected.length));
+    assert.equal(response.headers.get('Accept-Ranges'), 'bytes');
+    assert.deepEqual([...new Uint8Array(await response.arrayBuffer())], expected);
+    assert.equal(forwarded.at(-1).method, 'GET');
+    assert.equal(forwarded.at(-1).headers.get('Range'), null);
+    assert.equal(forwarded.at(-1).url, 'https://cappy.uppercut-labs.com/cappy/assets/cappy-film.mp4?rev=1');
+  }
+  const head = await film({ Range: 'bytes=2-5' }, 'HEAD');
+  assert.equal(head.status, 200);
+  assert.equal(head.headers.get('Content-Length'), '10');
+  assert.equal(head.headers.get('Accept-Ranges'), 'bytes');
+  assert.equal(head.headers.get('Content-Range'), null);
+  assert.equal((await head.arrayBuffer()).byteLength, 0);
+});
+
+test('film range validation returns 416 or ignores unsupported syntax without changing bytes', async () => {
+  const filmAssets = { fetch: async () => new Response(new Uint8Array([10, 20, 30]), { headers: { 'Content-Type': 'video/mp4' } }) };
+  for (const range of ['bytes=3-', 'bytes=20-30', 'bytes=-0', 'bytes=2-1']) {
+    const response = await handleRequest(new Request('https://cappy.uppercut-labs.com/cappy/assets/cappy-film.mp4', { headers: { Range: range } }), filmAssets);
+    assert.equal(response.status, 416, range);
+    assert.equal(response.headers.get('Content-Range'), 'bytes */3');
+    assert.equal(response.headers.get('Content-Length'), '0');
+    assert.equal((await response.arrayBuffer()).byteLength, 0);
+  }
+  for (const range of ['bytes=0-1,2-2', 'items=0-1', 'bytes=hello', 'bytes=-', 'bytes=0.5-2']) {
+    const response = await handleRequest(new Request('https://cappy.uppercut-labs.com/cappy/assets/cappy-film.mp4', { headers: { Range: range } }), filmAssets);
+    assert.equal(response.status, 200, range);
+    assert.equal(response.headers.get('Content-Range'), null);
+    assert.deepEqual([...new Uint8Array(await response.arrayBuffer())], [10, 20, 30]);
+  }
+});
+
+test('film If-Range requires the matching strong ETag or exact modification date', async () => {
+  const modified = 'Tue, 20 Oct 2026 12:00:00 GMT';
+  const filmAssets = { fetch: async request => {
+    assert.equal(request.headers.get('If-Range'), null);
+    return new Response(new Uint8Array([10, 20, 30]), { headers: { ETag: '"film-v1"', 'Last-Modified': modified } });
+  } };
+  for (const [validator, status, expected] of [
+    ['"film-v1"', 206, [20]], [modified, 206, [20]],
+    ['"film-v0"', 200, [10, 20, 30]], ['W/"film-v1"', 200, [10, 20, 30]],
+    ['Mon, 19 Oct 2026 12:00:00 GMT', 200, [10, 20, 30]], ['invalid', 200, [10, 20, 30]],
+  ]) {
+    const response = await handleRequest(new Request('https://cappy.uppercut-labs.com/cappy/assets/cappy-film.mp4', { headers: { Range: 'bytes=1-1', 'If-Range': validator } }), filmAssets);
+    assert.equal(response.status, status, validator);
+    assert.deepEqual([...new Uint8Array(await response.arrayBuffer())], expected);
+  }
+});
+
+test('film adapter is exact, preserves missing assets and rejects oversized owned files', async () => {
+  const request = new Request('https://cappy.uppercut-labs.com/cappy/assets/cappy-film.mp4', { headers: { Range: 'bytes=0-1' } });
+  const missing = await handleRequest(request, { fetch: async () => new Response('Missing', { status: 404 }) });
+  assert.equal(missing.status, 404);
+  assert.equal(await missing.text(), 'Missing');
+  const oversized = await handleRequest(request, { fetch: async () => new Response('Not buffered', { headers: { 'Content-Length': String(25 * 1024 * 1024 + 1) } }) });
+  assert.equal(oversized.status, 502);
+  const empty = await handleRequest(request, { fetch: async () => new Response(new Uint8Array()) });
+  assert.equal(empty.status, 416);
+  assert.equal(empty.headers.get('Content-Range'), 'bytes */0');
+  const untouched = await handleRequest(new Request('https://cappy.uppercut-labs.com/cappy/assets/other.mp4', { headers: { Range: 'bytes=0-1' } }), { fetch: async upstream => {
+    assert.equal(upstream.headers.get('Range'), 'bytes=0-1');
+    return new Response('Existing asset');
+  } });
+  assert.equal(await untouched.text(), 'Existing asset');
 });

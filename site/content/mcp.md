@@ -19,7 +19,7 @@ For agents without remote MCP, use the [setup guide](https://docs.uppercut-labs.
 
 ## Local capture tools
 
-The local MCP command is introduced in Cappy 0.2.0. Check the installed version with `npx @uppercut-labs/cappy --version`; 0.1.0 does not include it. Until 0.2.0 is published, use a built source checkout and the CLI launcher described in the repository README.
+The local MCP command is introduced in Cappy 1.0.1. Check the installed version with `npx @uppercut-labs/cappy --version`; 0.1.0 does not include it. Until 1.0.1 is published, use a built source checkout and the CLI launcher described in the repository README.
 
 Install Cappy in the game project:
 
