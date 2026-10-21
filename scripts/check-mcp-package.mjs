@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
+import { URL } from "node:url";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 
 const executable = process.argv[2];
+const { version } = JSON.parse(await readFile(new URL("../packages/cappy/package.json", import.meta.url), "utf8"));
 if (!executable) {
   throw new Error("Usage: node scripts/check-mcp-package.mjs <installed-cappy-executable>");
 }
@@ -15,6 +17,7 @@ const transport = new StdioClientTransport({ command: process.execPath, args: [e
 const client = new Client({ name: "cappy-package-check", version: "1.0.0" });
 try {
   await client.connect(transport);
+  assert.equal(client.getServerVersion().version, version);
   const listed = await client.listTools();
   assert.equal(listed.tools.length, 11);
   const missing = await client.callTool({ name: "cappy_doctor", arguments: {} });
