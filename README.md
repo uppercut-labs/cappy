@@ -1,5 +1,7 @@
 # cappy
 
+<img src="assets/brand/cappy.svg" width="260" alt="Cappy, a movie camera mascot wearing a purple cap beside a purple C">
+
 Cappy is a local developer system for reproducible game capture: authored scenarios, replayable freeform sessions, OBS recording, FFmpeg derivatives, and verifiable capture manifests.
 
 Maintained and published by Uppercut Labs. Created and maintained by Devin Thomas; licensed under MIT.

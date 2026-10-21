@@ -2,6 +2,7 @@ node_modules/
 dist/
 *.tsbuildinfo
 coverage/
+/artifacts/brand/
 .cappy/
 .env
 .env.*
