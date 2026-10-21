@@ -22,17 +22,28 @@
     "godot:demo": "node scripts/assemble-godot-demo.mjs .godot-demo",
     "model:check": "node scripts/model.mjs check",
     "model:render": "node scripts/model.mjs render",
-    "schemas": "tsc -b && node scripts/schemas.mjs"
+    "schemas": "tsc -b && node scripts/schemas.mjs",
+    "site:build": "node site/build.mjs",
+    "site:types": "wrangler types site/worker-configuration.d.ts",
+    "site:typecheck": "npm run site:types && tsc -p site/tsconfig.json",
+    "site:dev": "npm run site:build && wrangler dev --port 4325",
+    "site:check": "npm run site:build && npm run site:typecheck && node --test site/test/*.test.mjs"
   },
   "devDependencies": {
+    "@cfworker/json-schema": "^4.1.1",
+    "@cloudflare/workers-types": "5.20261021.1",
     "@eslint/js": "^10.0.1",
+    "@fontsource-variable/geist": "5.3.0",
     "@hpcc-js/wasm-graphviz": "^1.29.1",
+    "@playwright/test": "1.64.1",
     "@types/node": "^24.13.6",
     "ajv": "6.15.0",
-    "esbuild": "0.27.3",
+    "esbuild": "0.28.2",
     "eslint": "^10.11.0",
+    "marked": "18.1.1",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.70.1",
-    "vitest": "^5.0.2"
+    "vitest": "^5.0.2",
+    "wrangler": "4.151.3"
   }
 }

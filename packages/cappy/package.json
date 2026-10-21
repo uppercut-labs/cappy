@@ -1,6 +1,6 @@
 {
   "name": "@uppercut-labs/cappy",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": false,
   "description": "Reproducible game capture with scenarios, replayable sessions, OBS recording, and FFmpeg derivatives.",
   "type": "module",
@@ -24,7 +24,7 @@
     "url": "git+https://github.com/uppercut-labs/cappy.git",
     "directory": "packages/cappy"
   },
-  "homepage": "https://github.com/uppercut-labs/cappy#readme",
+  "homepage": "https://cappy.uppercut-labs.com",
   "bugs": {
     "url": "https://github.com/uppercut-labs/cappy/issues"
   },
@@ -35,12 +35,15 @@
     "replay",
     "cli",
     "uppercut-labs",
-    "agent-skill"
+    "agent-skill",
+    "mcp",
+    "model-context-protocol"
   ],
   "publishConfig": {
     "access": "public"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
     "ws": "^8.21.3",
     "zod": "^4.6.5"
   }

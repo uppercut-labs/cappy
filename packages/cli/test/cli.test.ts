@@ -75,7 +75,7 @@ describe("CLI shell", () => {
     const help = await cli(["--help"]);
     expect(help.code).toBe(0);
     expect(help.stdout).toContain("Usage: cappy <command>");
-    expect((await cli(["--version"])).stdout.trim()).toBe("0.1.0");
+    expect((await cli(["--version"])).stdout.trim()).toBe("0.2.0");
   });
 
   it("rejects unknown commands and flags with exit code 2", async () => {
@@ -88,7 +88,7 @@ describe("CLI shell", () => {
 
   it("accepts whole-token shorthands for global flags", async () => {
     expect((await cli(["-h"])).stdout).toContain("Usage: cappy <command>");
-    expect((await cli(["-v"])).stdout.trim()).toBe("0.1.0");
+    expect((await cli(["-v"])).stdout.trim()).toBe("0.2.0");
     await writeConfig();
     await writeFile(path.join(project, "alt.json"), await readFile(path.join(project, "cappy.config.json"), "utf8"));
     const long = json((await cli(["doctor", "--json", "--config", "alt.json"])).stdout);

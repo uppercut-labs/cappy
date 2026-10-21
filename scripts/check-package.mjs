@@ -147,7 +147,7 @@ try {
   assert(installedPackage.engines?.node === ">=24", "package must require Node.js >=24");
   assert(installedPackage.bin?.cappy, "public package manifest must provide the cappy executable");
   const runtimeDependencies = installedPackage.dependencies ?? {};
-  assert(Object.keys(runtimeDependencies).sort().join(",") === "ws,zod", `unexpected runtime dependency set: ${Object.keys(runtimeDependencies).join(", ")}`);
+  assert(Object.keys(runtimeDependencies).sort().join(",") === "@modelcontextprotocol/sdk,ws,zod", `unexpected runtime dependency set: ${Object.keys(runtimeDependencies).join(", ")}`);
   for (const value of Object.values(runtimeDependencies)) {
     assert(typeof value === "string" && !/(^file:|^workspace:|^link:|\.tgz$)/.test(value), `local or private dependency reference found: ${value}`);
   }
@@ -171,6 +171,7 @@ try {
   assert(help.code === 0 && help.stdout.includes("Usage: cappy"), "installed local cappy --help launcher failed");
   const version = await runCli(projectLauncher, ["--version"], installRoot);
   assert(version.code === 0 && version.stdout.trim() === installedPackage.version, "installed local cappy --version does not match the package version");
+  await checked(process.execPath, [path.join(root, "scripts/check-mcp-package.mjs"), projectPackageLauncher], { cwd: installRoot });
 
   const empty = path.join(scratch, "empty-project");
   await mkdir(empty, { recursive: true });

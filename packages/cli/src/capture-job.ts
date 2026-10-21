@@ -298,7 +298,7 @@ export async function executeCapture(
       return await fail(takeFlag.error);
     }
     job.to("preparing_game");
-    const launched = await launchGame({ config, projectDir: setup.projectDir, env: context.env });
+    const launched = await launchGame({ config, projectDir: setup.projectDir, env: context.env, signal: context.signal });
     if (!launched.ok) {
       return await fail(launched.error);
     }

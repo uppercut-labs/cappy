@@ -82,7 +82,7 @@ export async function record(context: CommandContext): Promise<CommandResult<Rec
     recorder = prepared.value.recorder;
   }
 
-  const game = await launchGame({ config, projectDir, env: context.env });
+  const game = await launchGame({ config, projectDir, env: context.env, signal: context.signal });
   if (!game.ok) {
     recorder?.close();
     return commandFailure("record", game.error, options);

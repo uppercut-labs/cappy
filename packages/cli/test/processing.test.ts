@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { manifestSchema } from "@uppercut-labs/cappy-internal-core";
+import { CAPPY_VERSION, manifestSchema } from "@uppercut-labs/cappy-internal-core";
 import { hashFile } from "@uppercut-labs/cappy-internal-workspace";
 import { type Harness, configure, createHarness, disposeHarness, runCli } from "./support.js";
 
@@ -76,7 +76,7 @@ describe("derivatives and manifests", () => {
       manifestVersion: 1,
       status: "succeeded",
       identity: { captureId, take: 1, project: { id: "sim" }, source: { kind: "scenario", scenarioId: "boss_intro", parameters: { difficulty: 2 } } },
-      build: { cappyVersion: "0.1.0", adapter: { name: "cappy-adapter-simulator" }, protocolVersion: "1", capabilities: expect.arrayContaining(["scenarios"]) },
+      build: { cappyVersion: CAPPY_VERSION, adapter: { name: "cappy-adapter-simulator" }, protocolVersion: "1", capabilities: expect.arrayContaining(["scenarios"]) },
       tooling: { obs: { version: "31.0.0" }, ffmpeg: { version: "9.9.9-fake" }, ffprobe: { version: "9.9.9-fake" }, preset: { name: "trailer" } },
       result: { warnings: [], checks: expect.arrayContaining([{ name: "master.probe", passed: true, detail: "matroska,webm, h264" }]) },
     });

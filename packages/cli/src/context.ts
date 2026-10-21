@@ -17,6 +17,8 @@ export interface CommandContext {
   /** Command arguments after the command name. */
   readonly positionals: readonly string[];
   readonly flags: Readonly<Record<string, string | boolean | readonly string[] | undefined>>;
+  /** MCP request cancellation, including transport disconnect and server shutdown. */
+  readonly signal?: AbortSignal;
   /** Human progress messages; silent in JSON mode. */
   progress(text: string): void;
   /** Start listening for stop/cancel requests. */
