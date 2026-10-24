@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "skillName": "cappy",
+  "skillBlobSha": "6e50c44aeeb154582be8dda72d08c17c9ad3a333",
+  "auditComplete": true,
+  "resources": [
+    {
+      "key": "reference-0",
+      "path": "references/configuration.md",
+      "gitBlobSha": "d89b821622a4d74f9e811def67e89a3706278a8d",
+      "required": "optional"
+    },
+    {
+      "key": "reference-1",
+      "path": "references/godot-adapter.md",
+      "gitBlobSha": "248c32cc29d6b04afa80e816dc544001180f7a93",
+      "required": "optional"
+    },
+    {
+      "key": "reference-2",
+      "path": "references/troubleshooting.md",
+      "gitBlobSha": "53cb6465e6e844f3cd687cb49f7bdd660787b798",
+      "required": "optional"
+    }
+  ],
+  "stages": [],
+  "dependencies": []
+}
