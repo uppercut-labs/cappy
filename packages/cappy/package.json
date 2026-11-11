@@ -1,6 +1,6 @@
 {
   "name": "@uppercut-labs/cappy",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": false,
   "description": "Reproducible game capture with scenarios, replayable sessions, OBS recording, and FFmpeg derivatives.",
   "type": "module",
