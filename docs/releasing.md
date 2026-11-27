@@ -20,6 +20,22 @@ returned `1.0.1`. The tag, tarball, checksum and source manifest are in the
 [GitHub release](https://github.com/uppercut-labs/cappy/releases/tag/v1.0.1).
 See [launch verification](launch-handoff.md) for the sites and film.
 
+`1.0.1` was later unpublished to remove an old maintainer email, and npm never
+reuses a version, so the same source was published as `1.0.2` on 2026-11-10
+from branch `release-1.0.2`. That tarball still labeled the packed Godot addon
+`0.1.0`.
+
+`1.0.3` was published on 2026-11-27 from `main` at
+`21da81aedc0877080fdccaee701e0ebd14d5297d`, with the addon's `plugin.cfg`
+version and `ADAPTER_VERSION` at `1.0.3`. The package checker and
+`tests/release-version.test.ts` now fail when those labels differ from the
+package version. The registry tarball matches the verified one byte for byte,
+with SHA-256
+`2c1b99bc1fb6d513ee28f26524ffc926cd96d210f441b93ebdcd570e9a427600`, and
+`npx @uppercut-labs/cappy@1.0.3 --version` returned `1.0.3`. The tag, tarball,
+checksum and source manifest are in the
+[GitHub release](https://github.com/uppercut-labs/cappy/releases/tag/v1.0.3).
+
 ## Before release preparation
 
 - Confirm the selected source commit is on `main`, all required CI checks pass,
