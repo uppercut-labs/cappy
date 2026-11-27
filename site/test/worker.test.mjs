@@ -66,6 +66,10 @@ test('a real SDK HTTP client initializes, searches, reads guides and discovers r
       const read = await client.callTool({ name: 'read_skill', arguments: { reference } });
       assert(read.structuredContent.markdown.length > 500);
     }
+    const { version } = JSON.parse(await readFile(path.join(root, 'packages/cappy/package.json'), 'utf8'));
+    assert.equal(client.getServerVersion().version, version);
+    const setup = await client.callTool({ name: 'setup_cappy', arguments: { mode: 'local', projectPath: '/games/demo' } });
+    assert.deepEqual(setup.structuredContent.server.args, ['-y', `@uppercut-labs/cappy@${version}`, 'mcp', '-C', '/games/demo']);
     const prompts = await client.listPrompts();
     const prompt = await client.getPrompt({ name: prompts.prompts[0].name });
     assert.match(prompt.messages[0].content.text, /\/cappy\/guides\/setup-cappy.md/);
