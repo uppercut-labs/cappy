@@ -19,7 +19,7 @@ For agents without remote MCP, use the [setup guide](https://docs.uppercut-labs.
 
 ## Local capture tools
 
-Local MCP requires Cappy 1.0.1 or newer. Check your installed version with `npx @uppercut-labs/cappy --version`.
+Local MCP requires Cappy 1.0.2 or newer. Check your installed version with `npx @uppercut-labs/cappy --version`.
 
 Install Cappy in the game project:
 

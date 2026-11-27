@@ -6,6 +6,7 @@
     "lib": ["es2023"],
     "types": ["node"],
     "noEmit": true,
+    "resolveJsonModule": true,
     "declaration": false,
     "declarationMap": false
   },
