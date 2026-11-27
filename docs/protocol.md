@@ -20,7 +20,7 @@ The adapter's first message is `hello`:
   "type": "hello",
   "protocol": { "min": 1, "max": 1 },
   "token": "<CAPPY_SESSION_TOKEN>",
-  "adapter": { "name": "cappy-godot", "version": "0.1.0" },
+  "adapter": { "name": "cappy-godot", "version": "1.0.3" },
   "game": { "id": "fantasy-party", "name": "Fantasy Party" },
   "build": "optional build identity",
   "capabilities": ["scenarios", "freeform_recording", "replay"]
@@ -29,7 +29,7 @@ The adapter's first message is `hello`:
 
 Cappy replies with one of:
 
-- `{ "type": "welcome", "protocol": 1, "controller": { "name": "cappy", "version": "0.1.0" } }`: negotiation succeeded, at the highest shared version.
+- `{ "type": "welcome", "protocol": 1, "controller": { "name": "cappy", "version": "1.0.3" } }`: negotiation succeeded, at the highest shared version.
 - `{ "type": "reject", "code": "...", "message": "..." }`, followed by a close. Codes include `PROTOCOL_UNAUTHENTICATED` (wrong token), `PROTOCOL_VERSION_INCOMPATIBLE`, `PROTOCOL_INVALID_MESSAGE`, `CAPABILITY_MISSING`, and `OPERATION_BUSY` (another adapter is already connected).
 
 Unknown hello fields and unknown capability names are accepted, so newer adapters work with older controllers. A missing capability fails the handshake only when the project requires it.

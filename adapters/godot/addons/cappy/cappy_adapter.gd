@@ -20,7 +20,7 @@ const CappyOperation := preload("res://addons/cappy/cappy_operation.gd")
 
 const PROTOCOL_VERSION := 1
 const ADAPTER_NAME := "cappy-godot"
-const ADAPTER_VERSION := "0.1.0"
+const ADAPTER_VERSION := "1.0.3"
 const MAX_INLINE_REPLAY_BYTES := 1024 * 1024
 const PARAMETER_TYPES := ["string", "number", "integer", "boolean"]
 const PARAMETER_KEYS := ["type", "description", "required", "default", "enum", "minimum", "maximum"]
