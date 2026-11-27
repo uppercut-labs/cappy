@@ -135,6 +135,17 @@ try {
     assert(foreign.length === 0, `${member} references another repository: ${foreign.join(", ")}`);
   }
 
+  // The addon ships beside the CLI and must carry the same version (ADR-025),
+  // and nothing public ships labeled below 1.0.0.
+  const packedVersion = JSON.parse(await readFile(path.join(unpacked, "package/package.json"), "utf8")).version;
+  assert(/^[1-9]\d*\.\d+\.\d+$/.test(packedVersion), `package version ${packedVersion} must be a release version of at least 1.0.0`);
+  const pluginCfg = await readFile(path.join(unpacked, "package/addons/cappy/plugin.cfg"), "utf8");
+  const pluginVersion = /^version="([^"]*)"\s*$/m.exec(pluginCfg)?.[1];
+  assert(pluginVersion === packedVersion, `addons/cappy/plugin.cfg version ${pluginVersion} does not match package version ${packedVersion}`);
+  const adapterSource = await readFile(path.join(unpacked, "package/addons/cappy/cappy_adapter.gd"), "utf8");
+  const adapterVersion = /^const ADAPTER_VERSION := "([^"]*)"\s*$/m.exec(adapterSource)?.[1];
+  assert(adapterVersion === packedVersion, `addons/cappy/cappy_adapter.gd ADAPTER_VERSION ${adapterVersion} does not match package version ${packedVersion}`);
+
   const digest = createHash("sha256").update(await readFile(tarball)).digest("hex");
   const installRoot = path.join(scratch, "consumer");
   const globalPrefix = path.join(scratch, "global");
@@ -256,6 +267,7 @@ try {
     sha256: digest,
     files: members.length,
     skillAndAddon: "present",
+    addonVersion: "matches package",
     otherRepositoryReferences: "none",
     normalInstall: "passed",
     globalInstall: "passed",

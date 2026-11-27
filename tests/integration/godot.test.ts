@@ -46,7 +46,7 @@ describe.runIf(godot !== undefined)("Godot adapter and demo", { timeout: 120_000
     const { code, result } = await runCli(harness, ["scenarios"]);
     expect(code).toBe(0);
     expect(result["data"]["adapter"]).toMatchObject({
-      adapter: { name: "cappy-godot", version: "0.1.0" },
+      adapter: { name: "cappy-godot", version: "1.0.3" },
       game: { id: "cappy-godot-demo", name: "Cappy Godot Demo" },
       build: "0.1.0",
       capabilities: ["alternate_cameras", "deterministic_replay", "freeform_recording", "replay", "scenarios", "time_scale"],
